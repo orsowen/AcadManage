@@ -1,19 +1,22 @@
-import cors from "cors";
-import express from "express";
-import mongoose from "mongoose";
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import dbConnection from './dbConfig/dbConnection.js';
+
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 8800;
 
-mongoose
-    .connect("mongodb://localhost:27017/BdIsamm")
-    .then(function () {
-        console.log("connection reussie");
-    })
-    .catch(function (e) {
-        console.log("connection echouée" + e);
-    });
+// MongoDB Connection
+dbConnection();
+
+// Middleware
 app.use(cors());
-app.use(express.json());
 
+// Route lenna mbaaed
 
-export default app;
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
