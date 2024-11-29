@@ -90,7 +90,6 @@ const StudentSchema = new mongoose.Schema({
         required: true
     },
     M1Type: {
-    M1Type: {
         type: String,
         required: true
     },
