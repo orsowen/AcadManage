@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
+
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
@@ -21,13 +22,18 @@ dbConnection();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Route lenna mbaaed
+
+
 
 app.use("/pfe", DepositPeriod);
+
+app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+
 app.use("/internships", internshipRoutes);
 app.use("/topics", topicsRoutes);
 app.use("/users", UserConnexionRoutes);
 // Start server
+
 app.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+  console.log(`Server is listening on port ${PORT}`);
 });

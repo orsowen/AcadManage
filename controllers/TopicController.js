@@ -1,4 +1,3 @@
-// controllers/topic.controller.js
 
 import Topic from '../models/Topic.js';
 
