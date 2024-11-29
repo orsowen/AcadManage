@@ -1,23 +1,23 @@
 import jwt from "jsonwebtoken"
-import utilisateur from "../models/Utilisateur.js"
-import { JWT_SECRET } from "../controller/Utilisateurcontroller.js"
+import user from "../models/User.js"
+import { JWT_SECRET } from "../controllers/UserControllers.js"
 
 export const loggedMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization.split(" ")[1]
     console.log("token: ", token)
     const decodedToken = jwt.verify(token, JWT_SECRET)
-    const utilisateurId = decodedToken.utilisateurId
+    const userId = decodedToken.userId
     try {
-      const utilisateur = await utilisateur.findOne({ _id: utilisateurId })
-      if (utilisateur) {
+      const User = await user.findOne({ _id: userId })
+      if (User) {
         req.auth = {
-          utilisateurId: utilisateurId,
-          role: utilisateur.role,
+          userId: userId,
+          role: user.role,
         }
         next()
       } else {
-        res.status(401).json({ error: "utilisateur n'existe pas" })
+        res.status(401).json({ error: "user n'existe pas" })
       }
     } catch (error) {
       res.status(500).json({ error: error.message })
@@ -39,9 +39,9 @@ export const isAdmin = (req, res, next) => {
   }
 }
 
-export const isEnseignant = (req, res, next) => {
+export const isTeacher = (req, res, next) => {
   try {
-    if (req.auth.role === "enseignant") {
+    if (req.auth.role === "Teacher") {
       next()
     } else {
       res.status(403).json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" })
