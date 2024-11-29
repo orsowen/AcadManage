@@ -17,12 +17,14 @@ const UserSchema = new Schema({
     role: {
         type: String,
         required: true,
-        enum: ['admin', 'user', 'moderator'], // Optional: Restrict roles to predefined values
+        enum: ['admin', 'user', 'moderator'], 
     },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
 
 
-const User = mongoose.model('User', userSchema)
-export default User
+// Create and export the User model
+const User = mongoose.model('User', UserSchema);
+
+export default User;
