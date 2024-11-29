@@ -1,70 +1,142 @@
-import Subject_PFA from "../models/subject_pfa.js";
-import Joi from "joi";
+import Subject_PFA from "../models/Subject_PFA.js";
+import DepositPeriod from "../models/DepositPeriod.js";
 
-const depositValidationSchema = Joi.object({
-  start_deposit: Joi.date().required().messages({
-    "any.required": "La date de début est requise.",
-  }),
-  end_deposit: Joi.date()
-    .greater(Joi.ref("start_deposit"))
-    .required()
-    .messages({
-      "date.greater": "La date de fin doit être supérieure à la date de début.",
-      "any.required": "La date de fin est requise.",
-    }),
-});
-export const addDepositPeriod = async (req, res) => {
-  try {
-    console.log("req.body:", req.body); // Debugging
+// Create multiple subjects
+export const createSubjects = async (req, res) => {
+    try {
+        const { subjects } = req.body; // Expecting an array of subjects
 
-    // Validation des données de la requête
-    const { error } = depositValidationSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+        if (!Array.isArray(subjects)) {
+            return res.status(400).json({ message: "Invalid input, expected an array of subjects" });
+        }
+
+        // Check if we are in the deposit period
+        const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+        if (!depositPeriod) {
+            return res.status(400).json({ message: "Deposit period not found" });
+        }
+
+        const currentDate = new Date();
+        if (currentDate < depositPeriod.Start_Deposit || currentDate > depositPeriod.End_Deposit) {
+            return res.status(400).json({ message: "Not in the deposit period" });
+        }
+
+        console.log("Received subjects:", subjects);
+
+        const newSubjects = subjects.map(subject => {
+            const { binome, title, description, lastnameBinome, firstnameBinome, lastnameMonome, firstnameMonome } = subject;
+            let addedSubject;
+
+            if (binome) {
+                if (!lastnameBinome || !firstnameBinome) {
+                    throw new Error("lastnameBinome and firstnameBinome are required when binome is true");
+                }
+                addedSubject = {
+                    binome,
+                    title,
+                    description,
+                    lastnameBinome,
+                    firstnameBinome,
+                    lastnameMonome,
+                    firstnameMonome
+                };
+            } else {
+                addedSubject = {
+                    binome,
+                    title,
+                    description,
+                    lastnameMonome,
+                    firstnameMonome
+                };
+            }
+
+            console.log("Processed subject:", addedSubject);
+            return new Subject_PFA(addedSubject);
+        });
+
+        await Subject_PFA.insertMany(newSubjects);
+        console.log("Subjects inserted successfully");
+
+        res.status(201).json({ message: "Sujets créés avec succès" });
+    } catch (error) {
+        console.error("Error inserting subjects:", error);
+        if (error.message.includes("lastnameBinome and firstnameBinome are required")) {
+            return res.status(400).json({ message: "lastnameBinome and firstnameBinome are required when binome is true" });
+        }
+        res.status(500).json({ message: error.message });
     }
+};
 
-    const { start_deposit, end_deposit } = req.body;
-
-    // Vérifier s'il existe déjà des dates de dépôt
-    const existingPeriods = await Subject_PFA.find({
-      start_deposit: { $exists: true },
-      end_deposit: { $exists: true },
-    });
-
-    if (existingPeriods.length > 0) {
-      return res.status(400).json({
-        message:
-          "Des périodes de dépôt existent déjà. Veuillez les supprimer avant d'en ajouter de nouvelles.",
-        existingPeriods,
-      });
+// Get all subjects
+export const getSubjects = async (req, res) => {
+    try {
+        const subjects = await Subject_PFA.find();
+        res.status(200).json(subjects);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
+};
 
-    // Mise à jour des champs `start_deposit` et `end_deposit` pour tous les documents
-    const updatedDocuments = await Subject_PFA.updateMany(
-      {}, // Filtre : applique la mise à jour à tous les documents
-      {
-        $set: {
-          start_deposit,
-          end_deposit,
-        },
-      }
-    );
+// Get a subject by ID
+export const getSubjectById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const subject = await Subject_PFA.findById(id);
 
-    if (updatedDocuments.modifiedCount === 0) {
-      return res.status(404).json({
-        message: "Aucun document n'a été mis à jour.",
-      });
+        if (!subject) {
+            return res.status(404).json({ message: "Subject not found" });
+        }
+
+        res.status(200).json(subject);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
+};
 
-    res.status(200).json({
-      message: "Les périodes de dépôt ont été mises à jour avec succès.",
-      data: updatedDocuments,
-    });
-  } catch (error) {
-    console.error(
-      "Erreur lors de la mise à jour des périodes de dépôt :",
-      error
-    );
-    res.status(500).json({ message: "Erreur de serveur" });
-  }
+// Update a subject
+export const updateSubject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { binome, title, description, lastnameBinome, firstnameBinome, lastnameMonome, firstnameMonome } = req.body;
+
+        let updatedSubject = {
+            binome,
+            title,
+            description,
+            lastnameMonome,
+            firstnameMonome
+        };
+
+        if (binome) {
+            updatedSubject.lastnameBinome = lastnameBinome;
+            updatedSubject.firstnameBinome = firstnameBinome;
+        }
+
+        const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, { new: true });
+
+        if (!subject) {
+            return res.status(404).json({ message: "Subject not found" });
+        }
+
+        res.status(200).json(subject);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Delete a subject
+export const deleteSubject = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const subject = await Subject_PFA.findByIdAndDelete(id);
+
+        if (!subject) {
+            return res.status(404).json({ message: "Subject not found" });
+        }
+
+        res.status(200).json({ message: "Subject deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };

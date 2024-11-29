@@ -16,20 +16,22 @@ const Subject_PFASchema = new Schema({
   },
   lastnameBinome: {
     type: String,
-    required: true,
+    required: false,
   },
   firstnameBinome: {
     type: String,
-    required: true,
+    required: false,
   },
-  start_deposit: {
-    type: Date,
-    required: true,
+  lastnameMonome: {
+    type: String,
+    required: false,
   },
-  end_deposit: {
-    type: Date,
-    required: true,
+  firstnameMonome: {
+    type: String,
+    required: false,
   },
 });
 
-export default mongoose.model("Subject_PFA", Subject_PFASchema);
+const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);
+
+export default Subject_PFA;
