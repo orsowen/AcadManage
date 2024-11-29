@@ -7,7 +7,7 @@ const router = express.Router()
 
 router.post("/signin", logIn)
 router.get("/:login",isAdmin,fetchUserBylogin)
-router.get("/:login",isAdmin,fetchUser)
+router.get("/",isAdmin,fetchUser)
 router.post("/",isAdmin,AddUser)
 router.delete("/:login",isAdmin,delUser)
 router.patch("/:login",isAdmin,patchUser)

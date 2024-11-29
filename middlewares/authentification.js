@@ -1,19 +1,19 @@
 import jwt from "jsonwebtoken"
 import user from "../models/User.js"
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.LOCAL_MONGODB_URL
 
 export const loggedMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization.split(" ")[1]
     console.log("token: ", token)
     const decodedToken = jwt.verify(token, JWT_SECRET)
-    const userId = decodedToken.userId
+    const userLogin = decodedToken.userLogin
     try {
-      const User = await user.findOne({ _id: userId })
+      const User = await user.findOne({ _login: userLogin })
       if (User) {
         req.auth = {
-          userId: userId,
-          role: user.role,
+          login: userLogin,
+          role: user.role
         }
         next()
       } else {
@@ -32,7 +32,7 @@ export const isAdmin = (req, res, next) => {
         if (req.auth.role === "admin") {
             next()
         } else {
-            res.status(403).json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" })
+            res.status(403).json({ error: "you don't have access to this@@ route" })
         }
     } catch (e) {
         res.status(401).json({ error: error.message })
@@ -44,7 +44,7 @@ export const isTeacher = (req, res, next) => {
     if (req.auth.role === "Teacher") {
       next()
     } else {
-      res.status(403).json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" })
+      res.status(403).json({ error: "you don't have access to this route" })
     }
   } catch (e) {
     res.status(401).json({ error: error.message })
