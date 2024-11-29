@@ -20,9 +20,9 @@ dbConnection();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Route lenna mbaaed
 
-  app.use("/pfe", DepositPeriod);
+app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+
 
 app.use("/internships", internshipRoutes);
 app.use("/topics", topicsRoutes);
