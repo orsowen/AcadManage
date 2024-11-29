@@ -1,5 +1,5 @@
-import DepositPeriod from "../models/DepositPeriod.js";
 import Joi from "joi";
+import DepositPeriod from "../models/DepositPeriod.js";
 
 const depositValidationSchema = Joi.object({
   Start_Deposit: Joi.date().required().messages({
