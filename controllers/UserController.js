@@ -1,12 +1,12 @@
-import user from "../models/User.js"
+import User from "../models/User.js"
 
 import jwt from "jsonwebtoken"
-const JWT_SECRET = params.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET
 
 export const logIn = async (req,res,next) => {
     try{
-    const User = await user.findOne({login: req.body.login})
-    if(!User){
+    const user = await User.findOne({login: req.body.login})
+    if(!user){
         return res.status(401).json({message: "user not found"})
     }
     const valid = await bycrypt.compare(req.body.password,user.password)
@@ -14,7 +14,7 @@ export const logIn = async (req,res,next) => {
         return res.status(401).json({message: "password incorrect"})
     }
     res.status(200).json({
-        token: jwt.sign({userId: user.id},JWT_SECRET,{expiresIn: "24"})
+        token: jwt.sign({userId: user.login},JWT_SECRET,{expiresIn: "24"})
     })
     }catch(error)
     {
@@ -23,23 +23,23 @@ export const logIn = async (req,res,next) => {
 
 export const fetchUser = async (req,res) => {
     try{
-    const User = await user.find()
-    res.status(200).json({model : User,message :"success"})
+    const user = await User.find()
+    res.status(200).json({model : user,message :"success"})
     }catch(error)
     {
         res.status(400).json({error:error.message,message: "acces faild"})
     }
 }
 
-export const fetchUserByElogin = async (req,res) => {
+export const fetchUserBylogin = async (req,res) => {
     console.log("Elogin : ", req.params.login)
-    const User = await task.findOne({_id: req.params.login})
-    if(!User)
+    const user = await User.findOne({_login: req.params.login})
+    if(!user)
         {
             res.status(404).json({message:"User not found"})
         }
         else{
-            res.status(200).json({model : User,message :"success"})
+            res.status(200).json({model : user,message :"success"})
         }
     
 }
@@ -47,8 +47,8 @@ export const fetchUserByElogin = async (req,res) => {
 export const AddUser = async (req,res) => {
    try{
    console.log("body: ",req.body)
-   const User = new task(req.body)
-   await User.save()
+   const user = new User(req.body)
+   await user.save()
    res.status(201).json({message: "success"})
    }
    catch(error){
@@ -57,21 +57,21 @@ export const AddUser = async (req,res) => {
 }
 
 export const delUser = (req,res) =>{
-    res.status(200).json({model:tasks,message: "success"})
+    res.status(200).json({model:user,message: "success"})
 }
 
 export const patchUser = async (req,res) =>{
     try
     {console.log("body: ", req.body)
     console.log("id: ", req.params.login)
-    const User = await user.findOnneAndUpdate({_id: req.params.login},req.body,{new:true})
+    const user = await User.findOnneAndUpdate({_login: req.params.login},req.body,{new:true})
     res.status(200).json({message: "success"})
-    if (!User)
+    if (!user)
         {
             return res.status(404).json({message : "user not found"})
         }
         else{
-            res.status(200).json({model: User,message: "success"})
+            res.status(200).json({model: userser,message: "success"})
         }
     }
     catch(error)
