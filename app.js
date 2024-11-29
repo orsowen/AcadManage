@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
 import internshipRoutes from './routes/InternshipRoutes.js';
-import topicsRoutes from './routes/topicRoutes.js';
+import topicsRoutes from './routes/TopicRoutes.js';
+import userConnexionRoutes from './routes/UserConnexionRoutes.js';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use(cors());
 // Route lenna mbaaed
 app.use("/internships", internshipRoutes);
 app.use("/topics", topicsRoutes);
+app.use("/auth", userConnexionRoutes);
 // Start server
 app.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);

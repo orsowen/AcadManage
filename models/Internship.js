@@ -27,6 +27,11 @@ const InternshipSchema = new Schema({
         type: Boolean,
         default: false, // Default value
     },
+    topic: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Topic model
+        ref: 'Topic', // Model name to reference
+        required: true,
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
