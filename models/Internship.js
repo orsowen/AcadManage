@@ -32,6 +32,7 @@ const InternshipSchema = new Schema({
         ref: 'Topic', // Model name to reference
         required: true,
     },
+
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });

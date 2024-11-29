@@ -3,6 +3,7 @@
 import Internship from '../models/Internship.js';
 import Topic from '../models/Topic.js';
 
+
 // Add a new internship
 export const addInternship = async (req, res) => {
     const { title, documents, StartDate, EndDate, isValid, topicId } = req.body;
