@@ -23,6 +23,7 @@ const UserSchema = new Schema({
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
 
+// Create and export the User model
+const User = mongoose.model('User', UserSchema);
 
-const User = mongoose.model('User', userSchema)
-export default User
+export default User;

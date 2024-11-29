@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken"
 import { JWT_SECRET } from "../controllers/UserController.js"
 import user from "../models/User.js"
 
-const JWT_SECRET = process.env.JWT_SECRET
+// const JWT_SECRET = process.env.JWT_SECRET_KEY
 
 export const loggedMiddleware = async (req, res, next) => {
     try {

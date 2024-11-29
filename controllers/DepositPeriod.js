@@ -1,5 +1,5 @@
-import DepositPeriod from "../models/DepositPeriod.js";
 import Joi from "joi";
+import DepositPeriod from "../models/DepositPeriod.js";
 
 // Schéma de validation avec Joi
 const depositValidationSchema = Joi.object({
