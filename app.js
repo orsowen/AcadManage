@@ -7,9 +7,13 @@ import dbConnection from './dbConfig/dbConnection.js';
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
+<<<<<<< HEAD
 import DepositPeriod from "./routes/DepositPeriod.js";
 
 
+=======
+
+>>>>>>> ca3b560bc6a331323855b36a5edb7788fe82e315
 import UserConnexionRoutes  from "./routes/UserConnexionRoutes.js"
 
 dotenv.config();
