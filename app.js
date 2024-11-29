@@ -1,14 +1,12 @@
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import dbConnection from "./dbConfig/dbConnection.js";
+import routerPFA from "./routes/PFARoutes.js";
 
-import cors from 'cors';
-import dotenv from 'dotenv';
-import express from 'express';
-import dbConnection from './dbConfig/dbConnection.js';
-import routerPFA from './routes/PFARoutes.js';
-import internshipRoutes from './routes/InternshipRoutes.js';
-import topicsRoutes from './routes/topicRoutes.js';
+import topicsRoutes from "./routes/topicRoutes.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from "./routes/InternshipRoutes.js";
-import topicsRoutes from "./routes/topicRoutes.js";
 
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
@@ -41,6 +39,6 @@ app.listen(PORT, () => {
 app.use(cors());
 app.use(express.json());
 
-app.use("/",routerPFA)
+app.use("/", routerPFA);
 
 export default app;
