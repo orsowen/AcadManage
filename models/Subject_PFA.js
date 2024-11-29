@@ -22,7 +22,11 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
-  deposit_period: {
+  start_deposit: {
+    type: Date,
+    required: true,
+  },
+  end_deposit: {
     type: Date,
     required: true,
   },
