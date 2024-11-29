@@ -1,7 +1,6 @@
-// routes/internship.routes.js
 
 import express from 'express';
-import { addInternship, getInternships } from '../controllers/internship.controller.js';
+import { addInternship, getInternships } from '../controllers/InternshipController.js';
 
 const router = express.Router();
 
