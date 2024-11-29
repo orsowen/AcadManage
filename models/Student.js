@@ -1,20 +1,20 @@
 import mongoose from 'mongoose';
-const Schema = mongoose.Schema;
 
-const EtudiantSchema = new Schema({
-    nom: {
+
+const StudentSchema = new mongoose.Schema({
+    lastName: {
         type: String,
         required: true
     },
-    prenom: {
+    firstName: {
+        type: String,
+        required: true
+    }, 
+    arabicLastName: {
         type: String,
         required: true
     },
-    nomArab: {
-        type: String,
-        required: true
-    },
-    prenomArab: {
+    arabicFirstName: {
         type: String,
         required: true
     },
@@ -22,27 +22,27 @@ const EtudiantSchema = new Schema({
         type: Number,
         required: true
     },
-    dateNaissance: {
+    birthDate: {
         type: Date,
         required: true
     },
-    gouvernorat: {
+    governorate: {
         type: String,
         required: true
     },
-    sexe: {
+    gender: {
         type: String,
         required: true
     },
-    ville: {
+    city: {
         type: String,
         required: true
     },
-    codePostal: {
+    postalCode: {
         type: Number,
         required: true
     },
-    nationalite: {
+    nationality: {
         type: String,
         required: true
     },
@@ -50,15 +50,16 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    mention: {
+
+    grade: {
         type: String,
         required: true
     },
-    estPrepa: {
+    isprepa: {
         type: Boolean,
         required: true
     },
-    universite: {
+    university: {
         type: String,
         required: true
     },
@@ -66,15 +67,16 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    specialite: {
+
+    speciality: {
         type: String,
         required: true
     },
-    anneeLicense: {
+    licenseYear: {
         type: Number,
         required: true
     },
-    M1Universite: {
+    M1university: {
         type: String,
         required: true
     },
@@ -82,11 +84,11 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    M1Specialite: {
+    M1speciality: {
         type: String,
         required: true
     },
-    M1Annee: {
+    M1Year: {
         type: Number,
         required: true
     },
@@ -101,20 +103,21 @@ const EtudiantSchema = new Schema({
     scoreG: {
         type: Number,
         required: true
-    },
-    anneeBac: {
+
+    },         
+    bacYear: {
         type: Number,
         required: true
     },
-    telephone: {
+    phone: {
         type: String,
         required: true
     },
-    adresse: {
+    address: {
         type: String,
         required: true
     },
 
 });
 
-export default mongoose.model('Etudiant', EtudiantSchema);
+export default mongoose.model('Student', StudentSchema);
