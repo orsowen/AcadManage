@@ -2,7 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
-import DepositPeriod from "./models/DepositPeriod.js";
+import DepositPeriod from "./routes/DepositPeriod.js";
 
 dotenv.config();
 
@@ -14,9 +14,9 @@ dbConnection();
 
 // Middleware
 app.use(cors());
-
+app.use(express.json());
 // Route lenna mbaaed
-app.use("/acad", DepositPeriod);
+app.use("/pfe", DepositPeriod);
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
