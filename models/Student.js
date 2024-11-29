@@ -9,7 +9,7 @@ const EtudiantSchema = new Schema({
     prenom: {
         type: String,
         required: true
-    }, 
+    },
     nomArab: {
         type: String,
         required: true
@@ -54,7 +54,7 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    estprepa: {
+    estPrepa: {
         type: Boolean,
         required: true
     },
@@ -74,23 +74,23 @@ const EtudiantSchema = new Schema({
         type: Number,
         required: true
     },
-    M1universite: {
+    M1Universite: {
         type: String,
         required: true
     },
-    M1etablissement: {
+    M1Etablissement: {
         type: String,
         required: true
     },
-    M1specialite: {
+    M1Specialite: {
         type: String,
         required: true
     },
-    M1annee: {
+    M1Annee: {
         type: Number,
         required: true
     },
-    M1type: {
+    M1Type: {
         type: String,
         required: true
     },
@@ -98,10 +98,10 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    scoreG:{
+    scoreG: {
         type: Number,
         required: true
-    },         
+    },
     anneeBac: {
         type: Number,
         required: true
@@ -114,7 +114,7 @@ const EtudiantSchema = new Schema({
         type: String,
         required: true
     },
-    
+
 });
 
 export default mongoose.model('Etudiant', EtudiantSchema);
