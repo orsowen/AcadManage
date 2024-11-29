@@ -2,7 +2,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
+<<<<<<< HEAD
 
+=======
+import from './routes/internshipRoutes.js';
+>>>>>>> gestion_stages
 dotenv.config();
 
 const app = express();
