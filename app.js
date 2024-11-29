@@ -3,15 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
+import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
-import DepositPeriod from "./routes/DepositPeriod.js";
 
-<<<<<<< HEAD
-
-=======
-import from './routes/internshipRoutes.js';
->>>>>>> gestion_stages
 dotenv.config();
 
 const app = express();
