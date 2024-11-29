@@ -77,7 +77,7 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    M1etablissement: {
+    M1Etablissement: {
         type: String,
         required: true
     },
@@ -90,6 +90,7 @@ const StudentSchema = new mongoose.Schema({
         required: true
     },
     M1Type: {
+    M1Type: {
         type: String,
         required: true
     },
@@ -97,7 +98,7 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    scoreG:{
+    scoreG: {
         type: Number,
         required: true
     },         
@@ -113,7 +114,7 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    
+
 });
 
 export default mongoose.model('Student', StudentSchema);
