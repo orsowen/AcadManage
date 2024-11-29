@@ -7,13 +7,10 @@ import dbConnection from './dbConfig/dbConnection.js';
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
-<<<<<<< HEAD
+
 import DepositPeriod from "./routes/DepositPeriod.js";
 
 
-=======
-
->>>>>>> ca3b560bc6a331323855b36a5edb7788fe82e315
 import UserConnexionRoutes  from "./routes/UserConnexionRoutes.js"
 
 dotenv.config();
@@ -29,13 +26,18 @@ dbConnection();
 app.use(cors());
 app.use(express.json());
 
-app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 
+
+
+app.use("/pfe", DepositPeriod);
+
+app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 
 app.use("/internships", internshipRoutes);
 app.use("/topics", topicsRoutes);
 app.use("/users", UserConnexionRoutes);
 // Start server
+
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
