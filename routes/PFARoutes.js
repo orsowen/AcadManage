@@ -13,7 +13,7 @@ router.post('/PFA/post', createSubjects);
 router.get("/PFA/mine", getSubjects);
 
 // Route to update a subject
-router.put('/PFA/:id', updateSubject);
+router.patch('/PFA/:id', updateSubject);
 
 // Route to delete a subject
 router.delete('/PFA/:id', deleteSubject);

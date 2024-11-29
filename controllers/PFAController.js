@@ -1,13 +1,24 @@
 import Subject_PFA from "../models/Subject_PFA.js";
+import DepositPeriod from "../models/DepositPeriod.js";
 
-
-// Create multiple subjects or one subject
+// Create multiple subjects
 export const createSubjects = async (req, res) => {
     try {
         const { subjects } = req.body; // Expecting an array of subjects
 
         if (!Array.isArray(subjects)) {
             return res.status(400).json({ message: "Invalid input, expected an array of subjects" });
+        }
+
+        // Check if we are in the deposit period
+        const depositPeriod = await DepositPeriod.findOne({ for: "PFA" });
+        if (!depositPeriod) {
+            return res.status(400).json({ message: "Deposit period not found" });
+        }
+
+        const currentDate = new Date();
+        if (currentDate < depositPeriod.startDeposit || currentDate > depositPeriod.endDeposit) {
+            return res.status(400).json({ message: "Not in the deposit period" });
         }
 
         console.log("Received subjects:", subjects);
@@ -17,6 +28,9 @@ export const createSubjects = async (req, res) => {
             let addedSubject;
 
             if (binome) {
+                if (!lastnameBinome || !firstnameBinome) {
+                    throw new Error("lastnameBinome and firstnameBinome are required when binome is true");
+                }
                 addedSubject = {
                     binome,
                     title,
@@ -36,7 +50,7 @@ export const createSubjects = async (req, res) => {
                 };
             }
 
-            console.log("addedSubject :", addedSubject);
+            console.log("Processed subject:", addedSubject);
             return new Subject_PFA(addedSubject);
         });
 
@@ -46,6 +60,9 @@ export const createSubjects = async (req, res) => {
         res.status(201).json({ message: "Sujets créés avec succès" });
     } catch (error) {
         console.error("Error inserting subjects:", error);
+        if (error.message.includes("lastnameBinome and firstnameBinome are required")) {
+            return res.status(400).json({ message: "lastnameBinome and firstnameBinome are required when binome is true" });
+        }
         res.status(500).json({ message: error.message });
     }
 };
@@ -59,6 +76,7 @@ export const getSubjects = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 // Get a subject by ID
 export const getSubjectById = async (req, res) => {
     try {
@@ -79,7 +97,20 @@ export const getSubjectById = async (req, res) => {
 export const updateSubject = async (req, res) => {
     try {
         const { id } = req.params;
-        const updatedSubject = req.body;
+        const { binome, title, description, lastnameBinome, firstnameBinome, lastnameMonome, firstnameMonome } = req.body;
+
+        let updatedSubject = {
+            binome,
+            title,
+            description,
+            lastnameMonome,
+            firstnameMonome
+        };
+
+        if (binome) {
+            updatedSubject.lastnameBinome = lastnameBinome;
+            updatedSubject.firstnameBinome = firstnameBinome;
+        }
 
         const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, { new: true });
 
@@ -103,6 +134,7 @@ export const deleteSubject = async (req, res) => {
         if (!subject) {
             return res.status(404).json({ message: "Subject not found" });
         }
+
         res.status(200).json({ message: "Subject deleted successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });
