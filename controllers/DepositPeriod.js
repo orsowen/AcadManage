@@ -109,8 +109,8 @@ export const getDepositPeriods = async (req, res) => {
 // **Modifier une période de dépôt en fonction du type (PFE, PFA, STAGE)**
 export const updateDepositPeriod = async (req, res) => {
   try {
-    // Extract 'For' from request body
     const choix = req.baseUrl.replace("/", "").toUpperCase();
+    req.body.For = choix;
     const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
 
     // Validate the input data

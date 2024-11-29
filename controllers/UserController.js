@@ -1,9 +1,9 @@
 
 
-import jwt from "jsonwebtoken"
-import User from "../models/User.js"
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-export const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const logIn = async (req, res, next) => {
     try {

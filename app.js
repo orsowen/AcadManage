@@ -33,6 +33,7 @@ app.use("/internships", internshipRoutes);
 app.use("/topics", topicsRoutes);
 app.use("/users", UserConnexionRoutes);
 // Start server
+
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
