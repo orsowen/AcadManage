@@ -11,6 +11,6 @@ router.post("/open", addDepositPeriod);
 
 router.get("/open", getAllDepositPeriods);
 
-router.patch("/open", updateDepositPeriod);
+router.patch("/:id/open", updateDepositPeriod);
 
 export default router;
