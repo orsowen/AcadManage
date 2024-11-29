@@ -1,14 +1,13 @@
-// routes/internship.routes.js
 
 import express from 'express';
-import { addInternship, getInternships } from '../controllers/internship.controller.js';
+import { addInternship, getInternships } from '../controllers/InternshipController.js';
 
 const router = express.Router();
 
 // POST /internships - Add a new internship
-router.post('/internships', addInternship);
+router.post('/', addInternship);
 
 // GET /internships - Get all internships
-router.get('/internships', getInternships);
+router.get('/', getInternships);
 
 export default router;
