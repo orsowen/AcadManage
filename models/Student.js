@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+
 const StudentSchema = new mongoose.Schema({
     lastName: {
         type: String,
@@ -49,6 +50,7 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+
     grade: {
         type: String,
         required: true
@@ -65,6 +67,7 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+
     speciality: {
         type: String,
         required: true
@@ -100,6 +103,7 @@ const StudentSchema = new mongoose.Schema({
     scoreG: {
         type: Number,
         required: true
+
     },         
     bacYear: {
         type: Number,

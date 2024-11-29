@@ -1,19 +1,26 @@
-import mongoose from "mongoose";
-import cors from "cors";
-import express from "express";
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import dbConnection from './dbConfig/dbConnection.js';
+import internshipRoutes from './routes/InternshipRoutes.js';
+import topicsRoutes from './routes/topicRoutes.js';
+
+dotenv.config();
 
 const app = express();
+app.use(express.json()); // To parse JSON data in POST requests
+const PORT = process.env.PORT || 8800;
 
-mongoose
-    .connect("mongodb://localhost:27017/BdIsamm")
-    .then(function () {
-        console.log("connection reussie");
-    })
-    .catch(function (e) {
-        console.log("connection echouée" + e);
-    });
+// MongoDB Connection
+dbConnection();
+
+// Middleware
 app.use(cors());
-app.use(express.json());
 
-
-export default app;
+// Route lenna mbaaed
+app.use("/internships", internshipRoutes);
+app.use("/topics", topicsRoutes);
+// Start server
+app.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});

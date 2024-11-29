@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
 import user from "../models/User.js"
-import { JWT_SECRET } from "../controllers/UserControllers.js"
+const JWT_SECRET = params.env.JWT_SECRET
 
 export const loggedMiddleware = async (req, res, next) => {
   try {
@@ -28,15 +28,15 @@ export const loggedMiddleware = async (req, res, next) => {
 }
 
 export const isAdmin = (req, res, next) => {
-  try {
-    if (req.auth.role === "admin") {
-      next()
-    } else {
-      res.status(403).json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" })
+    try {
+        if (req.auth.role === "admin") {
+            next()
+        } else {
+            res.status(403).json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" })
+        }
+    } catch (e) {
+        res.status(401).json({ error: error.message })
     }
-  } catch (e) {
-    res.status(401).json({ error: error.message })
-  }
 }
 
 export const isTeacher = (req, res, next) => {
