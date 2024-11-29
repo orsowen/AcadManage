@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 
 const DespositPeriodchema = new mongoose.Schema({
-  Start_Date: {
+  Start_Deposit: {
     type: Date,
     required: true,
   },
-  End_Date: {
+  End_Deposit: {
     type: Date,
     required: true,
   },
   For: {
-    type: [String],
+    type: String,
     enum: ["PFA", "PFE", "STAGE"],
     required: true,
   },
