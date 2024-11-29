@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "acadmanagement": "file:",
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "http": "^0.0.1-security",
