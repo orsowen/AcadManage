@@ -47,6 +47,7 @@ export const addDepositPeriod = async (req, res) => {
 
     const choix = req.baseUrl.replace("/", "").toUpperCase(); // Removes the leading '/' and converts to uppercase
 
+
     // Validation des données
     const { error } = depositValidationSchema.validate(req.body);
     if (error) {
@@ -60,6 +61,7 @@ export const addDepositPeriod = async (req, res) => {
     if (existingPeriod) {
       return res.status(400).json({
         message: `Une période de dépôt pour ${choix} existe déjà. Veuillez la supprimer ou la modifier avant d'en ajouter une nouvelle.`,
+
       });
     }
 
@@ -70,6 +72,7 @@ export const addDepositPeriod = async (req, res) => {
       Start_Choice,
       End_Choice,
       For: choix,
+
     });
 
     // Sauvegarde dans la base de données
@@ -93,6 +96,7 @@ export const getDepositPeriods = async (req, res) => {
     const Period = await DepositPeriod.findOne({ For: choix });
 
     res.status(200).json(Period);
+
   } catch (error) {
     console.error(
       "Erreur lors de la récupération des périodes de dépôt :",
@@ -112,6 +116,7 @@ export const updateDepositPeriod = async (req, res) => {
     const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
 
     // Validate the input data
+
     const { error } = depositValidationSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
@@ -140,6 +145,7 @@ export const updateDepositPeriod = async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour de la période de dépôt :", error);
+
     res.status(500).json({ message: "Erreur de serveur." });
   }
 };
