@@ -1,6 +1,6 @@
 // controllers/internship.controller.js
 
-import Internship from '../models/internship.model.js';
+import Internship from '../models/Internship.js';
 
 // Add a new internship
 export const addInternship = async (req, res) => {

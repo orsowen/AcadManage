@@ -11,13 +11,13 @@ export const createSubjects = async (req, res) => {
         }
 
         // Check if we are in the deposit period
-        const depositPeriod = await DepositPeriod.findOne({ for: "PFA" });
+        const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
         if (!depositPeriod) {
             return res.status(400).json({ message: "Deposit period not found" });
         }
 
         const currentDate = new Date();
-        if (currentDate < depositPeriod.startDeposit || currentDate > depositPeriod.endDeposit) {
+        if (currentDate < depositPeriod.Start_Deposit || currentDate > depositPeriod.End_Deposit) {
             return res.status(400).json({ message: "Not in the deposit period" });
         }
 
