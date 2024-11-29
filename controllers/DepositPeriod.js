@@ -108,41 +108,42 @@ export const getDepositPeriods = async (req, res) => {
 
 // **Modifier une période de dépôt en fonction du type (PFE, PFA, STAGE)**
 export const updateDepositPeriod = async (req, res) => {
-  const choix = req.baseUrl.replace("/", "").toUpperCase();
-  req.body.For = choix;
-  const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
+  try {
+    const choix = req.baseUrl.replace("/", "").toUpperCase();
+    req.body.For = choix;
+    const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
 
-  // Validate the input data
+    // Validate the input data
 
-  const { error } = depositValidationSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ message: error.details[0].message });
+    const { error } = depositValidationSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    // Check if 'For' is one of the accepted values
+    const validForValues = ["PFE", "PFA", "STAGE"];
+    if (!validForValues.includes(choix)) {
+      return res.status(400).json({ message: "Type 'For' invalide. Utilisez PFE, PFA ou STAGE." });
+    }
+
+    // Update deposit period based on 'For'
+    const updatedPeriod = await DepositPeriod.findOneAndUpdate(
+      { For: choix },
+      { Start_Deposit, End_Deposit, Start_Choice, End_Choice },
+      { new: true }
+    );
+    console.log(choix);
+    if (!updatedPeriod) {
+      return res.status(404).json({ message: `Aucune période trouvée pour ${choix}.` });
+    }
+
+    res.status(200).json({
+      message: `Période de dépôt pour ${choix} mise à jour avec succès.`,
+      data: updatedPeriod,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la période de dépôt :", error);
+
+    res.status(500).json({ message: "Erreur de serveur." });
   }
-
-  // Check if 'For' is one of the accepted values
-  const validForValues = ["PFE", "PFA", "STAGE"];
-  if (!validForValues.includes(choix)) {
-    return res.status(400).json({ message: "Type 'For' invalide. Utilisez PFE, PFA ou STAGE." });
-  }
-
-  // Update deposit period based on 'For'
-  const updatedPeriod = await DepositPeriod.findOneAndUpdate(
-    { For: choix },
-    { Start_Deposit, End_Deposit, Start_Choice, End_Choice },
-    { new: true }
-  );
-  console.log(choix);
-  if (!updatedPeriod) {
-    return res.status(404).json({ message: `Aucune période trouvée pour ${choix}.` });
-  }
-
-  res.status(200).json({
-    message: `Période de dépôt pour ${choix} mise à jour avec succès.`,
-    data: updatedPeriod,
-  });
-} catch (error) {
-  console.error("Erreur lors de la mise à jour de la période de dépôt :", error);
-
-  res.status(500).json({ message: "Erreur de serveur." });
-}
 };
