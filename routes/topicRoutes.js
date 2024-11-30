@@ -1,10 +1,13 @@
 
 import express from 'express';
 import {
+    addTeacherToTopic,
+    assignTeachersToTopics,
     createTopic,
     deleteTopic,
     getTopicById,
     getTopics,
+    removeAllAssignedTopics,
     updateTopic
 } from '../controllers/TopicController.js';
 
@@ -25,5 +28,11 @@ router.patch('/:id', updateTopic);
 
 // DELETE /topics/:id - Delete a topic by ID
 router.delete('/:id', deleteTopic);
+
+// Assign teachers to topics
+router.post('/assign-teachers', assignTeachersToTopics);
+router.post('/assign-teacher-topic', addTeacherToTopic);
+// FOR DEVELOPMENT USE ONLY
+router.post('/remove-all-assigned', removeAllAssignedTopics);
 
 export default router;
