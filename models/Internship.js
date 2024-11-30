@@ -13,6 +13,7 @@ const InternshipSchema = new Schema({
     Type: {
         type: String,
         enum: ["PFA", "PFE", "STAGE"],
+        default: "STAGE", // Set default value to "STAGE"
     },
     documents: {
         type: [String], // Array of document links or paths
