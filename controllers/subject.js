@@ -1,6 +1,7 @@
 import Subject from '../models/Subject.js';
 import Skill from '../models/Skill.js';
 
+
 export const addSubject = async (req, res) => {
     try {
         const {
@@ -55,7 +56,6 @@ export const addSubject = async (req, res) => {
     }
 };
 
-// Obtenir la liste des matières
 export const getAllSubjects = async (req, res) => {
     try {
         const subjects = await Subject.find()
@@ -66,8 +66,6 @@ export const getAllSubjects = async (req, res) => {
         res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
     }
 };
-
-
 
 export const getSubjectById = async (req, res) => {
     try {
@@ -85,6 +83,7 @@ export const getSubjectById = async (req, res) => {
         res.status(500).json({ message: "Erreur lors de la récupération de la matière.", error: error.message });
     }
 };
+
 export const updateSubject = async (req, res) => {
     try {
         const { id } = req.params;  // Récupérer l'ID de la matière depuis les paramètres de la requête
