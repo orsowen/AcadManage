@@ -5,9 +5,9 @@ import { addInternship, getInternships } from '../controllers/InternshipControll
 const router = express.Router();
 
 // POST /internships - Add a new internship
-router.post('/internships', addInternship);
+router.post('/', addInternship);
 
 // GET /internships - Get all internships
-router.get('/internships', getInternships);
+router.get('/', getInternships);
 
 export default router;
