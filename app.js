@@ -11,6 +11,7 @@ import teacherRoutes from './routes/teacherRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
+
 // ENVIRONMENT variables configuration
 dotenv.config();
 
