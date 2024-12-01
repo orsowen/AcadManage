@@ -20,12 +20,52 @@ export const createSoutenanceStage = async (req, res) => {
         res.status(500).json({ error: 'Failed to create soutenance stage.' });
     }
 };
-
-// Fetch all Soutenance Stages
 export const getAllSoutenanceStages = async (req, res) => {
+    const {
+        page = 1,
+        limit = 5,
+        studentId,
+        teacherId,
+        day,
+        horaire,
+        meet_link,
+        startDate,
+        endDate
+    } = req.query; // Default to page 1 and 5 results per page
+
     try {
-        const soutenanceStages = await SoutenanceStage.find().populate('student teacher');
-        res.status(200).json(soutenanceStages);
+        // Build the filter object dynamically
+        let filter = {};
+        if (studentId) filter.student = studentId; // Filter by student
+        if (teacherId) filter.teacher = teacherId; // Filter by teacher
+        if (day) filter.day = new Date(day); // Filter by specific day
+        if (horaire) filter.horaire = Number(horaire); // Filter by horaire
+        if (meet_link) filter.meet_link = { $regex: meet_link, $options: 'i' }; // Case-insensitive match for meet_link
+
+        // Range filters for day
+        if (startDate || endDate) {
+            filter.day = {};
+            if (startDate) filter.day.$gte = new Date(startDate); // Day >= startDate
+            if (endDate) filter.day.$lte = new Date(endDate); // Day <= endDate
+        }
+
+        // Fetch Soutenance Stages with filters, pagination, and population
+        const soutenanceStages = await SoutenanceStage.find(filter)
+            .populate('student', 'firstName lastName email') // Populate student details
+            .populate('teacher', 'firstName lastName email') // Populate teacher details
+            .skip((page - 1) * limit) // Skip results for previous pages
+            .limit(Number(limit)); // Limit the results to the specified number
+
+        // Fetch the total count of filtered Soutenance Stages
+        const total = await SoutenanceStage.countDocuments(filter);
+
+        res.status(200).json({
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / limit),
+            data: soutenanceStages,
+        });
     } catch (error) {
         console.error('Error fetching soutenance stages:', error.message);
         res.status(500).json({ error: 'Failed to fetch soutenance stages.' });

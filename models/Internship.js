@@ -37,18 +37,16 @@ const InternshipSchema = new Schema({
         required: true,
     },
 
-    // uncomment ba3d ma ykml si sknader 5edmtou
-
-    // Student: {
-    //     type: mongoose.Schema.Types.ObjectId, // Reference to Student model
-    //     ref: 'Student', // Model name to reference
-    //     required: true,
-    // },
-    // teacher: {
-    //     type: mongoose.Schema.Types.ObjectId, // Reference to Teacher model
-    //     ref: 'Teachers', // Model name to reference
-    //     // required: true,
-    // },
+    student: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Student model
+        ref: 'Student', // Model name to reference
+        // required: true,
+    },
+    teacher: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Teacher model
+        ref: 'Teacher', // Model name to reference
+        // required: true,
+    },
 
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
