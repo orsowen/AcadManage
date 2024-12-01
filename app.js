@@ -30,6 +30,7 @@ app.use(express.json());
 // ROUTES
 app.use("/pfe", DepositPeriod);
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/topics", topicsRoutes);

@@ -15,12 +15,34 @@ export const createTopic = async (req, res) => {
     }
 };
 
-// Get all topics
+
 export const getTopics = async (req, res) => {
+    const { page = 1, limit = 5, title, techList } = req.query; // Default to page 1 with 5 results per page
+
     try {
-        const topics = await Topic.find();
-        res.status(200).json(topics);
+        // Build the filter object
+        let filter = {};
+        if (title) filter.title = { $regex: title, $options: 'i' }; // Case-insensitive match for title
+        if (techList) filter.techList = { $in: techList.split(',') }; // Filter by techList (comma-separated list)
+
+        // Fetch topics with filters, pagination, and populate the teacher field
+        const topics = await Topic.find(filter)
+            .populate('teacher', 'firstName lastName email') // Populate teacher details
+            .skip((page - 1) * limit) // Skip results for previous pages
+            .limit(Number(limit)); // Limit results to the specified number
+
+        // Get the total count of filtered topics
+        const total = await Topic.countDocuments(filter);
+
+        res.status(200).json({
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / limit),
+            data: topics,
+        });
     } catch (error) {
+        console.error('Error fetching topics:', error.message);
         res.status(500).json({ error: 'Erreur lors de la récupération des sujets.' });
     }
 };
