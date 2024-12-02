@@ -1,5 +1,8 @@
+import cors from "cors";
+import dotenv from "dotenv";
 
 import cors from 'cors';
+import routerPFA from "./routes/PFARoutes.js";
 import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
@@ -12,6 +15,7 @@ import topicsRoutes from './routes/topicRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
 
+
 // ENVIRONMENT variables configuration
 dotenv.config();
 
@@ -21,13 +25,12 @@ const PORT = process.env.PORT || 8800;
 
 // MongoDB Connection
 dbConnection();
-
+app.use(express.json());
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 
-// ROUTES
 app.use("/pfe", DepositPeriod);
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/internships", soutenanceStageRoutes);
@@ -43,3 +46,10 @@ app.use("/students", studentRoutes);
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
+
+app.use(cors());
+app.use(express.json());
+
+app.use("/", routerPFA);
+
+export default app;
