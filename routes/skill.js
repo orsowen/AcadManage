@@ -1,14 +1,13 @@
 import express from "express";
 import { addSkill, getSkills, getSkillById, updateSkill, deleteSkill } from "../controllers/skill.js";
-
-//import {isAdmin} from "../middlewares/auth.js";
+import { isAdmin, isAdminOrTeacher } from "../middlewares/authentification.js";
 
 const router = express.Router();
 
-router.post('/', addSkill);
-router.get('/', getSkills);
-router.get('/:id', getSkillById);
-router.patch('/:id', updateSkill);
-router.delete('/:id', deleteSkill);
+router.post('/', isAdmin ,addSkill);
+router.get('/', isAdminOrTeacher, getSkills);
+router.get('/:id', isAdmin, getSkillById);
+router.patch('/:id', isAdmin, updateSkill);
+router.delete('/:id', isAdmin, deleteSkill);
 
 export default router;

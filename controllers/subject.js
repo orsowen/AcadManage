@@ -135,3 +135,37 @@ export const updateSubject = async (req, res) => {
     }
 };
 
+export const toggleSubjectPublish = async (req, res) => {
+    try {
+        const { response } = req.params; 
+        const { subjectId } = req.body;
+
+        if (!subjectId) {
+            return res.status(400).json({ message: "L'ID de la matière est requis." });
+        }
+
+        // Vérifiez si la matière existe.
+        const subject = await Subject.findById(subjectId);
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        // Mettre à jour le statut de publication.
+        if (response === "publish") {
+            subject.published = true;
+        } else if (response === "unpublish") {
+            subject.published = false;
+        } else {
+            return res.status(400).json({ message: "Valeur de réponse invalide. Utilisez 'publish' ou 'unpublish'." });
+        }
+
+        const updatedSubject = await subject.save();
+
+        res.status(200).json({
+            message: `Matière ${response === "publish" ? "publiée" : "masquée"} avec succès.`,
+            data: updatedSubject,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la modification de la publication de la matière.", error: error.message });
+    }
+};

@@ -1,12 +1,13 @@
 import express from 'express';
-import { addSubject, getAllSubjects, getSubjectById, updateSubject} from '../controllers/subject.js';
-//import { isAdmin } from '../middlewares/authMiddleware.js';
+import { addSubject, getAllSubjects, getSubjectById, updateSubject, toggleSubjectPublish} from '../controllers/subject.js';
+import { isAdmin, isAdminOrTeacher } from '../middlewares/authentification.js';
 
 const router = express.Router();
-router.post('/',  addSubject);
-router.get('/',  getAllSubjects);
-router.get('/:id', getSubjectById);
-router.patch('/:id', updateSubject);
 
+router.post('/', isAdmin, addSubject);
+router.get('/', isAdminOrTeacher, getAllSubjects);
+router.get('/:id', isAdmin, getSubjectById);
+router.patch('/:id', isAdmin, updateSubject);
+router.post('/publish/:response', isAdmin , toggleSubjectPublish);
 
 export default router;
