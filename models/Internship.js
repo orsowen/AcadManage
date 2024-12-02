@@ -1,4 +1,3 @@
-// models/internship.model.js
 
 import mongoose from 'mongoose';
 
@@ -10,6 +9,11 @@ const InternshipSchema = new Schema({
         type: String,
         required: true,
         trim: true,
+    },
+    Type: {
+        type: String,
+        enum: ["PFA", "PFE", "STAGE"],
+        default: "STAGE", // Set default value to "STAGE"
     },
     documents: {
         type: [String], // Array of document links or paths
@@ -31,6 +35,17 @@ const InternshipSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId, // Reference to Topic model
         ref: 'Topic', // Model name to reference
         required: true,
+    },
+
+    student: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Student model
+        ref: 'Student', // Model name to reference
+        // required: true,
+    },
+    teacher: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Teacher model
+        ref: 'Teacher', // Model name to reference
+        // required: true,
     },
 
 }, {

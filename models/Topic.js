@@ -18,6 +18,11 @@ const TopicSchema = new Schema({
         type: [String], // Array of technologies or tools
         required: true,
     },
+    teacher: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Teacher model
+        ref: 'Teacher', // Model name to reference
+        // required: true,
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
