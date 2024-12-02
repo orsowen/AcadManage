@@ -1,13 +1,10 @@
-import cors from "cors";
-import dotenv from "dotenv";
-
 import cors from 'cors';
-import routerPFA from "./routes/PFARoutes.js";
 import dotenv from 'dotenv';
 import express from 'express';
 import dbConnection from './dbConfig/dbConnection.js';
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
+import routerPFA from "./routes/PFARoutes.js";
 import soutenanceStageRoutes from './routes/SoutenanceStageRoutes.js';
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from './routes/teacherRoutes.js';
