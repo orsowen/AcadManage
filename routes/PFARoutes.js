@@ -7,6 +7,8 @@ import {
   rejectSubject,
   publishSubjects,
   approveSubject,
+  firstSend,
+  modifiedSend
 } from "../controllers/PFAController.js";
 import express from "express";
 
@@ -27,8 +29,17 @@ router.delete("/PFA/:id", deleteSubject);
 // Route to publish subjects and open choice period
 router.post("/PFA/publish", publishSubjects);
 
-// Route to reject a subject
+// Route to reject a subject 
 router.patch("/PFA/reject/:id", rejectSubject);
-router.patch("/PFA/approve/:id", approveSubject);
+
+// Route to approve a subject
+router.patch('/PFA/approve/:id', approveSubject);
+
+// Route to handle first send option
+router.get('/PFA/first-send', firstSend);
+
+// Route to handle modified send option
+router.get('/PFA/modified-send', modifiedSend);
+
 
 export default router;
