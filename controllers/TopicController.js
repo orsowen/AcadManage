@@ -2,7 +2,6 @@
 import Teacher from '../models/Teachers.js';
 import Topic from '../models/Topic.js';
 
-// Create a new topic
 export const createTopic = async (req, res) => {
     const { title, description, techList, teacher } = req.body;
 

@@ -10,7 +10,7 @@ import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from './routes/teacherRoutes.js';
 import topicsRoutes from './routes/topicRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
-
+import PfeTopic from "./routes/PfeTopic.js"
 
 
 // ENVIRONMENT variables configuration
@@ -28,8 +28,10 @@ app.use(cors());
 app.use(express.json());
 
 
-app.use("/pfe", DepositPeriod);
+// ROUTES
+
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+app.use("/PFE", PfeTopic);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", soutenanceStageRoutes);
