@@ -1,8 +1,6 @@
 import cors from "cors";
 import dotenv from "dotenv";
-
 import routerPFA from "./routes/PFARoutes.js";
-
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";

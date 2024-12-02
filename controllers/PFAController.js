@@ -91,6 +91,33 @@ export const createSubjects = async (req, res) => {
   }
 };
 
+// Publish subjects and open choice period
+export const publishSubjects = async (req, res) => {
+    try {
+      // Update status of non-rejected subjects to "Approved"
+      await Subject_PFA.updateMany({ status: { $ne: "Rejected" } }, { status: "Approved" });
+  
+      // Hide rejected subjects
+      await Subject_PFA.updateMany({ status: "Rejected" }, { hidden: true });
+  
+      // Open choice period for students
+      const choicePeriod = await DepositPeriod.findOneAndUpdate(
+        { For: "PFA" },
+        { Start_Choice: new Date(), End_Choice: new Date(new Date().setMonth(new Date().getMonth() + 1)) }, // Example: choice period is one month
+        { new: true }
+      );
+  
+      if (!choicePeriod) {
+        return res.status(400).json({ message: "Choice period not found" });
+      }
+  
+      res.status(200).json({ message: "Subjects published and choice period opened successfully" });
+    } catch (error) {
+      console.error("Error publishing subjects:", error);
+      res.status(500).json({ message: error.message });
+    }
+  };
+
 // Get all subjects
 export const getSubjects = async (req, res) => {
   try {
