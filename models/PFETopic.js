@@ -4,8 +4,8 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 // Define the Topic Schema
-const TopicSchema = new Schema({
-    Nom: {
+const PFETopicSchema = new Schema({
+    title: {
         type: String,
         required: true,
         trim: true,
@@ -33,6 +33,6 @@ const TopicSchema = new Schema({
 });
 
 // Create and export the Topic model
-const Topic = mongoose.model('Topic', TopicSchema);
+const PFETopic = mongoose.model('PFETopic', PFETopicSchema);
 
-export default Topic;
+export default PFETopic;
