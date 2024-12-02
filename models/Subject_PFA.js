@@ -39,6 +39,7 @@ const Subject_PFASchema = new Schema({
     type: Boolean,
     default: false,
   },
+  published: { type: Boolean, default: false }, // Indique si le sujet est publié
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

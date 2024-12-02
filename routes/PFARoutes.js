@@ -5,7 +5,8 @@ import {
   updateSubject,
   deleteSubject,
   rejectSubject,
-  publishSubjects
+  publishSubjects,
+  approveSubject,
 } from "../controllers/PFAController.js";
 import express from "express";
 
@@ -24,9 +25,10 @@ router.patch("/PFA/:id", updateSubject);
 router.delete("/PFA/:id", deleteSubject);
 
 // Route to publish subjects and open choice period
-router.post('/PFA/publish', publishSubjects);
+router.post("/PFA/publish", publishSubjects);
 
 // Route to reject a subject
-router.patch('/PFA/reject/:id', rejectSubject);
+router.patch("/PFA/reject/:id", rejectSubject);
+router.patch("/PFA/approve/:id", approveSubject);
 
 export default router;

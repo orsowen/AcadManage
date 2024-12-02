@@ -91,32 +91,49 @@ export const createSubjects = async (req, res) => {
   }
 };
 
-// Publish subjects and open choice period
+// Publish approved subjects and manage statuses
 export const publishSubjects = async (req, res) => {
-    try {
-      // Update status of non-rejected subjects to "Approved"
-      await Subject_PFA.updateMany({ status: { $ne: "Rejected" } }, { status: "Approved" });
-  
-      // Hide rejected subjects
-      await Subject_PFA.updateMany({ status: "Rejected" }, { hidden: true });
-  
-      // Open choice period for students
-      const choicePeriod = await DepositPeriod.findOneAndUpdate(
-        { For: "PFA" },
-        { Start_Choice: new Date(), End_Choice: new Date(new Date().setMonth(new Date().getMonth() + 1)) }, // Example: choice period is one month
-        { new: true }
-      );
-  
-      if (!choicePeriod) {
-        return res.status(400).json({ message: "Choice period not found" });
-      }
-  
-      res.status(200).json({ message: "Subjects published and choice period opened successfully" });
-    } catch (error) {
-      console.error("Error publishing subjects:", error);
-      res.status(500).json({ message: error.message });
+  try {
+    // Publier les sujets approuvés
+    const publishedSubjects = await Subject_PFA.updateMany(
+      { status: "Approved" },
+      { $set: { published: true, hidden: false } } // Publier et rendre visible
+    );
+
+    // Cacher les sujets en attente
+    const hiddenPendingSubjects = await Subject_PFA.updateMany(
+      { status: "Pending" },
+      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
+    );
+
+    // Cacher les sujets rejetés
+    const hiddenRejectedSubjects = await Subject_PFA.updateMany(
+      { status: "Rejected" },
+      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
+    );
+
+    // Ouvrir la période de choix pour les étudiants
+    const choicePeriod = await DepositPeriod.findOneAndUpdate(
+      { For: "PFA" },
+      {
+        Start_Choice: new Date(),
+        End_Choice: new Date(new Date().setMonth(new Date().getMonth() + 1)), // Durée : 1 mois
+      },
+      { new: true }
+    );
+
+    if (!choicePeriod) {
+      return res.status(400).json({ message: "Choice period not found" });
     }
-  };
+
+    res.status(200).json({
+      message: "Subjects published and choice period opened successfully",
+    });
+  } catch (error) {
+    console.error("Error publishing subjects:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // Get all subjects
 export const getSubjects = async (req, res) => {
@@ -254,6 +271,27 @@ export const rejectSubject = async (req, res) => {
     }
 
     res.status(200).json({ message: "Subject rejected successfully", subject });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+// Approuver un sujet
+export const approveSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Trouver le sujet et mettre à jour son statut
+    const subject = await Subject_PFA.findByIdAndUpdate(
+      id,
+      { status: "Approved" },
+      { new: true } // Retourner le document mis à jour
+    );
+
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    res.status(200).json({ message: "Subject approved successfully", subject });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
