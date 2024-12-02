@@ -35,6 +35,10 @@ const Subject_PFASchema = new Schema({
     enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
     default: "Pending", // Par défaut, le statut est "Pending"
   },
+  hidden: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);
