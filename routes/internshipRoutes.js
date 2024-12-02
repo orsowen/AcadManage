@@ -7,6 +7,12 @@ import {
     getInternshipById,
     updateInternship,
 } from '../controllers/InternshipController.js';
+import {
+    addTeacherToTopic,
+    assignTeachersToTopics,
+    removeAllAssignedTopics
+} from '../controllers/TopicController.js';
+
 
 const router = express.Router();
 
@@ -24,5 +30,11 @@ router.patch('/:id', updateInternship);
 
 // DELETE /internships/:id - Delete an internship by ID
 router.delete('/:id', deleteInternship);
+
+router.post('/planning/assign', assignTeachersToTopics);
+// 
+router.post('/planning/update', addTeacherToTopic);
+// FOR DEVELOPMENT USE ONLY
+router.post('/planning/remove-all-assigned', removeAllAssignedTopics);
 
 export default router;
