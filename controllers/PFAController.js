@@ -17,6 +17,10 @@ export const createSubjects = async (req, res) => {
         }
 
         const currentDate = new Date();
+        console.log("Current Date:", currentDate);
+        console.log("Start Deposit:", depositPeriod.Start_Deposit);
+        console.log("End Deposit:", depositPeriod.End_Deposit);
+
         if (currentDate < depositPeriod.Start_Deposit || currentDate > depositPeriod.End_Deposit) {
             return res.status(400).json({ message: "Not in the deposit period" });
         }
@@ -96,6 +100,21 @@ export const getSubjectById = async (req, res) => {
 // Update a subject
 export const updateSubject = async (req, res) => {
     try {
+        // Check if we are in the deposit period
+        const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+        if (!depositPeriod) {
+            return res.status(400).json({ message: "Deposit period not found" });
+        }
+
+        const currentDate = new Date();
+        console.log("Current Date:", currentDate);
+        console.log("Start Deposit:", depositPeriod.Start_Deposit);
+        console.log("End Deposit:", depositPeriod.End_Deposit);
+
+        if (currentDate < depositPeriod.Start_Deposit || currentDate > depositPeriod.End_Deposit) {
+            return res.status(400).json({ message: "Not in the deposit period" });
+        }
+
         const { id } = req.params;
         const { binome, title, description, lastnameBinome, firstnameBinome, lastnameMonome, firstnameMonome } = req.body;
 
@@ -127,6 +146,21 @@ export const updateSubject = async (req, res) => {
 // Delete a subject
 export const deleteSubject = async (req, res) => {
     try {
+        // Check if we are in the deposit period
+        const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+        if (!depositPeriod) {
+            return res.status(400).json({ message: "Deposit period not found" });
+        }
+
+        const currentDate = new Date();
+        console.log("Current Date:", currentDate);
+        console.log("Start Deposit:", depositPeriod.Start_Deposit);
+        console.log("End Deposit:", depositPeriod.End_Deposit);
+
+        if (currentDate < depositPeriod.Start_Deposit || currentDate > depositPeriod.End_Deposit) {
+            return res.status(400).json({ message: "Not in the deposit period" });
+        }
+
         const { id } = req.params;
 
         const subject = await Subject_PFA.findByIdAndDelete(id);
