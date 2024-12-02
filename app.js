@@ -8,8 +8,10 @@ import routerPFA from "./routes/PFARoutes.js";
 import soutenanceStageRoutes from './routes/SoutenanceStageRoutes.js';
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from './routes/teacherRoutes.js';
-import topicsRoutes from './routes/topicRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
+
+// FOR TESTING ONLY (DO NOT DELETE)
+import topicsRoutes from './routes/topicRoutes.js';
 
 
 
@@ -32,11 +34,12 @@ app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", soutenanceStageRoutes);
-app.use("/topics", topicsRoutes);
 app.use("/users", UserConnexionRoutes);
 app.use('/teachers', teacherRoutes);
 app.use("/students", studentRoutes);
 app.use("/", routerPFA);
+// FOR TESTING ONLY (DO NOT DELETE)
+app.use("/topics", topicsRoutes);
 
 
 // Start server

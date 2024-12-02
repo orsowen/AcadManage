@@ -52,7 +52,8 @@ export const getTopicById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const topic = await Topic.findById(id);
+        const topic = await Topic.findById(id)
+            .populate('teacher', 'firstName lastName email') // Populate teacher details;
         if (!topic) {
             return res.status(404).json({ error: 'Sujet non trouvé.' });
         }
@@ -136,16 +137,29 @@ export const addTeacherToTopic = async (req, res) => {
 
 
 // assign Teacher to Topics automatically
-
 export const assignTeachersToTopics = async (req, res) => {
+    const { teacherIds } = req.body; // Teacher IDs provided in the request body (optional)
+
     try {
-        // Step 1: Fetch all teachers who have no assigned topics or whose assigned topics are less than their subject count
-        const teachers = await Teacher.find({
-            $or: [
-                { assignedTopics: { $size: 0 } },  // Teachers with no assigned topics
-                { $expr: { $lt: [{ $size: "$assignedTopics" }, "$subjectCount"] } }  // Teachers with assigned topics less than their subject count
-            ]
-        });
+        // Step 1: Fetch the teachers - either provided in teacherIds or all teachers
+        let teachers;
+        if (teacherIds && teacherIds.length > 0) {
+            teachers = await Teacher.find({
+                _id: { $in: teacherIds },
+                $or: [
+                    { assignedTopics: { $size: 0 } },  // Teachers with no assigned topics
+                    { $expr: { $lt: [{ $size: "$assignedTopics" }, "$subjectCount"] } }  // Teachers with assigned topics less than their subject count
+                ]
+            });
+        } else {
+            // Fetch all teachers with no assigned topics or less assigned topics than their subject count
+            teachers = await Teacher.find({
+                $or: [
+                    { assignedTopics: { $size: 0 } }, // Teachers with no assigned topics
+                    { $expr: { $lt: [{ $size: "$assignedTopics" }, "$subjectCount"] } } // Teachers with assigned topics less than their subject count
+                ]
+            });
+        }
 
         // Step 2: Fetch all topics with no assigned teacher
         const topics = await Topic.find({ teacher: null });
@@ -164,6 +178,9 @@ export const assignTeachersToTopics = async (req, res) => {
 
         // Step 4: Assign topics to teachers based on subjectCount
         let topicIndex = 0;
+        // ADDED FOR TESTING
+        let teachersArray = [];
+        let topicsArray = [];
         for (const teacher of teachers) {
             // Determine how many topics to assign based on the subjectCount
             const availableTopicCount = Math.min(teacher.subjectCount - teacher.assignedTopics.length, totalTopics - topicIndex);
@@ -176,18 +193,23 @@ export const assignTeachersToTopics = async (req, res) => {
                 topic.teacher = teacher._id;
                 await topic.save();
 
+                // ADDED FOR TESTING
+                topicsArray.push(topic);
                 // Add the topic to the teacher's assignedTopics array
                 teacher.assignedTopics.push(topic._id);
+
                 await teacher.save();
 
                 topicIndex++;
             }
 
+            // ADDED FOR TESTING
+            teachersArray.push(teacher);
             // If all topics are assigned, break out of the loop
             if (topicIndex >= totalTopics) break;
         }
 
-        res.status(200).json({ message: 'Topics successfully assigned to teachers.' });
+        res.status(200).json({ message: 'Topics successfully assigned to teachers.', teachersArray, topicsArray });
     } catch (error) {
         console.error('Error assigning topics to teachers:', error.message);
         res.status(500).json({ error: 'Failed to assign topics to teachers.' });
