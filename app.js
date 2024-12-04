@@ -10,6 +10,7 @@ import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import topicsRoutes from "./routes/topicRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
+import choicePFA from "./routes/ChoiceRoutes.js";
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -34,6 +35,8 @@ app.use("/topics", topicsRoutes);
 app.use("/users", UserConnexionRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
+app.use("/", routerPFA);
+app.use("/", choicePFA);
 
 // Start server
 app.listen(PORT, () => {
@@ -43,6 +46,6 @@ app.listen(PORT, () => {
 app.use(cors());
 app.use(express.json());
 
-app.use("/", routerPFA);
+
 
 export default app;

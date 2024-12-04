@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Schema } from 'mongoose';
 
 
 const StudentSchema = new mongoose.Schema({
@@ -132,6 +133,10 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         // required: true
     },
+    choices: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Choice',
+    }],
 
 });
 
