@@ -9,7 +9,7 @@ import {
   approveSubject,
   firstSend,
   modifiedSend,
-  PFASubjectsSortedByTeacher,
+  PFASubjectsByTeacher,
 } from "../controllers/PFAController.js";
 import express from "express";
 
@@ -42,6 +42,6 @@ router.get("/PFA/first-send", firstSend);
 // Route to handle modified send option
 router.get("/PFA/modified-send", modifiedSend);
 //Route to list subjects by teachers
-router.get("/PFA/sorted-by-teacher", PFASubjectsSortedByTeacher);
+router.get("/PFA/teacher/:teacherId", PFASubjectsByTeacher);
 
 export default router;

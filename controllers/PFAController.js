@@ -367,18 +367,32 @@ export const approveSubject = async (req, res) => {
   }
 };
 // Lister les sujets triés par enseignant avec pagination
-export const PFASubjectsSortedByTeacher = async (req, res) => {
+export const PFASubjectsByTeacher = async (req, res) => {
   try {
-    // Récupérer la page et la limite depuis les query parameters, avec des valeurs par défaut
-    //const { page = 1, limit = 10 } = req.query;
-    const subjects = await Subject_PFA.find()
+    // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
+    const { teacherId } = req.params;
+
+    // Vérifier que l'ID est fourni
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher ID is required." });
+    }
+
+    // Rechercher les sujets proposés par cet enseignant, triés par title
+    const subjects = await Subject_PFA.find({ teacher: teacherId })
       .populate("teacher")
-      .sort({ "teacher.lastName": 1 });
-    //.skip((page - 1) * limit)
-    //.limit(Number(limit));
+      .sort({ title: 1 }); // Trier par `title` (ordre croissant)
+
+    // Vérifier si des sujets ont été trouvés
+    if (subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No subjects found for this teacher." });
+    }
+
+    // Retourner les sujets trouvés
     res.status(200).json(subjects);
   } catch (error) {
-    console.error("Error fetching subjects:", error);
+    console.error("Error fetching subjects for teacher:", error);
     res.status(500).json({ message: error.message });
   }
 };
