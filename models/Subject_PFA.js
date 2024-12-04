@@ -48,6 +48,11 @@ const Subject_PFASchema = new Schema({
     enum: ["First Sent", "Modified Sent", "Not Sent"],
     default: "Not Sent",
   }, // Indique l'état de l'envoi
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+    required: true,
+  },
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

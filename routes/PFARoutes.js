@@ -8,7 +8,8 @@ import {
   publishSubjects,
   approveSubject,
   firstSend,
-  modifiedSend
+  modifiedSend,
+  PFASubjectsSortedByTeacher,
 } from "../controllers/PFAController.js";
 import express from "express";
 
@@ -29,17 +30,18 @@ router.delete("/PFA/:id", deleteSubject);
 // Route to publish subjects and open choice period
 router.post("/PFA/publish", publishSubjects);
 
-// Route to reject a subject 
+// Route to reject a subject
 router.patch("/PFA/reject/:id", rejectSubject);
 
 // Route to approve a subject
-router.patch('/PFA/approve/:id', approveSubject);
+router.patch("/PFA/approve/:id", approveSubject);
 
 // Route to handle first send option
-router.get('/PFA/first-send', firstSend);
+router.get("/PFA/first-send", firstSend);
 
 // Route to handle modified send option
-router.get('/PFA/modified-send', modifiedSend);
-
+router.get("/PFA/modified-send", modifiedSend);
+//Route to list subjects by teachers
+router.get("/PFA/sorted-by-teacher", PFASubjectsSortedByTeacher);
 
 export default router;
