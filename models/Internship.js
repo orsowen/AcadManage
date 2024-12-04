@@ -12,7 +12,7 @@ const InternshipSchema = new Schema({
     },
     Type: {
         type: String,
-        enum: ["PFA", "PFE", "STAGE"],
+        enum: ["PFE", "STAGE"],
         default: "STAGE", // Set default value to "STAGE"
     },
     documents: {
