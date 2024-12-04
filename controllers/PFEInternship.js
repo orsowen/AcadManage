@@ -10,7 +10,16 @@ export const createPFEWithInternship = async (req, res) => {
     } = req.body;
 
     try {
-        // Step 1: Create the PFE Topic
+        const currentPeriod = await DepositPeriod.findOne({
+            For: "PFE",
+            Start_Deposit: { $lte: new Date() },
+            End_Deposit: { $gte: new Date() }
+        });
+
+        if (!currentPeriod) {
+            return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être Cree que dans pendant la période de dépôt." });
+        }
+
         const newPFETopic = new PFETopic({
             title,
             description,
@@ -21,7 +30,6 @@ export const createPFEWithInternship = async (req, res) => {
 
         const savedPFETopic = await newPFETopic.save();
 
-        // Step 2: Create the Internship linked to the PFE Topic
         const newInternship = new Internship({
             title,
             Type: "PFE",
@@ -35,7 +43,6 @@ export const createPFEWithInternship = async (req, res) => {
 
         const savedInternship = await newInternship.save();
 
-        // Step 3: Send a success response
         res.status(201).json({
             message: "PFE Topic and Internship created successfully!",
             pfeTopic: savedPFETopic,
@@ -68,7 +75,7 @@ export const updatepfeInternship = async (req, res) => {
         });
 
         if (!currentPeriod) {
-            return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être modifiés pendant la période de dépôt." });
+            return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être modifiés que pendant la période de dépôt." });
         }
 
         // Step 2: Update the PFE Topic
