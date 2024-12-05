@@ -14,11 +14,6 @@ const PFETopicSchema = new Schema({
         type: String,
         required: true,
     },
-    Nom_societe: {
-        type: String,
-        required: true,
-        trim: true,
-    },
     techList: {
         type: [String], // Array of technologies or tools
         required: true,

@@ -1,8 +1,7 @@
 
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFETopic from '../models/PFETopic.js';
-import PFE from '../models/PFE.js';
-
+import PFE from '../models/PFE.js'
 export const createPFE = async (req, res) => {
     const {
         title, description, Nom_societe, techList, teacher,
@@ -23,7 +22,6 @@ export const createPFE = async (req, res) => {
         const newPFETopic = new PFETopic({
             title,
             description,
-            Nom_societe,
             techList,
             teacher
         });
@@ -32,7 +30,7 @@ export const createPFE = async (req, res) => {
 
         const newPFE = new PFE({
             title,
-            Type: "PFE",
+            Nom_societe,
             documents,
             StartDate,
             EndDate,
@@ -94,6 +92,7 @@ export const updatePFE = async (req, res) => {
             { topic: id },
             {
                 title,
+                Nom_societe,
                 StartDate,
                 EndDate,
                 documents,

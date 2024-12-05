@@ -1,10 +1,14 @@
-
 import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
 const PFESchema = new Schema({
     title: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    Nom_societe: {
         type: String,
         required: true,
         trim: true,
