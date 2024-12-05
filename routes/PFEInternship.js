@@ -1,12 +1,12 @@
 
 import express from 'express';
-import { createPFEWithInternship, updatepfeInternship } from '../controllers/PFEInternship.js';
+import { createPFE, updatePFE } from '../controllers/PFE.js';
 
 
 const router = express.Router();
 
-router.post('/post', createPFEWithInternship);
+router.post('/post', createPFE);
 
-router.patch('/:id', updatepfeInternship);
+router.patch('/:id', updatePFE);
 
 export default router;

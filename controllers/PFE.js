@@ -1,9 +1,9 @@
 
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFETopic from '../models/PFETopic.js';
-import Internship from '../models/Internship.js';
+import PFE from '../models/PFE.js';
 
-export const createPFEWithInternship = async (req, res) => {
+export const createPFE = async (req, res) => {
     const {
         title, description, Nom_societe, techList, teacher,
         StartDate, EndDate, student, documents
@@ -30,7 +30,7 @@ export const createPFEWithInternship = async (req, res) => {
 
         const savedPFETopic = await newPFETopic.save();
 
-        const newInternship = new Internship({
+        const newPFE = new PFE({
             title,
             Type: "PFE",
             documents,
@@ -41,17 +41,17 @@ export const createPFEWithInternship = async (req, res) => {
             teacher
         });
 
-        const savedInternship = await newInternship.save();
+        const savedPFE = await newPFE.save();
 
         res.status(201).json({
-            message: "PFE Topic and Internship created successfully!",
+            message: "PFE Topic and PFE created successfully!",
             pfeTopic: savedPFETopic,
-            internship: savedInternship
+            PFE: savedPFE
         });
 
     } catch (error) {
         res.status(500).json({
-            error: "Failed to create PFE Topic and Internship.",
+            error: "Failed to create PFE Topic and PFE.",
             details: error.message
         });
     }
@@ -59,7 +59,7 @@ export const createPFEWithInternship = async (req, res) => {
 
 
 
-export const updatepfeInternship = async (req, res) => {
+export const updatePFE = async (req, res) => {
     const { id } = req.params;
     const {
         title, description, Nom_societe, techList, teacher,
@@ -89,8 +89,8 @@ export const updatepfeInternship = async (req, res) => {
             return res.status(404).json({ error: "Sujet PFE non trouvé." });
         }
 
-        // Step 3: Update the associated Internship
-        const updatedInternship = await Internship.findOneAndUpdate(
+        // Step 3: Update the associated PFE
+        const updatedPFE = await PFE.findOneAndUpdate(
             { topic: id },
             {
                 title,
@@ -103,15 +103,15 @@ export const updatepfeInternship = async (req, res) => {
             { new: true, runValidators: true }
         );
 
-        if (!updatedInternship) {
-            return res.status(404).json({ error: "Internship non trouvé pour ce sujet." });
+        if (!updatedPFE) {
+            return res.status(404).json({ error: "PFE non trouvé pour ce sujet." });
         }
 
-        // Step 4: Return the updated PFE Topic and Internship
+        // Step 4: Return the updated PFE Topic and PFE
         res.status(200).json({
-            message: "PFE Topic and associated Internship updated successfully!",
+            message: "PFE Topic and associated PFE updated successfully!",
             updatedTopic,
-            updatedInternship
+            updatedPFE
         });
 
     } catch (error) {
