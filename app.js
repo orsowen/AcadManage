@@ -15,11 +15,6 @@ import choicePFA from "./routes/ChoiceRoutes.js";
 
 
 
-// FOR TESTING ONLY (DO NOT DELETE)
-import topicsRoutes from './routes/topicRoutes.js';
-
-
-
 
 // ENVIRONMENT variables configuration
 dotenv.config();
