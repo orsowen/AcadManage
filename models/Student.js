@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Schema } from 'mongoose';
 
 
 const StudentSchema = new mongoose.Schema({
@@ -73,6 +74,12 @@ const StudentSchema = new mongoose.Schema({
     grade: {
         type: String,
         // required: true
+        enum: ["ING1", "ING2", "ING3"],
+        default: "ING1",
+    },
+    isGraduated: {
+        type: Boolean,
+        default: false
     },
     isPrepa: {
         type: Boolean,
@@ -132,6 +139,10 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         // required: true
     },
+    choices: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Choice',
+    }],
 
 });
 
