@@ -12,6 +12,9 @@ const PFESchema = new Schema({
         type: String,
         required: true,
         trim: true,
+    }, description: {
+        type: String,
+        required: true,
     },
     documents: {
         type: [String], // Array of document links or paths
@@ -29,9 +32,8 @@ const PFESchema = new Schema({
         type: Boolean,
         default: false, // Default value
     },
-    topic: {
-        type: mongoose.Schema.Types.ObjectId, // Reference to Topic model
-        ref: 'Topic', // Model name to reference
+    techList: {
+        type: [String], // Array of technologies or tools
         required: true,
     },
 
@@ -51,6 +53,6 @@ const PFESchema = new Schema({
 });
 
 // Create and export the Internship model
-const Internship = mongoose.model('PFE', PFESchema);
+const PFE = mongoose.model('PFE', PFESchema);
 
-export default Internship;
+export default PFE;

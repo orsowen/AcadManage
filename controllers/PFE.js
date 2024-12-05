@@ -1,7 +1,8 @@
 
 import DepositPeriod from '../models/DepositPeriod.js';
-import PFETopic from '../models/PFETopic.js';
 import PFE from '../models/PFE.js'
+
+
 export const createPFE = async (req, res) => {
     const {
         title, description, Nom_societe, techList, teacher,
@@ -19,22 +20,16 @@ export const createPFE = async (req, res) => {
             return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être Cree que dans pendant la période de dépôt." });
         }
 
-        const newPFETopic = new PFETopic({
-            title,
-            description,
-            techList,
-            teacher
-        });
 
-        const savedPFETopic = await newPFETopic.save();
 
         const newPFE = new PFE({
             title,
             Nom_societe,
             documents,
+            description,
+            techList,
             StartDate,
             EndDate,
-            topic: savedPFETopic._id,
             student,
             teacher
         });
@@ -42,14 +37,13 @@ export const createPFE = async (req, res) => {
         const savedPFE = await newPFE.save();
 
         res.status(201).json({
-            message: "PFE Topic and PFE created successfully!",
-            pfeTopic: savedPFETopic,
+            message: " PFE created successfully!",
             PFE: savedPFE
         });
 
     } catch (error) {
         res.status(500).json({
-            error: "Failed to create PFE Topic and PFE.",
+            error: "Failed to create  PFE.",
             details: error.message
         });
     }
@@ -76,24 +70,14 @@ export const updatePFE = async (req, res) => {
             return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être modifiés que pendant la période de dépôt." });
         }
 
-        // Step 2: Update the PFE Topic
-        const updatedTopic = await PFETopic.findByIdAndUpdate(
-            id,
-            { title, description, Nom_societe, techList, teacher },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedTopic) {
-            return res.status(404).json({ error: "Sujet PFE non trouvé." });
-        }
-
-        // Step 3: Update the associated PFE
         const updatedPFE = await PFE.findOneAndUpdate(
-            { topic: id },
+            { id },
             {
                 title,
                 Nom_societe,
                 StartDate,
+                description,
+                techList,
                 EndDate,
                 documents,
                 student,
@@ -109,7 +93,6 @@ export const updatePFE = async (req, res) => {
         // Step 4: Return the updated PFE Topic and PFE
         res.status(200).json({
             message: "PFE Topic and associated PFE updated successfully!",
-            updatedTopic,
             updatedPFE
         });
 
