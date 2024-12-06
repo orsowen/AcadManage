@@ -1,6 +1,6 @@
 
 import DepositPeriod from '../models/DepositPeriod.js';
-import PFE from '../models/PFE.js'
+import PFE from '../models/PFEe.js';
 
 
 export const createPFE = async (req, res) => {

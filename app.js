@@ -9,7 +9,6 @@ import internshipRoutes from "./routes/InternshipRoutes.js";
 import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
-import topicsRoutes from "./routes/topicRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 import PFEInternship from "./routes/PFEInternship.js"
 
