@@ -1,17 +1,20 @@
-import cors from 'cors';
-import dotenv from 'dotenv';
-import express from 'express';
-import dbConnection from './dbConfig/dbConnection.js';
+
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
-import internshipRoutes from './routes/InternshipRoutes.js';
+import internshipRoutes from "./routes/InternshipRoutes.js";
 import routerPFA from "./routes/PFARoutes.js";
-import soutenanceStageRoutes from './routes/SoutenanceStageRoutes.js';
+import PFEInternship from "./routes/PFEInternship.js";
+import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
-import teacherRoutes from './routes/teacherRoutes.js';
+import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
 // FOR TESTING ONLY (DO NOT DELETE)
 import topicsRoutes from './routes/topicRoutes.js';
+
 
 
 
@@ -23,24 +26,23 @@ const PORT = process.env.PORT || 8800;
 
 // MongoDB Connection
 dbConnection();
-
 // Middleware
 app.use(cors());
-app.use(express.json()); // To parse JSON data in POST requests
+app.use(express.json());
+
 
 // ROUTES
-app.use("/pfe", DepositPeriod);
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+app.use("/PFE", PFEInternship);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/users", UserConnexionRoutes);
-app.use('/teachers', teacherRoutes);
+app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
 app.use("/", routerPFA);
 // FOR TESTING ONLY (DO NOT DELETE)
 app.use("/topics", topicsRoutes);
-
 
 // Start server
 app.listen(PORT, () => {
