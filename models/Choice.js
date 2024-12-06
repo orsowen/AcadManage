@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
@@ -21,6 +22,11 @@ const ChoiceSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Student', // Référence à l'étudiant binôme
     required: false,
+  },
+  teacherAcceptance: {
+    type: Boolean,
+    default: false,
+    required:false,
   },
 });
 
