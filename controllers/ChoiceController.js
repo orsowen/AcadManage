@@ -81,18 +81,7 @@ export const addChoice = async (req, res) => {
           .json({ message: "Binome has already selected three subjects" });
       }
 
-      // Vérifier que la priorité est unique pour le binôme
-      const existingBinomePriority = binome.choices.find(
-        (choice) => choice.priority === priority
-      );
-      if (existingBinomePriority) {
-        return res
-          .status(400)
-          .json({
-            message: `Priority ${priority} is already assigned to another subject for the binome`,
-          });
-      }
-
+  
       // Créer un nouveau choix pour le binôme
       const binomeChoice = new Choice({
         student: binomeId,

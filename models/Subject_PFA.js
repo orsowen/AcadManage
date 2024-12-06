@@ -53,6 +53,8 @@ const Subject_PFASchema = new Schema({
     ref: "Teacher",
     required: true,
   },
+ 
+  
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

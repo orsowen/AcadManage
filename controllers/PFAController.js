@@ -1,6 +1,8 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
+import Student from "../models/Student.js";
+import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -132,22 +134,13 @@ export const publishSubjects = async (req, res) => {
       return res.status(400).json({ message: "Choice period not found" });
     }
 
-    const adminEmail = process.env.Email_user;
-    const subject =
-      "Publication des sujets et ouverture de la période de choix";
-    const html = `
-       <p>Les sujets ont été publiés et la période de choix a été ouverte.</p>
-       <p>Veuillez choisir une option :</p>
-       <a href="http://localhost:8800/PFA/first-send">Premier envoi</a>
-       <br>
-       <a href="http://localhost:8800/PFA/modified-send">Envoi modifié</a>
-     `;
-
-    await sendMail(adminEmail, subject, html);
-
     res.status(200).json({
       message: "Subjects published and choice period opened successfully",
     });
+
+    // Appeler la fonction firstSend après avoir envoyé la réponse
+    await firstSend();
+
   } catch (error) {
     console.error("Error publishing subjects:", error);
     res.status(500).json({ message: error.message });
@@ -155,7 +148,7 @@ export const publishSubjects = async (req, res) => {
 };
 
 // Handle first send option
-export const firstSend = async (req, res) => {
+export const firstSend = async () => {
   try {
     // Logique pour le premier envoi
     await Subject_PFA.updateMany(
@@ -163,24 +156,32 @@ export const firstSend = async (req, res) => {
       { sendStatus: "First Sent" }
     );
 
+    // Récupérer les emails des étudiants et des enseignants
+    const students = await Student.find({}, 'email');
+    const teachers = await Teacher.find({}, 'email');
+
+    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-    const subject = "Premier envoi effectué";
+    const subject = "Publication des sujets et ouverture de la période de choix";
     const html = `
-        <p>Le premier envoi des sujets a été effectué avec succès.</p>
-        <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
-        <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
-      `;
+      <p>Les sujets ont été publiés.</p>
+      <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
+    `;
 
-    await sendMail(adminEmail, subject, html);
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
 
-    res.status(200).json({ message: "Premier envoi effectué avec succès." });
+    console.log("Premier envoi effectué avec succès.");
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error during first send:", error);
   }
 };
+
 // Handle modified send option
-export const modifiedSend = async (req, res) => {
+export const modifiedSend = async () => {
   try {
     // Logique pour l'envoi modifié
     await Subject_PFA.updateMany(
@@ -188,20 +189,27 @@ export const modifiedSend = async (req, res) => {
       { sendStatus: "Modified Sent" }
     );
 
+    // Récupérer les emails des étudiants et des enseignants
+    const students = await Student.find({}, 'email');
+    const teachers = await Teacher.find({}, 'email');
+
+    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-    const subject = "Envoi modifié effectué";
+    const subject = "Modification des sujets";
     const html = `
-        <p>L'envoi modifié des sujets a été effectué avec succès.</p>
-        <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
-        <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
-      `;
+      <p>Les sujets ont été modifiés.</p>
+      <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
+    `;
 
-    await sendMail(adminEmail, subject, html);
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
 
-    res.status(200).json({ message: "Envoi modifié effectué avec succès." });
+    console.log("Envoi modifié effectué avec succès.");
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error during modified send:", error);
   }
 };
 
@@ -267,14 +275,11 @@ export const updateSubject = async (req, res) => {
       binome,
       title,
       description,
+      lastnameBinome,
+      firstnameBinome,
       lastnameMonome,
       firstnameMonome,
     };
-
-    if (binome) {
-      updatedSubject.lastnameBinome = lastnameBinome;
-      updatedSubject.firstnameBinome = firstnameBinome;
-    }
 
     const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, {
       new: true,
@@ -285,6 +290,10 @@ export const updateSubject = async (req, res) => {
     }
 
     res.status(200).json(subject);
+
+    // Appeler la fonction modifiedSend après avoir envoyé la réponse
+    await modifiedSend();
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -324,6 +333,7 @@ export const deleteSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // Rejeter un sujet
 export const rejectSubject = async (req, res) => {
   try {
@@ -345,6 +355,7 @@ export const rejectSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // Approuver un sujet
 export const approveSubject = async (req, res) => {
   try {
@@ -366,6 +377,7 @@ export const approveSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // Lister les sujets triés par enseignant avec pagination
 export const PFASubjectsByTeacher = async (req, res) => {
   try {
