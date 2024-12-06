@@ -11,7 +11,7 @@ import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
-
+import PFE from "./routes/PFE.js"
 
 
 
@@ -29,8 +29,10 @@ app.use(express.json());
 
 
 // ROUTES
+
+
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
-app.use("/PFE", PFEInternship);
+app.use("/PFE", PFE);
 app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", soutenanceStageRoutes);
