@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
+
 const PFESchema = new Schema(
     {
         title: { type: String, required: true, trim: true },
@@ -12,6 +13,7 @@ const PFESchema = new Schema(
         EndDate: { type: Date, required: true },
         isValid: { type: Boolean, default: false },
         techList: { type: [String], required: true },
+        affectation: { type: Boolean, default: false },
         student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
         teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
     },
