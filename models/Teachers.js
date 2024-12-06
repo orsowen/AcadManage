@@ -36,10 +36,12 @@ const TeacherSchema = new mongoose.Schema({
         required: true,
         default: 0, // Default number of subjects is 0
     },
-    assignedTopics: [{
+    assignedInternships: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Topic', // Reference to the Topic model
+        ref: 'Internship', // Reference to the Internship model
+        default: [], // Ensure it's an array by default
     }],
+
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
 });

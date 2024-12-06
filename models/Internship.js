@@ -3,6 +3,22 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
+// Define the Topic Schema
+const TopicSchema = new Schema({
+    title: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    description: {
+        type: String,
+        required: true,
+    },
+    techList: {
+        type: [String], // Array of technologies or tools
+        required: true,
+    },
+});
 // Define the Internship Schema
 const InternshipSchema = new Schema({
     title: {
@@ -10,10 +26,10 @@ const InternshipSchema = new Schema({
         required: true,
         trim: true,
     },
-    Type: {
+    typeInternship: {
         type: String,
-        enum: ["PFE", "STAGE"],
-        default: "STAGE", 
+        enum: ["1", "2"],
+        required: true,
     },
     documents: {
         type: [String], // Array of document links or paths
@@ -32,9 +48,8 @@ const InternshipSchema = new Schema({
         default: false, // Default value
     },
     topic: {
-        type: mongoose.Schema.Types.ObjectId, // Reference to Topic model
-        ref: 'Topic', // Model name to reference
-        required: true,
+        type: TopicSchema, // Embedding the TopicSchema
+        required: true, // Make this field mandatory
     },
 
     student: {

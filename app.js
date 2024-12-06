@@ -12,9 +12,6 @@ import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
-// FOR TESTING ONLY (DO NOT DELETE)
-import topicsRoutes from './routes/topicRoutes.js';
-
 
 
 
@@ -41,8 +38,6 @@ app.use("/users", UserConnexionRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
 app.use("/", routerPFA);
-// FOR TESTING ONLY (DO NOT DELETE)
-app.use("/topics", topicsRoutes);
 
 // Start server
 app.listen(PORT, () => {
