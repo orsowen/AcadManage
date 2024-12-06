@@ -32,13 +32,15 @@ export const fetchUser = async (req, res) => {
 }
 
 export const fetchUserBylogin = async (req, res) => {
-    console.log("Elogin : ", req.params.login)
-    const user = await User.findOne({ _login: req.params.login })
+    console.log("login : ", req.params.login)
+    const user = await User.findOne({ login : req.params.login })
     if (!user) {
         res.status(404).json({ message: "User not found" })
+        console.log("User not found")
     }
     else {
         res.status(200).json({ model: user, message: "success" })
+        console.log("User found: his name is a", user.role)
     }
 
 }

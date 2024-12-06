@@ -6,10 +6,10 @@ import { AddUser, delUser, fetchUser, fetchUserBylogin, patchUser } from "../con
 const router = express.Router()
 
 router.post("/signin", logIn)
-router.get("/:login",isAdmin,fetchUserBylogin)
-router.get("/",isAdmin,fetchUser)
-router.post("/",isAdmin,AddUser)
-router.delete("/:login",isAdmin,delUser)
-router.patch("/:login",isAdmin,patchUser)
+router.get("/:login",fetchUserBylogin)
+router.get("/",fetchUser)
+router.post("/",AddUser)
+router.delete("/:login",delUser)
+router.patch("/:login",patchUser)
 
 export default router
