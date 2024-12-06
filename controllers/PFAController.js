@@ -2,7 +2,7 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
 import Student from "../models/Student.js";
-import Teacher from "../models/Teachers.js";
+import Teacher from "../models/Teacher.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -42,28 +42,24 @@ export const createSubjects = async (req, res) => {
         binome,
         title,
         description,
-        lastnameBinome,
-        firstnameBinome,
-        lastnameMonome,
-        firstnameMonome,
+        binomeId,
+        monomeId,
         teacher,
       } = subject;
       let addedSubject;
 
       if (binome) {
-        if (!lastnameBinome || !firstnameBinome) {
+        if (!binomeId) {
           throw new Error(
-            "lastnameBinome and firstnameBinome are required when binome is true"
+            "binomeId is required when binome is true"
           );
         }
         addedSubject = {
           binome,
           title,
           description,
-          lastnameBinome,
-          firstnameBinome,
-          lastnameMonome,
-          firstnameMonome,
+          binomeId,
+          monomeId,
           teacher,
         };
       } else {
@@ -71,8 +67,7 @@ export const createSubjects = async (req, res) => {
           binome,
           title,
           description,
-          lastnameMonome,
-          firstnameMonome,
+          monomeId,
           teacher,
         };
       }
@@ -88,11 +83,11 @@ export const createSubjects = async (req, res) => {
   } catch (error) {
     console.error("Error inserting subjects:", error);
     if (
-      error.message.includes("lastnameBinome and firstnameBinome are required")
+      error.message.includes("binomeId is required when binome is true")
     ) {
       return res.status(400).json({
         message:
-          "lastnameBinome and firstnameBinome are required when binome is true",
+          "binomeId is required when binome is true",
       });
     }
     res.status(500).json({ message: error.message });

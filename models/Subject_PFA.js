@@ -14,22 +14,21 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
-  lastnameBinome: {
-    type: String,
-    required: false,
-  },
-  firstnameBinome: {
-    type: String,
-    required: false,
-  },
-  lastnameMonome: {
-    type: String,
-    required: false,
-  },
-  firstnameMonome: {
-    type: String,
-    required: false,
-  },
+    binomeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      required: function() { return this.binome; } // Required if binome is true
+    },
+    monomeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      required: true,
+    },
+    teacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Teacher",
+      required: true,
+    },
   status: {
     type: String,
     enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
@@ -48,11 +47,7 @@ const Subject_PFASchema = new Schema({
     enum: ["First Sent", "Modified Sent", "Not Sent"],
     default: "Not Sent",
   }, // Indique l'état de l'envoi
-  teacher: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Teacher",
-    required: true,
-  },
+ 
  
   
 });
