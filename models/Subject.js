@@ -29,16 +29,51 @@ const SubjectSchema = new mongoose.Schema({
             },
             sections: [
                 {
-                    type: String, // Liste des sections dans le chapitre
+                    name: {
+                        type: String, // Nom de la section
+                    },
+                    status: {
+                        type: String, // État : "En cours", "Terminé"
+                        default: "En cours"
+                    },
+                    completedAt: {
+                        type: Date, // Date de changement de statut
+                        default: null
+                    },
                 },
             ],
+            status: {
+                type: String, // État du chapitre
+                default: "En cours"
+            },
+            completedAt: {
+                type: Date, // Date de changement de statut
+                default: null
+            },
         },
     ],
-
     teacher: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Référence au modèle User (enseignant affecté)
+        ref: 'User', // Référence au modèle User
+        validate: {
+            validator: async function (id) {
+                const user = await mongoose.model("User").findById(id);
+                return user && user.role === "teacher";
+            },
+            message: "L'utilisateur référencé doit être un enseignant (teacher).",
+        },
     },
+    students: [{  // Tableau d'ID d'étudiants
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        validate: {
+            validator: async function (id) {
+                const user = await mongoose.model("User").findById(id);
+                return user && user.role === "student";
+            },
+            message: "L'utilisateur référencé doit être un étudiant (student).",
+        },
+    }],
 
     published: {
         type: Boolean,
@@ -49,8 +84,6 @@ const SubjectSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-
-
 
     chargeHoraire: {
         type: Number,
