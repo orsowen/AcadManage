@@ -1,16 +1,15 @@
-
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const ChoiceSchema = new Schema({
   student: {
     type: Schema.Types.ObjectId,
-    ref: 'Student',
+    ref: "Student",
     required: true,
   },
   subject: {
     type: Schema.Types.ObjectId,
-    ref: 'Subject_PFA',
+    ref: "Subject_PFA",
     required: true,
   },
   priority: {
@@ -20,16 +19,16 @@ const ChoiceSchema = new Schema({
   },
   binome: {
     type: Schema.Types.ObjectId,
-    ref: 'Student', // Référence à l'étudiant binôme
+    ref: "Student", // Référence à l'étudiant binôme
     required: false,
   },
   teacherAcceptance: {
     type: Boolean,
     default: false,
-    required:false,
+    required: false,
   },
 });
 
-const Choice = mongoose.model('Choice', ChoiceSchema);
+const Choice = mongoose.model("Choice", ChoiceSchema);
 
 export default Choice;

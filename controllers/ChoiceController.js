@@ -39,7 +39,7 @@ export const addChoice = async (req, res) => {
     if (existingChoice) {
       return res
         .status(400)
-        .json({ message: `Subject is already assigned to this student` });
+        .json({ message: "Subject is already assigned to this student" });
     }
 
     // Vérifier que la priorité est unique pour l'étudiant
@@ -47,11 +47,9 @@ export const addChoice = async (req, res) => {
       (choice) => choice.priority === priority
     );
     if (existingPriority) {
-      return res
-        .status(400)
-        .json({
-          message: `Priority ${priority} is already assigned to another subject`,
-        });
+      return res.status(400).json({
+        message: `Priority ${priority} is already assigned to another subject`,
+      });
     }
 
     // Créer un nouveau choix pour l'étudiant
@@ -81,7 +79,16 @@ export const addChoice = async (req, res) => {
           .json({ message: "Binome has already selected three subjects" });
       }
 
-  
+      // Vérifier que la priorité est unique pour le binôme
+      const existingBinomePriority = binome.choices.find(
+        (choice) => choice.priority === priority
+      );
+      if (existingBinomePriority) {
+        return res.status(400).json({
+          message: `Priority ${priority} is already assigned to another subject for the binome`,
+        });
+      }
+
       // Créer un nouveau choix pour le binôme
       const binomeChoice = new Choice({
         student: binomeId,
@@ -130,28 +137,26 @@ export const updatePriority = async (req, res) => {
       (c) => c.priority === newPriority && c._id.toString() !== choiceId
     );
     if (existingPriority) {
-      return res
-        .status(400)
-        .json({
-          message: `Priority ${newPriority} is already assigned to another subject`,
-        });
+      return res.status(400).json({
+        message: `Priority ${newPriority} is already assigned to another subject`,
+      });
     }
 
     // Mettre à jour la priorité
     choice.priority = newPriority;
     await choice.save();
 
-      // Si le choix a un binôme, mettre à jour l'acceptation pour le binôme également
-      if (choice.binome) {
-        const binomeChoices = await Choice.find({
-          student: choice.binome,
-          subject: choice.subject,
-        });
-        for (const binomeChoice of binomeChoices) {
-          binomeChoice.priority = newPriority;
-          await binomeChoice.save();
-        }
+    // Si le choix a un binôme, mettre à jour l'acceptation pour le binôme également
+    if (choice.binome) {
+      const binomeChoices = await Choice.find({
+        student: choice.binome,
+        subject: choice.subject,
+      });
+      for (const binomeChoice of binomeChoices) {
+        binomeChoice.priority = newPriority;
+        await binomeChoice.save();
       }
+    }
 
     res.status(200).json({ message: "Priority updated successfully", choice });
   } catch (error) {
@@ -159,37 +164,57 @@ export const updatePriority = async (req, res) => {
   }
 };
 
-// Mettre à jour l'acceptation par l'enseignant pour un choix de sujet
 export const updateTeacherAcceptance = async (req, res) => {
   try {
     const { choiceId } = req.body;
 
-    // Trouver le choix
-    const choice = await Choice.findById(choiceId).populate('student');
+    // Trouver le choix principal
+    const choice = await Choice.findById(choiceId).populate("student");
     if (!choice) {
-      return res.status(404).json({ message: 'Choice not found' });
+      return res.status(404).json({ message: "Choice not found" });
     }
 
-    // Mettre à jour l'acceptation par l'enseignant
+    // Vérifier si le choix a un binôme
+    if (!choice.binome) {
+      return res
+        .status(400)
+        .json({ message: "Binome is required for acceptance" });
+    }
+
+    // Mettre l'acceptation à TRUE pour le choix principal
     choice.teacherAcceptance = true;
     await choice.save();
 
-    // Mettre à jour les autres choix de l'étudiant et du binôme pour empêcher l'acceptation
+    // Mettre l'acceptation à TRUE pour le binôme sur le même sujet
+    const binomeChoice = await Choice.findOne({
+      student: choice.binome,
+      subject: choice.subject,
+    });
+    if (!binomeChoice) {
+      return res
+        .status(404)
+        .json({ message: "Binome choice not found for the same subject" });
+    }
+    binomeChoice.teacherAcceptance = true;
+    await binomeChoice.save();
+
+    // Désactiver les autres choix pour cet étudiant et son binôme uniquement
     await Choice.updateMany(
-      { $or: [{ student: choice.student._id }, { student: choice.binome }], _id: { $ne: choiceId } },
+      {
+        _id: { $nin: [choice._id, binomeChoice._id] }, // Exclure le choix principal et celui du binôme
+        $or: [
+          { student: choice.student._id }, // Les choix de l'étudiant principal
+          { student: choice.binome }, // Les choix du binôme
+        ],
+      },
       { teacherAcceptance: false }
     );
 
-    // Si le choix a un binôme, mettre à jour l'acceptation pour le binôme également
-    if (choice.binome) {
-      const binomeChoices = await Choice.find({ student: choice.binome, subject: choice.subject });
-      for (const binomeChoice of binomeChoices) {
-        binomeChoice.teacherAcceptance = true;
-        await binomeChoice.save();
-      }
-    }
-
-    res.status(200).json({ message: 'Teacher acceptance updated successfully', choice });
+    res.status(200).json({
+      message:
+        "Teacher acceptance updated successfully for the student and their binome",
+      choice,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
