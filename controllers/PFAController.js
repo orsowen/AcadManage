@@ -1,10 +1,8 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
-import dotenv from 'dotenv';
-
+import dotenv from "dotenv";
 dotenv.config();
-
 
 // Create multiple subjects
 export const createSubjects = async (req, res) => {
@@ -46,6 +44,7 @@ export const createSubjects = async (req, res) => {
         firstnameBinome,
         lastnameMonome,
         firstnameMonome,
+        teacher,
       } = subject;
       let addedSubject;
 
@@ -63,6 +62,7 @@ export const createSubjects = async (req, res) => {
           firstnameBinome,
           lastnameMonome,
           firstnameMonome,
+          teacher,
         };
       } else {
         addedSubject = {
@@ -71,6 +71,7 @@ export const createSubjects = async (req, res) => {
           description,
           lastnameMonome,
           firstnameMonome,
+          teacher,
         };
       }
 
@@ -130,18 +131,19 @@ export const publishSubjects = async (req, res) => {
     if (!choicePeriod) {
       return res.status(400).json({ message: "Choice period not found" });
     }
-  
-     const adminEmail = process.env.Email_user; 
-     const subject = "Publication des sujets et ouverture de la période de choix";
-     const html = `
+
+    const adminEmail = process.env.Email_user;
+    const subject =
+      "Publication des sujets et ouverture de la période de choix";
+    const html = `
        <p>Les sujets ont été publiés et la période de choix a été ouverte.</p>
        <p>Veuillez choisir une option :</p>
        <a href="http://localhost:8800/PFA/first-send">Premier envoi</a>
        <br>
        <a href="http://localhost:8800/PFA/modified-send">Envoi modifié</a>
      `;
- 
-     await sendMail(adminEmail, subject, html);
+
+    await sendMail(adminEmail, subject, html);
 
     res.status(200).json({
       message: "Subjects published and choice period opened successfully",
@@ -154,48 +156,54 @@ export const publishSubjects = async (req, res) => {
 
 // Handle first send option
 export const firstSend = async (req, res) => {
-    try {
-      // Logique pour le premier envoi
-      await Subject_PFA.updateMany({ status: "Approved" }, { sendStatus: "First Sent" });
-  
-      // Envoyer un email de confirmation avec un lien vers la liste des sujets
-      const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-      const subject = "Premier envoi effectué";
-      const html = `
+  try {
+    // Logique pour le premier envoi
+    await Subject_PFA.updateMany(
+      { status: "Approved" },
+      { sendStatus: "First Sent" }
+    );
+
+    // Envoyer un email de confirmation avec un lien vers la liste des sujets
+    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
+    const subject = "Premier envoi effectué";
+    const html = `
         <p>Le premier envoi des sujets a été effectué avec succès.</p>
         <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
         <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
       `;
-  
-      await sendMail(adminEmail, subject, html);
-  
-      res.status(200).json({ message: "Premier envoi effectué avec succès." });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
+
+    await sendMail(adminEmail, subject, html);
+
+    res.status(200).json({ message: "Premier envoi effectué avec succès." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 // Handle modified send option
 export const modifiedSend = async (req, res) => {
-    try {
-      // Logique pour l'envoi modifié
-      await Subject_PFA.updateMany({ status: "Approved" }, { sendStatus: "Modified Sent" });
-  
-      // Envoyer un email de confirmation avec un lien vers la liste des sujets
-      const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-      const subject = "Envoi modifié effectué";
-      const html = `
+  try {
+    // Logique pour l'envoi modifié
+    await Subject_PFA.updateMany(
+      { status: "Approved" },
+      { sendStatus: "Modified Sent" }
+    );
+
+    // Envoyer un email de confirmation avec un lien vers la liste des sujets
+    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
+    const subject = "Envoi modifié effectué";
+    const html = `
         <p>L'envoi modifié des sujets a été effectué avec succès.</p>
         <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
         <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
       `;
-  
-      await sendMail(adminEmail, subject, html);
-  
-      res.status(200).json({ message: "Envoi modifié effectué avec succès." });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
+
+    await sendMail(adminEmail, subject, html);
+
+    res.status(200).json({ message: "Envoi modifié effectué avec succès." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // Get all subjects
 export const getSubjects = async (req, res) => {
@@ -355,6 +363,36 @@ export const approveSubject = async (req, res) => {
 
     res.status(200).json({ message: "Subject approved successfully", subject });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+// Lister les sujets triés par enseignant avec pagination
+export const PFASubjectsByTeacher = async (req, res) => {
+  try {
+    // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
+    const { teacherId } = req.params;
+
+    // Vérifier que l'ID est fourni
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher ID is required." });
+    }
+
+    // Rechercher les sujets proposés par cet enseignant, triés par title
+    const subjects = await Subject_PFA.find({ teacher: teacherId })
+      .populate("teacher")
+      .sort({ title: 1 }); // Trier par `title` (ordre croissant)
+
+    // Vérifier si des sujets ont été trouvés
+    if (subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No subjects found for this teacher." });
+    }
+
+    // Retourner les sujets trouvés
+    res.status(200).json(subjects);
+  } catch (error) {
+    console.error("Error fetching subjects for teacher:", error);
     res.status(500).json({ message: error.message });
   }
 };
