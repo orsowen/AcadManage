@@ -1,21 +1,17 @@
 
 import cors from "cors";
 import dotenv from "dotenv";
-import routerPFA from "./routes/PFARoutes.js";
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from "./routes/InternshipRoutes.js";
+import routerPFA from "./routes/PFARoutes.js";
+import PFEInternship from "./routes/PFEInternship.js";
 import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 import PFE from "./routes/PFE.js"
-
-
-// FOR TESTING ONLY (DO NOT DELETE)
-import topicsRoutes from './routes/topicRoutes.js';
-
 
 
 
@@ -27,10 +23,8 @@ const PORT = process.env.PORT || 8800;
 
 // MongoDB Connection
 dbConnection();
-app.use(express.json());
 // Middleware
 app.use(cors());
-
 app.use(express.json());
 
 
@@ -46,18 +40,10 @@ app.use("/users", UserConnexionRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
 app.use("/", routerPFA);
-// FOR TESTING ONLY (DO NOT DELETE)
-app.use("/topics", topicsRoutes);
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
-
-
-app.use(cors());
-app.use(express.json());
-
-app.use("/", routerPFA);
 
 export default app;
