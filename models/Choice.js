@@ -22,6 +22,11 @@ const ChoiceSchema = new Schema({
     ref: "Student", // Référence à l'étudiant binôme
     required: false,
   },
+  teacherAcceptance: {
+    type: Boolean,
+    default: false,
+    required: false,
+  },
 });
 
 const Choice = mongoose.model("Choice", ChoiceSchema);
