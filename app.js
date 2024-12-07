@@ -6,12 +6,11 @@ import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from "./routes/InternshipRoutes.js";
 import routerPFA from "./routes/PFARoutes.js";
-import PFEInternship from "./routes/PFEInternship.js";
-import PlanningStageRoutes from "./routes/PlanningStageRoutes.js";
+import PFE from "./routes/PFE.js";
+import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
-
 
 
 
@@ -29,9 +28,11 @@ app.use(express.json());
 
 
 // ROUTES
+
+
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
-app.use("/PFE", PFEInternship);
-app.use("/internships", PlanningStageRoutes);
+app.use("/PFE", PFE);
+app.use("/internships", soutenanceStageRoutes);
 app.use("/internships", internshipRoutes);
 app.use("/internships", PlanningStageRoutes);
 app.use("/users", UserConnexionRoutes);
