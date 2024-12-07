@@ -21,6 +21,10 @@ const PlanningStageSchema = new Schema({
         ref: 'Internship', // Model name to reference
         required: true,
     },
+    isArchived: {
+        type: Boolean,
+        default: false, // Default value
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });

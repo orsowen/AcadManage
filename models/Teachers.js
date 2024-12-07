@@ -37,6 +37,11 @@ const TeacherSchema = new mongoose.Schema({
         default: [], // Ensure it's an array by default
     }],
 
+    isArchived: {
+        type: Boolean,
+        default: false, // Default value
+    },
+
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
 });

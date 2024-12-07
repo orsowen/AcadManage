@@ -47,6 +47,11 @@ const InternshipSchema = new Schema({
         type: Boolean,
         default: false, // Default value
     },
+
+    isArchived: {
+        type: Boolean,
+        default: false, // Default value
+    },
     topic: {
         type: TopicSchema, // Embedding the TopicSchema
         required: true, // Make this field mandatory

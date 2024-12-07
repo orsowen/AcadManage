@@ -11,6 +11,9 @@ import {
     updateInternship,
 } from '../controllers/InternshipController.js';
 
+import {
+    addDepositPeriod
+} from "../controllers/DepositPeriod.js";
 
 const router = express.Router();
 
@@ -34,5 +37,7 @@ router.post('/planning/assign', assignTeachersToInternships);
 router.post('/planning/update', addTeacherToInternship);
 // FOR DEVELOPMENT USE ONLY
 router.post('/planning/remove-all-assigned', removeAllAssignedInternships);
+// 
+router.post("/open", addDepositPeriod);
 
 export default router;
