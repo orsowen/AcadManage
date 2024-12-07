@@ -36,6 +36,7 @@ const TeacherSchema = new mongoose.Schema({
         ref: 'Internship', // Reference to the Internship model
         default: [], // Ensure it's an array by default
     }],
+
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
 });
