@@ -6,6 +6,7 @@ import {
     assignTeachersToInternships,
     deleteInternship,
     getAllInternships,
+    getAssignedInternships,
     getInternshipById,
     removeAllAssignedInternships,
     updateInternship,
@@ -39,5 +40,9 @@ router.post('/planning/update', addTeacherToInternship);
 router.post('/planning/remove-all-assigned', removeAllAssignedInternships);
 // 
 router.post("/open", addDepositPeriod);
+
+// 
+router.post('/assigned-to-me', getAssignedInternships);
+
 
 export default router;

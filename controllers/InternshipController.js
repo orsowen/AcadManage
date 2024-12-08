@@ -459,3 +459,38 @@ export const removeAllAssignedInternships = async (req, res) => {
         res.status(500).json({ error: 'Failed to remove assigned internships.' });
     }
 };
+
+export const getAssignedInternships = async (req, res) => {
+    // need to be updated later with token
+    const { teacherId } = req.body;  // Teacher ID from the request body
+    // console.log(teacherId);
+
+    try {
+        // Validate teacher existence
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: 'Teacher not found.' });
+        }
+
+        // Fetch internships assigned to this teacher
+        const internships = await Internship.find({ teacher: teacherId })
+            .populate('student', 'firstName lastName email')  // Populate student details
+            .populate('topic', 'title description')  // Populate topic details
+            .select('-teacher')  // Exclude the 'teacher' field from the result
+            .exec();
+
+        // If no internships are found for the teacher
+        if (internships.length === 0) {
+            return res.status(404).json({ message: 'No internships assigned to this teacher.' });
+        }
+
+        // Return the internships
+        res.status(200).json({
+            message: 'Internships fetched successfully.',
+            data: internships,
+        });
+    } catch (error) {
+        console.error('Error fetching assigned internships:', error.message);
+        res.status(500).json({ message: 'Error fetching assigned internships.', error });
+    }
+};
