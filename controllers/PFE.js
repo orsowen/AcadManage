@@ -221,3 +221,19 @@ export const choosePFE = async (req, res) => {
         });
     }
 };
+
+
+export const validateAssignments = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        const pfes = await PFE.findAll({ where: { id: ids } });
+        const errors = pfes.filter(pfe => !pfe.teacherId);
+
+        if (errors.length > 0) return res.status(400).json({ error: 'Some PFEs are missing teacher assignments', errors });
+
+        await PFE.update({ isAssigned: true }, { where: { id: ids } });
+        res.status(200).json({ message: 'Assignments validated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
