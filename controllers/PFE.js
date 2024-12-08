@@ -1,8 +1,8 @@
+import DefensePFE from '../models/DefensePFE.js';
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
-import DefensePFE from '../models/DefensePFE.js';
 
-export const ceatePFE = async (req, res) => {
+export const createPFE = async (req, res) => {
     const {
         title, description, Nom_societe, techList, teacher,
         StartDate, EndDate, student, documents

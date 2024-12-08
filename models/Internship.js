@@ -19,6 +19,28 @@ const TopicSchema = new Schema({
         required: true,
     },
 });
+
+const DocsSchema = new Schema({
+    attestation: {
+        type: String,
+        required: true,
+        trim: true,
+        match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+    },
+    rapport: {
+        type: String,
+        required: true,
+        trim: true,
+        match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+    },
+    ficheEval: {
+        type: String,
+        required: true,
+        trim: true,
+        match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+    },
+});
+
 // Define the Internship Schema
 const InternshipSchema = new Schema({
     title: {
@@ -32,9 +54,10 @@ const InternshipSchema = new Schema({
         required: true,
     },
     documents: {
-        type: [String], // Array of document links or paths
-        required: true,
+        type: DocsSchema, // Embedding the DocsSchema
+        required: true, // Make this field mandatory
     },
+
     StartDate: {
         type: Date,
         required: true,
@@ -44,6 +67,13 @@ const InternshipSchema = new Schema({
         required: true,
     },
     isValid: {
+        type: Boolean,
+        default: false, // Default value
+    },
+    reasonIfNotValid: {
+        type: String,
+    },
+    isArchived: {
         type: Boolean,
         default: false, // Default value
     },

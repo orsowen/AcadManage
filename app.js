@@ -12,7 +12,6 @@ import planningStageRoutes from "./routes/PlanningStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
-import PFE from "./routes/PFE.js"
 
 
 // ENVIRONMENT variables configuration

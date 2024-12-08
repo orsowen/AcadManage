@@ -4,7 +4,8 @@ import {
     deletePlanningStage,
     getAllPlanningStages,
     getPlanningStageById,
-    updatePlanningStage
+    updatePlanningStage,
+    updatePublicationStatus,
 } from '../controllers/PlanningStageController.js';
 
 const router = express.Router();
@@ -23,5 +24,8 @@ router.patch('/planning/:id', updatePlanningStage);
 
 // DELETE /planning-stages/:id - Delete a planning stage by ID
 router.delete('/planning/:id', deletePlanningStage);
+
+// Route to update publication status for planning stages
+router.post('/planning/publish/:response', updatePublicationStatus);
 
 export default router;
