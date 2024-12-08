@@ -12,7 +12,6 @@ const TeacherSchema = new mongoose.Schema({
         trim: true,
     },
 
-
     subjectCount: {
         type: Number,
         required: true,
