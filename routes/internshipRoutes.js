@@ -9,7 +9,7 @@ import {
     getAssignedInternships,
     getInternshipById,
     removeAllAssignedInternships,
-    updateInternship,
+    updateInternship, validateInternship,
 } from '../controllers/InternshipController.js';
 
 import {
@@ -43,6 +43,9 @@ router.post("/open", addDepositPeriod);
 
 // 
 router.post('/assigned-to-me', getAssignedInternships);
+
+// valider stage (teacher)
+router.put('/:id', validateInternship);
 
 
 export default router;

@@ -153,7 +153,8 @@ export const getInternshipById = async (req, res) => {
 export const updateInternship = async (req, res) => {
     const { id } = req.params;
     // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
-    const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
+    // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails, studentId } = req.body;
 
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -206,13 +207,13 @@ export const updateInternship = async (req, res) => {
         }
 
         // Validate and update teacher
-        if (teacherId) {
-            const teacher = await Teacher.findById(teacherId);
-            if (!teacher) {
-                return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-            }
-            internship.teacher = teacherId;
-        }
+        // if (teacherId) {
+        //     const teacher = await Teacher.findById(teacherId);
+        //     if (!teacher) {
+        //         return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
+        //     }
+        //     internship.teacher = teacherId;
+        // }
 
         const updatedInternship = await internship.save();
         res.status(200).json(updatedInternship);
@@ -222,57 +223,6 @@ export const updateInternship = async (req, res) => {
     }
 };
 
-// export const updateInternship = async (req, res) => {
-//     const { id } = req.params;
-//     const { title, documents, StartDate, EndDate, isValid, topicId, studentId, teacherId } = req.body;
-
-//     // Validate dates
-//     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
-//         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
-//     }
-
-//     try {
-//         // Check if the topic exists (if provided)
-//         if (topicId) {
-//             const topic = await Topic.findById(topicId);
-//             if (!topic) {
-//                 return res.status(404).json({ error: "Le topic associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the student exists (if provided)
-//         if (studentId) {
-//             const student = await Student.findById(studentId);
-//             if (!student) {
-//                 return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the teacher exists (if provided)
-//         if (teacherId) {
-//             const teacher = await Teacher.findById(teacherId);
-//             if (!teacher) {
-//                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-//             }
-//         }
-
-//         // Update the internship
-//         const updatedInternship = await Internship.findByIdAndUpdate(
-//             id,
-//             { title, documents, StartDate, EndDate, isValid, topic: topicId, student: studentId, teacher: teacherId },
-//             { new: true, runValidators: true }
-//         );
-
-//         if (!updatedInternship) {
-//             return res.status(404).json({ message: "Stage introuvable." });
-//         }
-
-//         res.status(200).json(updatedInternship);
-//     } catch (error) {
-//         console.error("Error updating internship:", error.message);
-//         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
-//     }
-// };
 
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
@@ -492,5 +442,50 @@ export const getAssignedInternships = async (req, res) => {
     } catch (error) {
         console.error('Error fetching assigned internships:', error.message);
         res.status(500).json({ message: 'Error fetching assigned internships.', error });
+    }
+};
+
+
+// 
+export const validateInternship = async (req, res) => {
+    const { id } = req.params;
+    const { isValid, teacherId, reasonIfNotValid } = req.body;
+
+    try {
+        // Find the internship by ID and populate teacher details
+        const internship = await Internship.findById(id).populate('teacher');
+
+        if (!internship) {
+            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
+        }
+
+        // Check if the internship has an assigned teacher
+        if (!internship.teacher) {
+            return res.status(404).json({ message: "Vous n'etes pas assigné à ce stage." });
+        }
+
+        // Check if the teacherId in the request matches the teacher assigned to the internship
+        if (internship.teacher._id.toString() !== teacherId) {
+            return res.status(403).json({ message: "L'enseignant ne correspond pas." });
+        }
+
+        // Check if isValid is a boolean
+        if (typeof isValid !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'isValid' doit être un booléen." });
+        }
+        if (!isValid && !reasonIfNotValid) {
+            return res.status(400).json({ message: "Le champ 'reasonIfNotValid' est Obligatoire." });
+        }
+
+        if (reasonIfNotValid) internship.reasonIfNotValid = reasonIfNotValid;
+
+        // Update the internship's isValid field
+        internship.isValid = isValid;
+        const updatedInternship = await internship.save();
+        // Send the updated internship as the response
+        res.status(200).json(updatedInternship);
+    } catch (error) {
+        console.error("Error updating internship:", error.message);
+        res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
     }
 };

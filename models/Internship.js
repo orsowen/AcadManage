@@ -70,7 +70,9 @@ const InternshipSchema = new Schema({
         type: Boolean,
         default: false, // Default value
     },
-
+    reasonIfNotValid: {
+        type: String,
+    },
     isArchived: {
         type: Boolean,
         default: false, // Default value
