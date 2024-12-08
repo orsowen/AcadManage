@@ -11,21 +11,8 @@ const TeacherSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    cin: {
-        type: Number,
-        required: true,
-        unique: true, // CIN should be unique
-        validate: {
-            validator: Number.isInteger, // Ensure CIN is an integer
-            message: 'CIN must be an integer value.',
-        },
-    },
 
-    phone: {
-        type: String,
-        required: false,
-        match: /^\+?[0-9]{7,15}$/, // Optional: Validate phone number
-    },
+
     subjectCount: {
         type: Number,
         required: true,
