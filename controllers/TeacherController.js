@@ -11,6 +11,19 @@ export const createTeacher = async (req, res) => {
     session.startTransaction();
 
     try {
+        // Validation: Check if essential fields are provided
+        if (!lastName || !firstName || !cin || !email || !subjectCount) {
+            return res.status(400).json({ message: 'Missing required fields: lastName, firstName, cin, email, or subjectCount.' });
+        }
+
+        // Check if the CIN, email, or phone already exists
+        const existingTeacher = await Teacher.findOne({ cin });
+        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+        if (existingTeacher || existingUser) {
+            const field = existingTeacher ? 'CIN' : existingUser.email === email ? 'Email' : 'Phone';
+            return res.status(400).json({ message: `${field} is already in use.` });
+        }
+
         // Create a new teacher
         const newTeacher = new Teacher({ lastName, firstName, subjectCount });
 
@@ -49,16 +62,20 @@ export const createTeacher = async (req, res) => {
                 password, // Optionally include the password if needed, but usually, it's not recommended to expose the password
             },
         });
+
     } catch (error) {
         // Roll back the transaction in case of an error
         await session.abortTransaction();
-        console.error('Error creating teacher and user:', error.message);
-        res.status(500).json({ error: 'Failed to create teacher and user.', error });
+        console.error('Error creating teacher and user:', error);
+        res.status(500).json({
+            error: 'Failed to create teacher and user.',
+            message: error.message,
+            stack: error.stack, // Provide stack trace for debugging
+        });
     } finally {
         session.endSession();
     }
 };
-
 
 // Get all teachers
 export const getAllTeachers = async (req, res) => {
@@ -126,14 +143,6 @@ export const updateTeacher = async (req, res) => {
         const teacher = await Teacher.findById(id);
         if (!teacher) {
             return res.status(404).json({ error: 'Teacher not found.' });
-        }
-
-        // If the cin is different from the current one, check if the new cin already exists in the database
-        if (cin !== teacher.cin) {
-            const existingTeacher = await Teacher.findOne({ cin });
-            if (existingTeacher && existingTeacher._id !== teacher._id) {
-                return res.status(400).json({ error: 'Teacher with this CIN already exists.' });
-            }
         }
 
         // Proceed to update the teacher's details
