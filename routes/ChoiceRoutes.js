@@ -4,10 +4,10 @@ import { addChoice, getChoices , updatePriority , updateTeacherAcceptance} from 
 
 const router = express.Router();
 
-// Route pour ajouter un choix de sujet
+// Route pour ajouter un choix de sujet student
 router.post('/choices', addChoice);
 
-// Route pour obtenir les choix de sujets d'un étudiant
+// Route pour obtenir les choix de sujets d'un étudiant 
 router.get('/choices/:studentId', getChoices);
 
 // Route pour mettre à jour la priorité d'un choix de sujet
