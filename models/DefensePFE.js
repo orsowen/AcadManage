@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
-// Define the SoutenancePFe Schema
-const SoutenancePFeSchema = new Schema({
+const DefensePFESchema = new Schema({
     Salle: {
         type: String,
         required: true,
@@ -41,5 +40,5 @@ const SoutenancePFeSchema = new Schema({
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // Create and export the SoutenancePFe model
-const SoutenancePFe = mongoose.model('SoutenancePFe', SoutenancePFeSchema);
-export default SoutenancePFe;
+const DefensePFE = mongoose.model('DefensePFE', DefensePFESchema);
+export default DefensePFE;
