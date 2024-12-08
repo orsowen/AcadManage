@@ -2,9 +2,26 @@ import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
 
+const validateFiles = (documents) => {
+    const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
+
+    const { attestation, rapport, ficheEval } = documents;
+
+    // Check if each file follows the allowed extension
+    if (!fileValidation.test(attestation) || !fileValidation.test(rapport) || !fileValidation.test(ficheEval)) {
+        return {
+            isValid: false,
+            message: "Invalid file format. Only PDF or DOCX files are allowed for attestation, rapport, and ficheEval.",
+        };
+    }
+
+    return { isValid: true }; // All files are valid
+};
+
 // Add a new internship
 export const addInternship = async (req, res) => {
-    const { title, documents, StartDate, EndDate, isValid, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    // const { title, documents, StartDate, EndDate, isValid, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
 
     // Validate dates
     if (new Date(StartDate) > new Date(EndDate)) {
@@ -16,7 +33,15 @@ export const addInternship = async (req, res) => {
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
-
+        // Validate `documents` input
+        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+        }
+        // Validate the file formats using the validateFiles function
+        const fileValidation = validateFiles(documents);
+        if (!fileValidation.isValid) {
+            return res.status(400).json({ error: fileValidation.message });
+        }
         // Validate the student (if provided)
         let student = null;
         if (studentId) {
@@ -44,7 +69,7 @@ export const addInternship = async (req, res) => {
             documents,
             StartDate,
             EndDate,
-            isValid,
+            // isValid,
             typeInternship,
             topic: {
                 title: topicDetails.title,
@@ -127,7 +152,8 @@ export const getInternshipById = async (req, res) => {
 // Update an internship and its associated topic
 export const updateInternship = async (req, res) => {
     const { id } = req.params;
-    const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
+    // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
 
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -140,6 +166,8 @@ export const updateInternship = async (req, res) => {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
 
+
+
         // Update topic details if provided
         if (topicDetails) {
             if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
@@ -149,13 +177,24 @@ export const updateInternship = async (req, res) => {
             internship.topic.description = topicDetails.description;
             internship.topic.techList = topicDetails.techList;
         }
-
+        if (documents) {
+            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            }
+            // Validate the file formats using the validateFiles function
+            const fileValidation = validateFiles(documents);
+            if (!fileValidation.isValid) {
+                return res.status(400).json({ error: fileValidation.message });
+            }
+            internship.documents.ficheEval = documents.ficheEval;
+            internship.documents.attestation = documents.attestation;
+            internship.documents.rapport = documents.rapport;
+        }
         // Update other fields
         if (title) internship.title = title;
-        if (documents) internship.documents = documents;
         if (StartDate) internship.StartDate = StartDate;
         if (EndDate) internship.EndDate = EndDate;
-        if (isValid !== undefined) internship.isValid = isValid;
+        // if (isValid !== undefined) internship.isValid = isValid;
 
         // Validate and update student
         if (studentId) {
