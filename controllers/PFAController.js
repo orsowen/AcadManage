@@ -2,7 +2,7 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
 import Student from "../models/Student.js";
-import Teacher from "../models/Teacher.js";
+import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -24,50 +24,65 @@ export const createSubjects = async (req, res) => {
     }
 
     const currentDate = new Date();
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    console.log("End Deposit:", endDepositDate);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
     console.log("Received subjects:", subjects);
 
+    // Vérifier que les étudiants existent
+    for (const subject of subjects) {
+      const { binomeExits, binome, monome } = subject;
+
+      const monomeExists = await Student.exists({ _id: monome });
+      if (!monomeExists) {
+        return res.status(400).json({ message: `Monome student with ID ${monome} does not exist` });
+      }
+
+      if (binomeExits) {
+        const binomeExists = await Student.exists({ _id: binome });
+        if (!binomeExists) {
+          return res.status(400).json({ message: `Binome student with ID ${binome} does not exist` });
+        }
+      }
+    }
+
     const newSubjects = subjects.map((subject) => {
       const {
-        binome,
+        binomeExits,
         title,
         description,
-        binomeId,
-        monomeId,
+        binome,
+        monome,
         teacher,
       } = subject;
       let addedSubject;
 
-      if (binome) {
-        if (!binomeId) {
-          throw new Error(
-            "binomeId is required when binome is true"
-          );
-        }
+      if (binomeExits) {
         addedSubject = {
-          binome,
+          binomeExits,
           title,
           description,
-          binomeId,
-          monomeId,
+          binome,
+          monome,
           teacher,
         };
       } else {
         addedSubject = {
-          binome,
+          binomeExits,
           title,
           description,
-          monomeId,
+          monome,
           teacher,
         };
       }
@@ -83,11 +98,11 @@ export const createSubjects = async (req, res) => {
   } catch (error) {
     console.error("Error inserting subjects:", error);
     if (
-      error.message.includes("binomeId is required when binome is true")
+      error.message.includes("binome is required when binomeExits is true")
     ) {
       return res.status(400).json({
         message:
-          "binomeId is required when binome is true",
+          "binome is required when binomeExits is true",
       });
     }
     res.status(500).json({ message: error.message });
@@ -211,7 +226,11 @@ export const modifiedSend = async () => {
 // Get all subjects
 export const getSubjects = async (req, res) => {
   try {
-    const subjects = await Subject_PFA.find();
+    const subjects = await Subject_PFA.find()
+      .populate('binome', 'firstName lastName email') // Populate binome with specific fields
+      .populate('monome', 'firstName lastName email') // Populate monome with specific fields
+      .populate('teacher', 'firstName lastName email'); // Populate teacher with specific fields
+
     res.status(200).json(subjects);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -222,7 +241,10 @@ export const getSubjects = async (req, res) => {
 export const getSubjectById = async (req, res) => {
   try {
     const { id } = req.params;
-    const subject = await Subject_PFA.findById(id);
+    const subject = await Subject_PFA.findById(id)
+      .populate('binome', 'firstName lastName email') // Populate binome with specific fields
+      .populate('monome', 'firstName lastName email') // Populate monome with specific fields
+      .populate('teacher', 'firstName lastName email'); // Populate teacher with specific fields
 
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
@@ -244,36 +266,37 @@ export const updateSubject = async (req, res) => {
     }
 
     const currentDate = new Date();
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    console.log("End Deposit:", endDepositDate);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
     const { id } = req.params;
     const {
-      binome,
+      binomeExits,
       title,
       description,
-      lastnameBinome,
-      firstnameBinome,
-      lastnameMonome,
-      firstnameMonome,
+      binome,
+      monome,
+      teacher,
     } = req.body;
 
     let updatedSubject = {
-      binome,
+      binomeExits,
       title,
       description,
-      lastnameBinome,
-      firstnameBinome,
-      lastnameMonome,
-      firstnameMonome,
+      binome,
+      monome,
+      teacher,
     };
 
     const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, {
@@ -304,16 +327,20 @@ export const deleteSubject = async (req, res) => {
     }
 
     const currentDate = new Date();
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    console.log("End Deposit:", endDepositDate);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
+
 
     const { id } = req.params;
 
