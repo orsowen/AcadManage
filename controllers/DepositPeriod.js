@@ -9,29 +9,32 @@ const depositValidationSchema = Joi.object({
     .greater(Joi.ref("Start_Deposit"))
     .required()
     .messages({
-      "date.greater": "La date de fin de dépôt doit être supérieure à la date de début.",
+      "date.greater":
+        "La date de fin de dépôt doit être supérieure à la date de début.",
       "any.required": "La date de fin de dépôt est requise.",
     }),
-  Start_Choice: Joi.date()
-    .when(Joi.ref("For"), {
-      is: "PFA",
-      then: Joi.required().messages({
-        "any.required": "La date de début de choix est requise pour PFA.",
-      }),
-      otherwise: Joi.forbidden().messages({
-        "any.unknown": "La date de début de choix ne doit pas être remplie pour PFE ou STAGE.",
-      }),
+  Start_Choice: Joi.date().when(Joi.ref("For"), {
+    is: "PFA",
+    then: Joi.required().messages({
+      "any.required": "La date de début de choix est requise pour PFA.",
     }),
+    otherwise: Joi.forbidden().messages({
+      "any.unknown":
+        "La date de début de choix ne doit pas être remplie pour PFE ou STAGE.",
+    }),
+  }),
   End_Choice: Joi.date()
     .greater(Joi.ref("Start_Choice"))
     .when(Joi.ref("For"), {
       is: "PFA",
       then: Joi.required().messages({
-        "date.greater": "La date de fin de choix doit être supérieure à la date de début de choix pour PFA.",
+        "date.greater":
+          "La date de fin de choix doit être supérieure à la date de début de choix pour PFA.",
         "any.required": "La date de fin de choix est requise pour PFA.",
       }),
       otherwise: Joi.forbidden().messages({
-        "any.unknown": "La date de fin de choix ne doit pas être remplie pour PFE ou STAGE.",
+        "any.unknown":
+          "La date de fin de choix ne doit pas être remplie pour PFE ou STAGE.",
       }),
     }),
   For: Joi.string().valid("PFA", "PFE", "STAGE").required().messages({
@@ -85,8 +88,6 @@ export const addDepositPeriod = async (req, res) => {
   }
 };
 
-
-
 // **Récupérer toutes les périodes de dépôt**
 export const getDepositPeriods = async (req, res) => {
   try {
@@ -94,7 +95,6 @@ export const getDepositPeriods = async (req, res) => {
     const Period = await DepositPeriod.findOne({ For: choix });
 
     res.status(200).json(Period);
-
   } catch (error) {
     console.error(
       "Erreur lors de la récupération des périodes de dépôt :",
@@ -103,8 +103,6 @@ export const getDepositPeriods = async (req, res) => {
     res.status(500).json({ message: "Erreur de serveur." });
   }
 };
-
-
 
 // **Modifier une période de dépôt en fonction du type (PFE, PFA, STAGE)**
 export const updateDepositPeriod = async (req, res) => {
@@ -123,7 +121,9 @@ export const updateDepositPeriod = async (req, res) => {
     // Check if 'For' is one of the accepted values
     const validForValues = ["PFE", "PFA", "STAGE"];
     if (!validForValues.includes(choix)) {
-      return res.status(400).json({ message: "Type 'For' invalide. Utilisez PFE, PFA ou STAGE." });
+      return res
+        .status(400)
+        .json({ message: "Type 'For' invalide. Utilisez PFE, PFA ou STAGE." });
     }
 
     // Update deposit period based on 'For'
@@ -134,7 +134,9 @@ export const updateDepositPeriod = async (req, res) => {
     );
     console.log(choix);
     if (!updatedPeriod) {
-      return res.status(404).json({ message: `Aucune période trouvée pour ${choix}.` });
+      return res
+        .status(404)
+        .json({ message: `Aucune période trouvée pour ${choix}.` });
     }
 
     res.status(200).json({
@@ -142,7 +144,10 @@ export const updateDepositPeriod = async (req, res) => {
       data: updatedPeriod,
     });
   } catch (error) {
-    console.error("Erreur lors de la mise à jour de la période de dépôt :", error);
+    console.error(
+      "Erreur lors de la mise à jour de la période de dépôt :",
+      error
+    );
 
     res.status(500).json({ message: "Erreur de serveur." });
   }

@@ -2,7 +2,7 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
 import Student from "../models/Student.js";
-import Teacher from "../models/Teacher.js";
+import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -38,21 +38,13 @@ export const createSubjects = async (req, res) => {
     console.log("Received subjects:", subjects);
 
     const newSubjects = subjects.map((subject) => {
-      const {
-        binome,
-        title,
-        description,
-        binomeId,
-        monomeId,
-        teacher,
-      } = subject;
+      const { binome, title, description, binomeId, monomeId, teacher } =
+        subject;
       let addedSubject;
 
       if (binome) {
         if (!binomeId) {
-          throw new Error(
-            "binomeId is required when binome is true"
-          );
+          throw new Error("binomeId is required when binome is true");
         }
         addedSubject = {
           binome,
@@ -82,12 +74,9 @@ export const createSubjects = async (req, res) => {
     res.status(201).json({ message: "Sujets créés avec succès" });
   } catch (error) {
     console.error("Error inserting subjects:", error);
-    if (
-      error.message.includes("binomeId is required when binome is true")
-    ) {
+    if (error.message.includes("binomeId is required when binome is true")) {
       return res.status(400).json({
-        message:
-          "binomeId is required when binome is true",
+        message: "binomeId is required when binome is true",
       });
     }
     res.status(500).json({ message: error.message });
@@ -135,7 +124,6 @@ export const publishSubjects = async (req, res) => {
 
     // Appeler la fonction firstSend après avoir envoyé la réponse
     await firstSend();
-
   } catch (error) {
     console.error("Error publishing subjects:", error);
     res.status(500).json({ message: error.message });
@@ -152,13 +140,17 @@ export const firstSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, 'email');
-    const teachers = await Teacher.find({}, 'email');
+    const students = await Student.find({}, "email");
+    const teachers = await Teacher.find({}, "email");
 
-    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+    const emails = [
+      ...students.map((student) => student.email),
+      ...teachers.map((teacher) => teacher.email),
+    ];
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const subject = "Publication des sujets et ouverture de la période de choix";
+    const subject =
+      "Publication des sujets et ouverture de la période de choix";
     const html = `
       <p>Les sujets ont été publiés.</p>
       <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
@@ -185,10 +177,13 @@ export const modifiedSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, 'email');
-    const teachers = await Teacher.find({}, 'email');
+    const students = await Student.find({}, "email");
+    const teachers = await Teacher.find({}, "email");
 
-    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+    const emails = [
+      ...students.map((student) => student.email),
+      ...teachers.map((teacher) => teacher.email),
+    ];
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject = "Modification des sujets";
@@ -218,7 +213,7 @@ export const getSubjects = async (req, res) => {
   }
 };
 
-// Get a subject by ID
+// Get a subject by ID (2.2)
 export const getSubjectById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -288,7 +283,6 @@ export const updateSubject = async (req, res) => {
 
     // Appeler la fonction modifiedSend après avoir envoyé la réponse
     await modifiedSend();
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
