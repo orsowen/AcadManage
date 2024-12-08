@@ -25,6 +25,15 @@ const PlanningStageSchema = new Schema({
         type: Boolean,
         default: false, // Default value
     },
+    isPublished: {
+        type: Boolean,
+        default: true, // Default value
+    },
+    sendStatus: {
+        type: String,
+        enum: ["First Sent", "Modified Sent", "Not Sent"],
+        default: "Not Sent",
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
