@@ -2,8 +2,7 @@ import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
 import DefensePFE from '../models/DefensePFE.js';
 
-// Create a new PFE
-export const createPFE = async (req, res) => {
+eatePFE = async (req, res) => {
     const {
         title, description, Nom_societe, techList, teacher,
         StartDate, EndDate, student, documents
@@ -20,6 +19,7 @@ export const createPFE = async (req, res) => {
         if (!currentPeriod) {
             return res.status(403).json({
                 error: "PFE topics can only be created during the deposit period."
+
             });
         }
 
@@ -29,6 +29,7 @@ export const createPFE = async (req, res) => {
         if (existingPFE) {
             return res.status(400).json({
                 error: "This student already has an assigned PFE topic."
+
             });
         }
 
@@ -50,17 +51,21 @@ export const createPFE = async (req, res) => {
 
         res.status(201).json({
             message: "PFE successfully created!",
+
             PFE: savedPFE
         });
     } catch (error) {
         res.status(500).json({
             error: "Failed to create the PFE.",
+
             details: error.message
         });
     }
 };
 
+
 // Update an existing PFE
+
 export const updatePFE = async (req, res) => {
     const { id } = req.params;
     const {
@@ -70,6 +75,7 @@ export const updatePFE = async (req, res) => {
 
     try {
         // Check if the current date is within the deposit period for PFE topics
+
         const currentPeriod = await DepositPeriod.findOne({
             For: "PFE",
             Start_Deposit: { $lte: new Date() },
@@ -84,6 +90,7 @@ export const updatePFE = async (req, res) => {
 
         const updatedPFE = await PFE.findOneAndUpdate(
             { _id: id },
+
             {
                 title,
                 Nom_societe,
@@ -129,6 +136,7 @@ export const ListAllPFEInfo = async (req, res) => {
         const response = pfes.map((pfe) => {
             const defense = defenses.find((d) => d.PFE.toString() === pfe._id.toString());
 
+
             return {
                 PFE: {
                     title: pfe.title,
@@ -160,6 +168,7 @@ export const ListAllPFEInfo = async (req, res) => {
             };
         });
 
+
         res.status(200).json({
             success: true,
             data: response,
@@ -169,6 +178,7 @@ export const ListAllPFEInfo = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error retrieving PFE information',
+
             error: error.message,
         });
     }
@@ -196,6 +206,7 @@ export const choosePFE = async (req, res) => {
 
         pfe.teacher = teacherId;
 
+
         const updatedPFE = await pfe.save();
 
         res.status(200).json({
@@ -205,6 +216,7 @@ export const choosePFE = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             error: "Error occurred while assigning the PFE.",
+
             details: error.message,
         });
     }

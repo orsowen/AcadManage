@@ -20,12 +20,7 @@ const TeacherSchema = new mongoose.Schema({
             message: 'CIN must be an integer value.',
         },
     },
-    email: {
-        type: String,
-        required: true,
-        unique: true, // Email should be unique
-        match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Validate email format
-    },
+
     phone: {
         type: String,
         required: false,

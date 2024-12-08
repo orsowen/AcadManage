@@ -5,11 +5,11 @@ const { Schema } = mongoose;
 // Define the User Schema
 const UserSchema = new Schema(
   {
-    login: {
+    email: {
       type: String,
       required: true,
-      unique: true, // Ensures each user has a unique login
-      trim: true, // Removes leading and trailing whitespaces
+      unique: true, // Email should be unique
+      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Validate email format
     },
     password: {
       type: String,
@@ -18,7 +18,18 @@ const UserSchema = new Schema(
     role: {
       type: String,
       required: true,
-      enum: ["admin", "user", "moderator"],
+      enum: ["admin", "student", "teacher"],
+    },
+    // Link to Teacher or Student based on cin
+    teacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Teacher", // Reference to Teacher model
+      default: null,
+    },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student", // Reference to Student model
+      default: null,
     },
   },
   {
@@ -26,8 +37,6 @@ const UserSchema = new Schema(
   }
 );
 
-
 const User = mongoose.model("User", UserSchema);
-
 
 export default User;

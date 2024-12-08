@@ -2,10 +2,10 @@ import Teacher from '../models/Teachers.js';
 
 // Create a new teacher
 export const createTeacher = async (req, res) => {
-    const { lastName, firstName, cin, email, phone, subjectCount } = req.body;
+    const { lastName, firstName, cin, phone, subjectCount } = req.body;
 
     try {
-        const newTeacher = new Teacher({ lastName, firstName, cin, email, phone, subjectCount });
+        const newTeacher = new Teacher({ lastName, firstName, cin, phone, subjectCount });
         const savedTeacher = await newTeacher.save();
         res.status(201).json(savedTeacher);
     } catch (error) {
@@ -44,17 +44,32 @@ export const getTeacherById = async (req, res) => {
 // Update a teacher
 export const updateTeacher = async (req, res) => {
     const { id } = req.params;
-    const { lastName, firstName, cin, email, phone, subjectCount } = req.body;
+    const { lastName, firstName, cin, phone, subjectCount } = req.body;
 
     try {
-        const updatedTeacher = await Teacher.findByIdAndUpdate(
-            id,
-            { lastName, firstName, cin, email, phone, subjectCount },
-            { new: true, runValidators: true } // Return the updated document and validate inputs
-        );
-        if (!updatedTeacher) {
+        // Fetch the existing teacher by ID
+        const teacher = await Teacher.findById(id);
+        if (!teacher) {
             return res.status(404).json({ error: 'Teacher not found.' });
         }
+
+        // If the cin is different from the current one, check if the new cin already exists in the database
+        if (cin !== teacher.cin) {
+            const existingTeacher = await Teacher.findOne({ cin });
+            if (existingTeacher && existingTeacher._id !== teacher._id) {
+                return res.status(400).json({ error: 'Teacher with this CIN already exists.' });
+            }
+        }
+
+        // Proceed to update the teacher's details
+        teacher.lastName = lastName || teacher.lastName;
+        teacher.firstName = firstName || teacher.firstName;
+        teacher.cin = cin || teacher.cin;
+        teacher.phone = phone || teacher.phone;
+        teacher.subjectCount = subjectCount || teacher.subjectCount;
+
+        const updatedTeacher = await teacher.save(); // Save the updated teacher document
+
         res.status(200).json(updatedTeacher);
     } catch (error) {
         console.error('Error updating teacher:', error.message);

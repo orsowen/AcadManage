@@ -6,12 +6,13 @@ import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import internshipRoutes from "./routes/InternshipRoutes.js";
 import routerPFA from "./routes/PFARoutes.js";
-import soutenanceStageRoutes from "./routes/SoutenanceStageRoutes.js";
+
+import PFE from "./routes/PFE.js";
+import planningStageRoutes from "./routes/PlanningStageRoutes.js";
 import studentRoutes from "./routes/StudentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 import PFE from "./routes/PFE.js"
-
 
 
 // ENVIRONMENT variables configuration
@@ -32,9 +33,9 @@ app.use(express.json());
 
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/PFE", PFE);
-app.use("/internships", soutenanceStageRoutes);
+
+app.use("/internships", planningStageRoutes);
 app.use("/internships", internshipRoutes);
-app.use("/internships", soutenanceStageRoutes);
 app.use("/users", UserConnexionRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
