@@ -2,9 +2,26 @@ import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
 
+const validateFiles = (documents) => {
+    const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
+
+    const { attestation, rapport, ficheEval } = documents;
+
+    // Check if each file follows the allowed extension
+    if (!fileValidation.test(attestation) || !fileValidation.test(rapport) || !fileValidation.test(ficheEval)) {
+        return {
+            isValid: false,
+            message: "Invalid file format. Only PDF or DOCX files are allowed for attestation, rapport, and ficheEval.",
+        };
+    }
+
+    return { isValid: true }; // All files are valid
+};
+
 // Add a new internship
 export const addInternship = async (req, res) => {
-    const { title, documents, StartDate, EndDate, isValid, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    // const { title, documents, StartDate, EndDate, isValid, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
 
     // Validate dates
     if (new Date(StartDate) > new Date(EndDate)) {
@@ -16,7 +33,15 @@ export const addInternship = async (req, res) => {
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
-
+        // Validate `documents` input
+        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+        }
+        // Validate the file formats using the validateFiles function
+        const fileValidation = validateFiles(documents);
+        if (!fileValidation.isValid) {
+            return res.status(400).json({ error: fileValidation.message });
+        }
         // Validate the student (if provided)
         let student = null;
         if (studentId) {
@@ -44,7 +69,7 @@ export const addInternship = async (req, res) => {
             documents,
             StartDate,
             EndDate,
-            isValid,
+            // isValid,
             typeInternship,
             topic: {
                 title: topicDetails.title,
@@ -127,7 +152,9 @@ export const getInternshipById = async (req, res) => {
 // Update an internship and its associated topic
 export const updateInternship = async (req, res) => {
     const { id } = req.params;
-    const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
+    // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
+    // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails, studentId } = req.body;
 
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -140,6 +167,8 @@ export const updateInternship = async (req, res) => {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
 
+
+
         // Update topic details if provided
         if (topicDetails) {
             if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
@@ -149,13 +178,24 @@ export const updateInternship = async (req, res) => {
             internship.topic.description = topicDetails.description;
             internship.topic.techList = topicDetails.techList;
         }
-
+        if (documents) {
+            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            }
+            // Validate the file formats using the validateFiles function
+            const fileValidation = validateFiles(documents);
+            if (!fileValidation.isValid) {
+                return res.status(400).json({ error: fileValidation.message });
+            }
+            internship.documents.ficheEval = documents.ficheEval;
+            internship.documents.attestation = documents.attestation;
+            internship.documents.rapport = documents.rapport;
+        }
         // Update other fields
         if (title) internship.title = title;
-        if (documents) internship.documents = documents;
         if (StartDate) internship.StartDate = StartDate;
         if (EndDate) internship.EndDate = EndDate;
-        if (isValid !== undefined) internship.isValid = isValid;
+        // if (isValid !== undefined) internship.isValid = isValid;
 
         // Validate and update student
         if (studentId) {
@@ -167,13 +207,13 @@ export const updateInternship = async (req, res) => {
         }
 
         // Validate and update teacher
-        if (teacherId) {
-            const teacher = await Teacher.findById(teacherId);
-            if (!teacher) {
-                return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-            }
-            internship.teacher = teacherId;
-        }
+        // if (teacherId) {
+        //     const teacher = await Teacher.findById(teacherId);
+        //     if (!teacher) {
+        //         return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
+        //     }
+        //     internship.teacher = teacherId;
+        // }
 
         const updatedInternship = await internship.save();
         res.status(200).json(updatedInternship);
@@ -183,57 +223,6 @@ export const updateInternship = async (req, res) => {
     }
 };
 
-// export const updateInternship = async (req, res) => {
-//     const { id } = req.params;
-//     const { title, documents, StartDate, EndDate, isValid, topicId, studentId, teacherId } = req.body;
-
-//     // Validate dates
-//     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
-//         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
-//     }
-
-//     try {
-//         // Check if the topic exists (if provided)
-//         if (topicId) {
-//             const topic = await Topic.findById(topicId);
-//             if (!topic) {
-//                 return res.status(404).json({ error: "Le topic associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the student exists (if provided)
-//         if (studentId) {
-//             const student = await Student.findById(studentId);
-//             if (!student) {
-//                 return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the teacher exists (if provided)
-//         if (teacherId) {
-//             const teacher = await Teacher.findById(teacherId);
-//             if (!teacher) {
-//                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-//             }
-//         }
-
-//         // Update the internship
-//         const updatedInternship = await Internship.findByIdAndUpdate(
-//             id,
-//             { title, documents, StartDate, EndDate, isValid, topic: topicId, student: studentId, teacher: teacherId },
-//             { new: true, runValidators: true }
-//         );
-
-//         if (!updatedInternship) {
-//             return res.status(404).json({ message: "Stage introuvable." });
-//         }
-
-//         res.status(200).json(updatedInternship);
-//     } catch (error) {
-//         console.error("Error updating internship:", error.message);
-//         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
-//     }
-// };
 
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
@@ -418,5 +407,85 @@ export const removeAllAssignedInternships = async (req, res) => {
     } catch (error) {
         console.error('Error removing assigned internships:', error.message);
         res.status(500).json({ error: 'Failed to remove assigned internships.' });
+    }
+};
+
+export const getAssignedInternships = async (req, res) => {
+    // need to be updated later with token
+    const { teacherId } = req.body;  // Teacher ID from the request body
+    // console.log(teacherId);
+
+    try {
+        // Validate teacher existence
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: 'Teacher not found.' });
+        }
+
+        // Fetch internships assigned to this teacher
+        const internships = await Internship.find({ teacher: teacherId })
+            .populate('student', 'firstName lastName email')  // Populate student details
+            .populate('topic', 'title description')  // Populate topic details
+            .select('-teacher')  // Exclude the 'teacher' field from the result
+            .exec();
+
+        // If no internships are found for the teacher
+        if (internships.length === 0) {
+            return res.status(404).json({ message: 'No internships assigned to this teacher.' });
+        }
+
+        // Return the internships
+        res.status(200).json({
+            message: 'Internships fetched successfully.',
+            data: internships,
+        });
+    } catch (error) {
+        console.error('Error fetching assigned internships:', error.message);
+        res.status(500).json({ message: 'Error fetching assigned internships.', error });
+    }
+};
+
+
+// 
+export const validateInternship = async (req, res) => {
+    const { id } = req.params;
+    const { isValid, teacherId, reasonIfNotValid } = req.body;
+
+    try {
+        // Find the internship by ID and populate teacher details
+        const internship = await Internship.findById(id).populate('teacher');
+
+        if (!internship) {
+            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
+        }
+
+        // Check if the internship has an assigned teacher
+        if (!internship.teacher) {
+            return res.status(404).json({ message: "Vous n'etes pas assigné à ce stage." });
+        }
+
+        // Check if the teacherId in the request matches the teacher assigned to the internship
+        if (internship.teacher._id.toString() !== teacherId) {
+            return res.status(403).json({ message: "L'enseignant ne correspond pas." });
+        }
+
+        // Check if isValid is a boolean
+        if (typeof isValid !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'isValid' doit être un booléen." });
+        }
+        if (!isValid && !reasonIfNotValid) {
+            return res.status(400).json({ message: "Le champ 'reasonIfNotValid' est Obligatoire." });
+        }
+
+        if (reasonIfNotValid) internship.reasonIfNotValid = reasonIfNotValid;
+
+        // Update the internship's isValid field
+        internship.isValid = isValid;
+        const updatedInternship = await internship.save();
+        // Send the updated internship as the response
+        res.status(200).json(updatedInternship);
+    } catch (error) {
+        console.error("Error updating internship:", error.message);
+        res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
     }
 };

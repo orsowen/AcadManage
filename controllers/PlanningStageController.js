@@ -13,7 +13,10 @@ export const createPlanningStage = async (req, res) => {
         });
 
         const savedPlanningStage = await newPlanningStage.save();
-        res.status(201).json(savedPlanningStage);
+        res.status(201).json({
+            message: "Created Successfully",
+            savedPlanningStage
+        });
     } catch (error) {
         console.error('Error creating planning stage:', error.message);
         res.status(500).json({ error: 'Failed to create planning stage.' });
@@ -143,5 +146,61 @@ export const deletePlanningStage = async (req, res) => {
     } catch (error) {
         console.error('Error deleting planning stage:', error.message);
         res.status(500).json({ error: 'Failed to delete planning stage.' });
+    }
+};
+
+
+// Update the isPublished status for all non-archived planning stages
+// export const updatePublicationStatus = async (req, res) => {
+//     const { type, response } = req.params;
+
+//     // Validate response parameter
+//     if (response !== "true" && response !== "false") {
+//         return res.status(400).json({ message: "'response' parameter must be 'true' or 'false'." });
+//     }
+
+//     const publish = response === "true"; // Convert response to boolean
+
+//     try {
+//         // Update all non-archived PlanningStage objects
+//         const result = await PlanningStage.updateMany(
+//             { isArchived: false }, // Condition: not archived
+//             { isPublished: publish } // Update: set isPublished based on the 'publish' value
+//         );
+
+//         res.status(200).json({
+//             message: `Planning stages for ${type} successfully ${publish ? "published" : "hidden"}.`,
+//             updatedCount: result.modifiedCount, // Number of documents updated
+//         });
+//     } catch (error) {
+//         console.error("Error updating publication status:", error.message);
+//         res.status(500).json({ error: "Failed to update publication status." });
+//     }
+// };
+// Update the isPublished status for all non-archived planning stages
+export const updatePublicationStatus = async (req, res) => {
+    const { response } = req.params; // Extract  'response' from the route parameters
+
+    // Validate the `response` parameter
+    if (response !== "true" && response !== "false") {
+        return res.status(400).json({ message: "'response' parameter must be 'true' or 'false'." });
+    }
+
+    const isPublish = response === "true"; // Convert response to a boolean
+
+    try {
+        // Update all non-archived PlanningStage objects
+        const result = await PlanningStage.updateMany(
+            { isArchived: false }, // Condition: not archived
+            { isPublished: isPublish } // Update: set isPublished to true/false based on the response
+        );
+
+        res.status(200).json({
+            message: `Planning stages successfully ${isPublish ? "published" : "hidden"}.`,
+            updatedCount: result.modifiedCount, // Number of documents updated
+        });
+    } catch (error) {
+        console.error("Error updating planning stages:", error.message);
+        res.status(500).json({ error: "Failed to update publication status." });
     }
 };
