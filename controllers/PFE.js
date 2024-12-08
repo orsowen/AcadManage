@@ -1,8 +1,6 @@
-
+import DefensePFE from '../models/DefensePFE.js';
 import DepositPeriod from '../models/DepositPeriod.js';
-import PFE from '../models/PFEe.js';
-import SoutenancePFe from '../models/SoutenancePFe.js';
-
+import PFE from '../models/PFE.js';
 
 export const createPFE = async (req, res) => {
     const {
@@ -20,7 +18,8 @@ export const createPFE = async (req, res) => {
 
         if (!currentPeriod) {
             return res.status(403).json({
-                error: "Les sujets PFE ne peuvent être créés que pendant la période de dépôt."
+                error: "PFE topics can only be created during the deposit period."
+
             });
         }
 
@@ -29,7 +28,8 @@ export const createPFE = async (req, res) => {
 
         if (existingPFE) {
             return res.status(400).json({
-                error: "Cet étudiant a déjà un sujet PFE assigné."
+                error: "This student already has an assigned PFE topic."
+
             });
         }
 
@@ -50,19 +50,21 @@ export const createPFE = async (req, res) => {
         const savedPFE = await newPFE.save();
 
         res.status(201).json({
-            message: "PFE créé avec succès !",
+            message: "PFE successfully created!",
+
             PFE: savedPFE
         });
     } catch (error) {
         res.status(500).json({
-            error: "Échec de la création du PFE.",
+            error: "Failed to create the PFE.",
+
             details: error.message
         });
     }
 };
 
 
-
+// Update an existing PFE
 
 export const updatePFE = async (req, res) => {
     const { id } = req.params;
@@ -72,7 +74,8 @@ export const updatePFE = async (req, res) => {
     } = req.body;
 
     try {
-        // Step 1: Check if the current date is within the deposit period for PFE topics
+        // Check if the current date is within the deposit period for PFE topics
+
         const currentPeriod = await DepositPeriod.findOne({
             For: "PFE",
             Start_Deposit: { $lte: new Date() },
@@ -80,11 +83,14 @@ export const updatePFE = async (req, res) => {
         });
 
         if (!currentPeriod) {
-            return res.status(403).json({ error: "Les sujets PFE ne peuvent pas être modifiés que pendant la période de dépôt." });
+            return res.status(403).json({
+                error: "PFE topics can only be updated during the deposit period."
+            });
         }
 
         const updatedPFE = await PFE.findOneAndUpdate(
-            { id },
+            { _id: id },
+
             {
                 title,
                 Nom_societe,
@@ -100,35 +106,36 @@ export const updatePFE = async (req, res) => {
         );
 
         if (!updatedPFE) {
-            return res.status(404).json({ error: "PFE non trouvé pour ce sujet." });
+            return res.status(404).json({
+                error: "PFE not found for this topic."
+            });
         }
 
-        // Step 4: Return the updated PFE Topic and PFE
         res.status(200).json({
-            message: "PFE Topic and associated PFE updated successfully!",
+            message: "PFE topic and associated PFE updated successfully!",
             updatedPFE
         });
-
     } catch (error) {
-        res.status(500).json({ error: "Erreur lors de la mise à jour du sujet.", details: error.message });
+        res.status(500).json({
+            error: "Error occurred while updating the topic.",
+            details: error.message
+        });
     }
 };
 
-
+// List all PFE information
 export const ListAllPFEInfo = async (req, res) => {
     try {
-        // Fetch all PFE documents
         const pfes = await PFE.find()
-            .populate('student', 'name email') // Populate student details
-            .populate('teacher', 'name email') // Populate teacher details
-            .sort({ StartDate: -1 }); // Sort by StartDate in descending order
+            .populate('student', 'firstName lastName email ')
+            .populate('teacher', 'name email')
+            .sort({ StartDate: -1 });
 
-        // Fetch all soutenances
-        const soutenances = await SoutenancePFe.find();
+        const defenses = await DefensePFE.find();
 
-        // Build the response
         const response = pfes.map((pfe) => {
-            const soutenance = soutenances.find((s) => s.PFE.toString() === pfe._id.toString());
+            const defense = defenses.find((d) => d.PFE.toString() === pfe._id.toString());
+
 
             return {
                 PFE: {
@@ -140,19 +147,28 @@ export const ListAllPFEInfo = async (req, res) => {
                     EndDate: pfe.EndDate,
                     isValid: pfe.isValid,
                     techList: pfe.techList,
-                    student: pfe.student,
-                    teacher: pfe.teacher,
+                    student: {
+                        id: pfe.student?._id,
+                        firstName: pfe.student?.firstName,
+                        lastName: pfe.student?.lastName,
+                        email: pfe.student?.email,
+                        gender: pfe.student?.gender,
+                        governorate: pfe.student?.governorate,
+                        city: pfe.student?.city,
+                        postalCode: pfe.student?.postalCode,
+                        grade: pfe.student?.grade,
+                        isGraduated: pfe.student?.isGraduated,
+                    },
+                    teacher: pfe.teacher || null,
                 },
-                Affectation: pfe.affectation ? 'Affichée' : 'Masquée',
-                Soutenance: soutenance
-                    ? soutenance.Publisher
-                        ? 'Affichée'
-                        : 'Masquée'
-                    : 'Non planifiée',
+                isAssigned: pfe.isAssigned ? 'Assigned' : 'Not Assigned',
+                defense: defense && defense.Publisher
+                    ? { status: 'Available', details: defense }
+                    : { status: 'Not Available', details: null },
             };
         });
 
-        // Return response
+
         res.status(200).json({
             success: true,
             data: response,
@@ -161,35 +177,36 @@ export const ListAllPFEInfo = async (req, res) => {
         console.error(error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de la récupération des informations PFE',
+            message: 'Error retrieving PFE information',
+
             error: error.message,
         });
     }
 };
 
+// Choose a PFE for a teacher
 export const choosePFE = async (req, res) => {
-    const { id } = req.params; // PFE ID
-    const { teacherId } = req.body; // Teacher making the choice
+    const { id } = req.params;
+    const { teacherId } = req.body;
 
     try {
-        // Find the PFE by ID
         const pfe = await PFE.findById(id);
 
         if (!pfe) {
-            return res.status(404).json({ error: "PFE not found." });
-        }
-
-        // Check if the PFE is already assigned to another teacher
-        if (pfe.teacher) {
-            return res.status(400).json({
-                error: "This PFE is already assigned to another teacher.",
+            return res.status(404).json({
+                error: "PFE not found."
             });
         }
 
-        // Assign the PFE to the teacher
+        if (pfe.teacher) {
+            return res.status(400).json({
+                error: "This PFE is already assigned to another teacher."
+            });
+        }
+
         pfe.teacher = teacherId;
 
-        // Save the updated PFE
+
         const updatedPFE = await pfe.save();
 
         res.status(200).json({
@@ -198,7 +215,8 @@ export const choosePFE = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({
-            error: "An error occurred while assigning the PFE.",
+            error: "Error occurred while assigning the PFE.",
+
             details: error.message,
         });
     }
