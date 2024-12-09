@@ -5,7 +5,8 @@ import {
     getAllTeachers,
     getTeacherById,
     getTeacherProfile,
-    updateTeacher, 
+    updateTeacher,
+    updateTeacherByToken,
     updateTeacherPassword,
 } from '../controllers/TeacherController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
@@ -26,6 +27,8 @@ router.post('/profile', isTeacher, getTeacherProfile);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
+// update teacher based on token
+router.put('/me', isTeacher, updateTeacherByToken);
 
 // patch update teacher password
 router.patch('/:id/password', isAdmin, updateTeacherPassword);

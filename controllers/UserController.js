@@ -216,7 +216,10 @@ export const loginUser = async (req, res) => {
         // Add teacher or student ID to the payload if not admin
         if (user.role !== 'admin') {
             payload.idRole = user.role === 'teacher' ? user.teacher._id : user.student._id;
-            if (user.role === 'student') payload.isStillStudent = user.student.isGraduated === false;
+            if (user.role === 'student') {
+                payload.isStillStudent = user.student.isGraduated === false;
+                payload.grade = user.student.grade;
+            }
         }
         // console.log(payload);
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
