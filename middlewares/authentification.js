@@ -109,6 +109,8 @@ export const decodeJWT = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
     req.user = decoded;  // Attach decoded information to req.user
+    console.log('Decoded JWT Payload:', req.user);
+
     next();  // Proceed to the next middleware or controller
   } catch (error) {
     console.error('Token verification failed:', error.message);

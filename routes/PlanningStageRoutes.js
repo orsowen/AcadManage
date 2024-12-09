@@ -17,7 +17,8 @@ router.post('/planning', isAdmin, createPlanningStage);
 
 // GET /planning-stages - Fetch all planning stages
 router.get('/planning', isAdmin, getAllPlanningStages);
-// get planning for Student
+
+// get planning for logged in Student
 router.get('/planning/me', isStillStudent, isStudent, getPlanningStageByStudent);
 
 // GET /planning-stages/:id - Fetch a planning stage by ID

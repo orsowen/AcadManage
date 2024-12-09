@@ -20,7 +20,9 @@ const validateFiles = (documents) => {
 
 // Add a new internship
 export const addInternship = async (req, res) => {
-    const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, teacherId, topicDetails } = req.body;
+    const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
@@ -115,10 +117,25 @@ export const getAllInternships = async (req, res) => {
     try {
         // Fetch internships with filters, pagination, and population
         const internships = await Internship.find(filter)
-            .populate('student', 'firstName lastName email')
-            .populate('teacher', 'firstName lastName email')
+            .populate({
+                path: 'student',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the student
+                },
+            })
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the teacher
+                },
+            })
             .skip((page - 1) * limit)
-            .limit(Number(limit));
+            .limit(Number(limit))
+            .exec();
 
         // Fetch total count of internships
         const total = await Internship.countDocuments(filter);
@@ -142,8 +159,23 @@ export const getInternshipById = async (req, res) => {
 
     try {
         const internship = await Internship.findById(id)
-            .populate('student', 'firstName lastName email') // Populate student details
-            .populate('teacher', 'firstName lastName email'); // Populate teacher details
+            .populate({
+                path: 'student',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the student
+                },
+            })
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the teacher
+                },
+            })
+            .exec();
 
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable." });
@@ -156,14 +188,53 @@ export const getInternshipById = async (req, res) => {
     }
 };
 
-// Update an internship
+// Get internships for a specific student
+export const getInternshipByStudent = async (req, res) => {
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+
+    try {
+        // Fetch internships assigned to the student where they are not archived
+        const internships = await Internship.find({ student: studentId, isArchived: false })
+            .select('-student') // Exclude the student field from the result
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName', // Populate teacher's first name and last name
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the teacher's email from the User model
+                },
+            });
+
+        // Handle the case where no internships are found
+        if (!internships || internships.length === 0) {
+            return res.status(404).json({ message: "Aucun stage trouvé pour cet étudiant." });
+        }
+
+        // Respond with the fetched internships
+        res.status(200).json({
+            message: "Stages récupérés avec succès.",
+            data: internships,
+        });
+    } catch (error) {
+        console.error("Error fetching internships for student:", error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            message: "Une erreur est survenue lors de la récupération des stages.",
+            error: error.message,
+        });
+    }
+};
+
+
 // Update an internship and its associated topic
 export const updateInternship = async (req, res) => {
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+    const role = req.user.role; // Extract student ID from JWT token
     const { id } = req.params;
     // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
     // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
-    const { title, documents, StartDate, EndDate, topicDetails, studentId } = req.body;
-
+    const { title, documents, StartDate, EndDate, topicDetails } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
@@ -174,9 +245,13 @@ export const updateInternship = async (req, res) => {
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
+        console.log(internship.student._id);
+        console.log(studentId);
 
+        if (internship.student._id.toString() !== studentId && role !== "admin") {
+            return res.status(403).json({ message: "Unauthorized" });
 
-
+        }
         // Update topic details if provided
         if (topicDetails) {
             if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
@@ -213,15 +288,6 @@ export const updateInternship = async (req, res) => {
             }
             internship.student = studentId;
         }
-
-        // Validate and update teacher
-        // if (teacherId) {
-        //     const teacher = await Teacher.findById(teacherId);
-        //     if (!teacher) {
-        //         return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-        //     }
-        //     internship.teacher = teacherId;
-        // }
 
         const updatedInternship = await internship.save();
         res.status(200).json(updatedInternship);
@@ -268,11 +334,15 @@ export const addTeacherToInternship = async (req, res) => {
             return res.status(400).json({ message: 'This internship already has an assigned teacher.' });
         }
 
+        // const teacher = await Teacher.findOne({
+        //     _id: teacherId,
+        //     // $expr: { $gt: [{ $size: "$assignedInternships" }, "$subjectCount"] },
+        // })
         const teacher = await Teacher.findById(teacherId);
         if (!teacher) {
             return res.status(404).json({ message: 'Teacher not found.' });
         }
-        if (teacher.subjectCount === teacher.assignedInternships.length) {
+        if (teacher.subjectCount <= teacher.assignedInternships.length) {
             return res.status(400).json({ message: 'Teacher assignment is full.' });
         }
 

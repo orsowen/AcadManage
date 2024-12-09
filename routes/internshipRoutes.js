@@ -8,8 +8,10 @@ import {
     getAllInternships,
     getAssignedInternships,
     getInternshipById,
+    getInternshipByStudent,
     removeAllAssignedInternships,
-    updateInternship, validateInternship,
+    updateInternship,
+    validateInternship,
 } from '../controllers/InternshipController.js';
 
 import {
@@ -18,6 +20,9 @@ import {
 import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentification.js";
 
 const router = express.Router();
+
+// get own Internship 
+router.get('/me', isStudent, isStillStudent, getInternshipByStudent);
 
 // POST /internships - Add a new internship
 router.post('/', isStudent, isStillStudent, addInternship);
@@ -28,25 +33,32 @@ router.get('/', isAdmin, getAllInternships);
 // GET /internships/:id - Get an internship by ID
 router.get('/:id', isTeacher, getInternshipById);
 
+
 // PATCH /internships/:id - Update an internship by ID
-router.patch('/:id', isStudent, isStillStudent, updateInternship);
+// router.patch('/:id', isStudent, isStillStudent, updateInternship);
+router.patch('/:id', isAdmin, updateInternship);
 
 // DELETE /internships/:id - Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);
 
+// automatic assignment of teachers to internships
 router.post('/planning/assign', isAdmin, assignTeachersToInternships);
-// 
+
+// manual add teacher to internship
 router.post('/planning/update', isAdmin, addTeacherToInternship);
+
 // FOR DEVELOPMENT USE ONLY
 router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternships);
-// 
+
+// open period depot 
 router.post("/open", isAdmin, addDepositPeriod);
 
-// Assuming you have a JWT middleware that decodes the token
+// get assigned internships for the logged in teacher
 router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);
 
+// 
 
 export default router;

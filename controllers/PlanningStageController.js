@@ -138,7 +138,7 @@ export const getPlanningStageByStudent = async (req, res) => {
         }
 
         // Fetch planning stages for the student
-        const planningStages = await PlanningStage.find()
+        const planningStages = await PlanningStage.find({ isPublished: true })
             .populate({
                 path: 'internship', // Populate internship field
                 match: { student: studentId }, // Ensure the student matches
@@ -181,24 +181,49 @@ export const getPlanningStageByStudent = async (req, res) => {
 
 // Update a Planning Stage
 export const updatePlanningStage = async (req, res) => {
+    const teacherId = req.user.idRole; // Extract teacher ID from JWT token
     const { id } = req.params;
     const { horaire, day, meet_link, internship } = req.body;
 
     try {
-        const updatedPlanningStage = await PlanningStage.findByIdAndUpdate(
-            id,
-            { horaire, day, meet_link, internship },
-            { new: true, runValidators: true }
-        );
-        if (!updatedPlanningStage) {
+        // Fetch the planning stage and populate the internship's teacher details
+        const planningStage = await PlanningStage.findById(id).populate({
+            path: 'internship',
+            populate: { path: 'teacher', select: '_id' },
+        });
+
+        if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }
-        res.status(200).json(updatedPlanningStage);
+
+        // Check if the logged-in teacher is authorized to update this planning stage
+        if (planningStage.internship.teacher._id.toString() !== teacherId) {
+            return res.status(403).json({ message: 'Not authorized to update this planning stage.' });
+        }
+
+        // Validate and update fields
+        if (horaire) planningStage.horaire = horaire;
+        if (day) planningStage.day = day;
+        if (meet_link) planningStage.meet_link = meet_link;
+        if (internship) planningStage.internship = internship;
+
+        // Save the updated planning stage
+        const updatedPlanningStage = await planningStage.save();
+
+        // Respond with the updated planning stage
+        res.status(200).json({
+            message: 'Planning Stage updated successfully.',
+            data: updatedPlanningStage,
+        });
     } catch (error) {
         console.error('Error updating planning stage:', error.message);
-        res.status(500).json({ error: 'Failed to update planning stage.' });
+        res.status(500).json({
+            message: 'An error occurred while updating the planning stage.',
+            error: error.message,
+        });
     }
 };
+
 
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
