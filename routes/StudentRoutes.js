@@ -5,9 +5,11 @@ import {
     getAllStudents,
     getStudentById,
     getStudentProfile,
-    updateStudent, updateStudentPassword
+    updateStudent,
+    updateStudentPassword,
+    updateStudentProfile,
 } from '../controllers/StudentController.js';
-import { isAdmin, isStudent } from "../middlewares/authentication.js";
+import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
@@ -15,7 +17,7 @@ const router = express.Router();
 router.post('/', isAdmin, createStudent);
 
 // GET /students - Get all students
-router.get('/', isAdmin, getAllStudents);
+router.get('/', isAdminOrTeacher, getAllStudents);
 
 // GET /students/:id - Get a student by ID
 router.get('/:id', isAdmin, getStudentById);
@@ -25,6 +27,9 @@ router.post('/profile', isStudent, getStudentProfile);
 
 // PATCH /students/:id - Update a student by ID
 router.patch('/:id', isAdmin, updateStudent);
+
+// update own profile
+router.put('/me', isStudent, updateStudentProfile);
 // patch update student password
 router.patch('/:id/password', isAdmin, updateStudentPassword);
 
