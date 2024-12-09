@@ -10,13 +10,25 @@ dotenv.config();
 export const createSubjects = async (req, res) => {
   try {
     const { subjects } = req.body; // Expecting an array of subjects
+  try {
+    const { subjects } = req.body; // Expecting an array of subjects
 
     if (!Array.isArray(subjects)) {
       return res
         .status(400)
         .json({ message: "Invalid input, expected an array of subjects" });
     }
+    if (!Array.isArray(subjects)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid input, expected an array of subjects" });
+    }
 
+    // Check if we are in the deposit period
+    const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+    if (!depositPeriod) {
+      return res.status(400).json({ message: "Deposit period not found" });
+    }
     // Check if we are in the deposit period
     const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
     if (!depositPeriod) {
@@ -38,6 +50,7 @@ export const createSubjects = async (req, res) => {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
+    console.log("Received subjects:", subjects);
     console.log("Received subjects:", subjects);
 
     // Vérifier que les étudiants existent
@@ -90,7 +103,12 @@ export const createSubjects = async (req, res) => {
       console.log("Processed subject:", addedSubject);
       return new Subject_PFA(addedSubject);
     });
+      console.log("Processed subject:", addedSubject);
+      return new Subject_PFA(addedSubject);
+    });
 
+    await Subject_PFA.insertMany(newSubjects);
+    console.log("Subjects inserted successfully");
     await Subject_PFA.insertMany(newSubjects);
     console.log("Subjects inserted successfully");
 
@@ -249,7 +267,14 @@ export const getSubjectById = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
 
+    res.status(200).json(subject);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
     res.status(200).json(subject);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -258,6 +283,12 @@ export const getSubjectById = async (req, res) => {
 
 // Update a subject
 export const updateSubject = async (req, res) => {
+  try {
+    // Check if we are in the deposit period
+    const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+    if (!depositPeriod) {
+      return res.status(400).json({ message: "Deposit period not found" });
+    }
   try {
     // Check if we are in the deposit period
     const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
@@ -306,6 +337,9 @@ export const updateSubject = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
 
     res.status(200).json(subject);
 
@@ -319,6 +353,12 @@ export const updateSubject = async (req, res) => {
 
 // Delete a subject
 export const deleteSubject = async (req, res) => {
+  try {
+    // Check if we are in the deposit period
+    const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
+    if (!depositPeriod) {
+      return res.status(400).json({ message: "Deposit period not found" });
+    }
   try {
     // Check if we are in the deposit period
     const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
@@ -343,13 +383,22 @@ export const deleteSubject = async (req, res) => {
 
 
     const { id } = req.params;
+    const { id } = req.params;
 
+    const subject = await Subject_PFA.findByIdAndDelete(id);
     const subject = await Subject_PFA.findByIdAndDelete(id);
 
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
 
+    res.status(200).json({ message: "Subject deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
     res.status(200).json({ message: "Subject deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -1,39 +1,50 @@
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
-import Topic from '../models/Topic.js';
+
+const validateFiles = (documents) => {
+    const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
+
+    const { attestation, rapport, ficheEval } = documents;
+
+    // Check if each file follows the allowed extension
+    if (!fileValidation.test(attestation) || !fileValidation.test(rapport) || !fileValidation.test(ficheEval)) {
+        return {
+            isValid: false,
+            message: "Invalid file format. Only PDF or DOCX files are allowed for attestation, rapport, and ficheEval.",
+        };
+    }
+
+    return { isValid: true }; // All files are valid
+};
 
 // Add a new internship
 export const addInternship = async (req, res) => {
-    const { title, documents, StartDate, EndDate, isValid, studentId, teacherId, topicDetails } = req.body;
+    // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, teacherId, topicDetails } = req.body;
+    const studentId = req.user.idRole; // Extract student ID from JWT token
 
-    // Validate dates
+    // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        // Validate `topicDetails` input
+        // Validate topicDetails input
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
 
-        // Validate teacher for the topic (if provided)
-        if (topicDetails.teacher) {
-            const teacherExists = await Teacher.findById(topicDetails.teacher);
-            if (!teacherExists) {
-                return res.status(404).json({ error: "L'enseignant spécifié pour le sujet n'existe pas." });
-            }
+        // Validate documents input
+        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
         }
 
-        // Create a new topic
-        const newTopic = new Topic({
-            title: topicDetails.title,
-            description: topicDetails.description,
-            techList: topicDetails.techList,
-            teacher: topicDetails.teacher || null,
-        });
-        const createdTopic = await newTopic.save();
+        // Validate file formats using the validateFiles function
+        const fileValidation = validateFiles(documents);
+        if (!fileValidation.isValid) {
+            return res.status(400).json({ error: fileValidation.message });
+        }
 
         // Validate the student (if provided)
         let student = null;
@@ -51,102 +62,83 @@ export const addInternship = async (req, res) => {
             if (!teacher) {
                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
             }
+            // Ensure teacher is not assigned to the maximum number of internships
+            if (teacher.subjectCount <= teacher.assignedInternships.length) {
+                return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
+            }
         }
 
-        // Create the internship using the created topic
+        // Create the internship object with the provided topic and student/teacher if available
         const newInternship = new Internship({
             title,
             documents,
             StartDate,
             EndDate,
-            isValid,
-            topic: createdTopic._id, // Use the newly created topic ID
+            typeInternship,
+            topic: {
+                title: topicDetails.title,
+                description: topicDetails.description,
+                techList: topicDetails.techList,
+            },
             student: studentId || null,
             teacher: teacherId || null,
         });
 
+        // Save the internship
         const savedInternship = await newInternship.save();
-        res.status(201).json({ message: "Internship created successfully", savedInternship });
+
+        // If a teacher is associated, add the internship to the teacher's list of assigned internships
+        if (teacher) {
+            teacher.assignedInternships.push(savedInternship._id);
+            await teacher.save();
+        }
+
+        // Respond with the created internship details
+        res.status(201).json({ message: "Internship created successfully.", savedInternship });
+
     } catch (error) {
+        // Handle and log unexpected errors
         console.error("Error adding internship:", error.message);
-        res.status(500).json({ error: "Erreur lors de l'ajout du stage." });
+        res.status(500).json({ error: "Erreur lors de l'ajout du stage.", error });
     }
 };
-// OLD VERSION
-// export const addInternship = async (req, res) => {
-//     const { title, documents, StartDate, EndDate, isValid, topicId, studentId, teacherId } = req.body;
-
-//     // Validate dates
-//     if (new Date(StartDate) > new Date(EndDate)) {
-//         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
-//     }
-
-//     try {
-//         // Check if the topic exists
-//         const topic = await Topic.findById(topicId);
-//         if (!topic) {
-//             return res.status(404).json({ error: "Le topic associé n'existe pas." });
-//         }
-
-//         // Check if the student exists (if provided)
-//         let student = null;
-//         if (studentId) {
-//             student = await Student.findById(studentId);
-//             if (!student) {
-//                 return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the teacher exists (if provided)
-//         let teacher = null;
-//         if (teacherId) {
-//             teacher = await Teacher.findById(teacherId);
-//             if (!teacher) {
-//                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-//             }
-//         }
-
-//         // Create the internship
-//         const newInternship = new Internship({
-//             title,
-//             documents,
-//             StartDate,
-//             EndDate,
-//             isValid,
-//             topic: topicId,
-//             student: studentId || null,
-//             teacher: teacherId || null,
-//         });
-
-//         const savedInternship = await newInternship.save();
-//         res.status(201).json(savedInternship);
-//     } catch (error) {
-//         console.error("Error adding internship:", error.message);
-//         res.status(500).json({ error: "Erreur lors de l'ajout du stage." });
-//     }
-// };
 
 export const getAllInternships = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day } = req.query; // Default to page 1 and 5 results per page
+    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day } = req.query;
+
     // Build the filter object
     let filter = {};
     if (isValid !== undefined) filter.isValid = isValid === 'true';
     if (Type) filter.Type = Type;
-    if (studentId) filter.student = studentId; // Filter by student
-    if (teacherId) filter.teacher = teacherId; // Filter by teacher
-    if (day) filter.day = new Date(day); // Filter by specific day
+    if (studentId) filter.student = studentId;
+    if (teacherId) filter.teacher = teacherId;
+    if (day) filter.day = new Date(day);
 
     try {
-        // Fetch internships with pagination
+        // Fetch internships with filters, pagination, and population
         const internships = await Internship.find(filter)
-            .populate('topic', 'title techList')
-            .populate('student', 'firstName lastName email')
-            .populate('teacher', 'firstName lastName email')
+            .populate({
+                path: 'student',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the student
+                },
+            })
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the teacher
+                },
+            })
             .skip((page - 1) * limit)
-            .limit(Number(limit));
+            .limit(Number(limit))
+            .exec();
 
         // Fetch total count of internships
-        const total = await Internship.countDocuments();
+        const total = await Internship.countDocuments(filter);
 
         res.status(200).json({
             total,
@@ -167,9 +159,23 @@ export const getInternshipById = async (req, res) => {
 
     try {
         const internship = await Internship.findById(id)
-            .populate('topic', 'title techList') // Populate topic title
-            .populate('student', 'firstName lastName email') // Populate student details
-            .populate('teacher', 'firstName lastName email'); // Populate teacher details
+            .populate({
+                path: 'student',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the student
+                },
+            })
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the user's email linked to the teacher
+                },
+            })
+            .exec();
 
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable." });
@@ -182,85 +188,108 @@ export const getInternshipById = async (req, res) => {
     }
 };
 
-// Update an internship
+// Get internships for a specific student
+export const getInternshipByStudent = async (req, res) => {
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+
+    try {
+        // Fetch internships assigned to the student where they are not archived
+        const internships = await Internship.find({ student: studentId, isArchived: false })
+            .select('-student') // Exclude the student field from the result
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName', // Populate teacher's first name and last name
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate the teacher's email from the User model
+                },
+            });
+
+        // Handle the case where no internships are found
+        if (!internships || internships.length === 0) {
+            return res.status(404).json({ message: "Aucun stage trouvé pour cet étudiant." });
+        }
+
+        // Respond with the fetched internships
+        res.status(200).json({
+            message: "Stages récupérés avec succès.",
+            data: internships,
+        });
+    } catch (error) {
+        console.error("Error fetching internships for student:", error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            message: "Une erreur est survenue lors de la récupération des stages.",
+            error: error.message,
+        });
+    }
+};
+
+
 // Update an internship and its associated topic
 export const updateInternship = async (req, res) => {
-    const { id } = req.params; // Internship ID
-    const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
-
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+    const role = req.user.role; // Extract student ID from JWT token
+    const { id } = req.params;
+    // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
+    // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        // Fetch the internship to get the associated topic ID
         const internship = await Internship.findById(id);
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
+        console.log(internship.student._id);
+        console.log(studentId);
 
-        const topicId = internship.topic; // Extract topic ID from the internship
+        if (internship.student._id.toString() !== studentId && role !== "admin") {
+            return res.status(403).json({ message: "Unauthorized" });
 
-        // Update topic details if `topicDetails` is provided
-        if (topicDetails) {
-            const { title: topicTitle, description, techList, teacher } = topicDetails;
-
-            // Validate teacher for the topic if specified
-            if (teacher) {
-                const teacherExists = await Teacher.findById(teacher);
-                if (!teacherExists) {
-                    return res.status(404).json({ error: "L'enseignant spécifié pour le sujet n'existe pas." });
-                }
-            }
-
-            // Update the topic
-            const updatedTopic = await Topic.findByIdAndUpdate(
-                topicId,
-                { title: topicTitle, description, techList, teacher },
-                { new: true, runValidators: true }
-            );
-
-            if (!updatedTopic) {
-                return res.status(404).json({ error: "Sujet introuvable pour la mise à jour." });
-            }
         }
+        // Update topic details if provided
+        if (topicDetails) {
+            if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
+                return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
+            }
+            internship.topic.title = topicDetails.title;
+            internship.topic.description = topicDetails.description;
+            internship.topic.techList = topicDetails.techList;
+        }
+        if (documents) {
+            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            }
+            // Validate the file formats using the validateFiles function
+            const fileValidation = validateFiles(documents);
+            if (!fileValidation.isValid) {
+                return res.status(400).json({ error: fileValidation.message });
+            }
+            internship.documents.ficheEval = documents.ficheEval;
+            internship.documents.attestation = documents.attestation;
+            internship.documents.rapport = documents.rapport;
+        }
+        // Update other fields
+        if (title) internship.title = title;
+        if (StartDate) internship.StartDate = StartDate;
+        if (EndDate) internship.EndDate = EndDate;
+        // if (isValid !== undefined) internship.isValid = isValid;
 
-        // Validate the student (if provided)
+        // Validate and update student
         if (studentId) {
             const student = await Student.findById(studentId);
             if (!student) {
                 return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
             }
+            internship.student = studentId;
         }
 
-        // Validate the teacher (if provided)
-        if (teacherId) {
-            const teacher = await Teacher.findById(teacherId);
-            if (!teacher) {
-                return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-            }
-        }
-
-        // Update the internship
-        const updatedInternship = await Internship.findByIdAndUpdate(
-            id,
-            {
-                title,
-                documents,
-                StartDate,
-                EndDate,
-                isValid,
-                student: studentId,
-                teacher: teacherId,
-            },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedInternship) {
-            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
-        }
-
+        const updatedInternship = await internship.save();
         res.status(200).json(updatedInternship);
     } catch (error) {
         console.error("Error updating internship:", error.message);
@@ -268,57 +297,6 @@ export const updateInternship = async (req, res) => {
     }
 };
 
-// export const updateInternship = async (req, res) => {
-//     const { id } = req.params;
-//     const { title, documents, StartDate, EndDate, isValid, topicId, studentId, teacherId } = req.body;
-
-//     // Validate dates
-//     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
-//         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
-//     }
-
-//     try {
-//         // Check if the topic exists (if provided)
-//         if (topicId) {
-//             const topic = await Topic.findById(topicId);
-//             if (!topic) {
-//                 return res.status(404).json({ error: "Le topic associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the student exists (if provided)
-//         if (studentId) {
-//             const student = await Student.findById(studentId);
-//             if (!student) {
-//                 return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-//             }
-//         }
-
-//         // Check if the teacher exists (if provided)
-//         if (teacherId) {
-//             const teacher = await Teacher.findById(teacherId);
-//             if (!teacher) {
-//                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-//             }
-//         }
-
-//         // Update the internship
-//         const updatedInternship = await Internship.findByIdAndUpdate(
-//             id,
-//             { title, documents, StartDate, EndDate, isValid, topic: topicId, student: studentId, teacher: teacherId },
-//             { new: true, runValidators: true }
-//         );
-
-//         if (!updatedInternship) {
-//             return res.status(404).json({ message: "Stage introuvable." });
-//         }
-
-//         res.status(200).json(updatedInternship);
-//     } catch (error) {
-//         console.error("Error updating internship:", error.message);
-//         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
-//     }
-// };
 
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
@@ -335,5 +313,285 @@ export const deleteInternship = async (req, res) => {
     } catch (error) {
         console.error("Error deleting internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la suppression du stage." });
+    }
+};
+
+
+
+// MANUAL ADDING
+export const addTeacherToInternship = async (req, res) => {
+    try {
+        const { internshipId, teacherId } = req.body;
+
+        // Fetch the internship and teacher
+        const internship = await Internship.findById(internshipId);
+        if (!internship) {
+            return res.status(404).json({ message: 'Internship not found.' });
+        }
+
+        // Check if the internship already has an assigned teacher
+        if (internship.teacher) {
+            return res.status(400).json({ message: 'This internship already has an assigned teacher.' });
+        }
+
+        // const teacher = await Teacher.findOne({
+        //     _id: teacherId,
+        //     // $expr: { $gt: [{ $size: "$assignedInternships" }, "$subjectCount"] },
+        // })
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: 'Teacher not found.' });
+        }
+        if (teacher.subjectCount <= teacher.assignedInternships.length) {
+            return res.status(400).json({ message: 'Teacher assignment is full.' });
+        }
+
+        // Assign the teacher to the internship
+        internship.teacher = teacherId;
+        await internship.save();
+
+        // Add the internship to the teacher's assignedInternships array
+        teacher.assignedInternships.push(internshipId);
+        await teacher.save();
+
+        res.status(200).json({ message: 'Teacher successfully assigned to internship.', teacher, internship });
+    } catch (error) {
+        console.error('Error assigning teacher to internship:', error.message);
+        res.status(500).json({ error: 'Failed to assign teacher to internship.' });
+    }
+};
+
+// assign Teacher to Topics automatically
+export const assignTeachersToInternships = async (req, res) => {
+    const { teacherIds } = req.body; // Optional list of teacher IDs from the request body
+
+    try {
+        // Step 1: Fetch the teachers - filter based on provided IDs or all eligible teachers
+        let teachers;
+        if (teacherIds && teacherIds.length > 0) {
+            teachers = await Teacher.find({
+                _id: { $in: teacherIds },
+                $or: [
+                    { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
+                    { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with fewer assignments than their subject count
+                ],
+            });
+        } else {
+            teachers = await Teacher.find({
+                $or: [
+                    { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
+                    { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with fewer assignments than their subject count
+                ],
+            });
+        }
+
+        // Step 2: Fetch all internships with no assigned teacher
+        const internships = await Internship.find({ teacher: null });
+
+        // If there are no teachers or internships to assign, respond with an error
+        if (teachers.length === 0 || internships.length === 0) {
+            return res.status(400).json({ message: 'No teachers or unassigned internships available.' });
+        }
+
+        // Step 3: Calculate total available subjects and internships
+        const totalSubjects = teachers.reduce((sum, teacher) => sum + teacher.subjectCount, 0);
+        const totalInternships = internships.length;
+
+        if (totalSubjects === 0 || totalInternships === 0) {
+            return res.status(400).json({ message: 'No available subjects or internships to assign.' });
+        }
+
+        // Step 4: Calculate internships per subject ratio
+        const internshipsPerSubject = totalInternships / totalSubjects;
+        console.log("internshipsPerSubject :", internshipsPerSubject);
+
+        // Step 5: Assign internships to teachers and collect results
+        let internshipIndex = 0;
+        const results = []; // To store assignment details
+
+        for (const teacher of teachers) {
+            // Calculate the number of internships to assign based on the ratio
+            const maxAssignable = Math.floor((teacher.subjectCount - teacher.assignedInternships.length) * internshipsPerSubject);
+            const assignableCount = Math.min(maxAssignable, totalInternships - internshipIndex);
+
+            const assignedInternships = [];
+            for (let i = 0; i < assignableCount && internshipIndex < totalInternships; i++) {
+                const internship = internships[internshipIndex];
+
+                // Assign the teacher to the internship
+                internship.teacher = teacher._id;
+                await internship.save();
+
+                // Add the internship to the teacher's assignedInternships array
+                teacher.assignedInternships.push(internship._id);
+
+                // Collect assigned internship details
+                assignedInternships.push({
+                    id: internship._id,
+                    title: internship.title,
+                    StartDate: internship.StartDate,
+                    EndDate: internship.EndDate,
+                });
+
+                internshipIndex++;
+            }
+
+            // Save teacher with updated assignedInternships
+            await teacher.save();
+
+            // Add assignment details to the results array
+            results.push({
+                teacher: {
+                    id: teacher._id,
+                    name: `${teacher.firstName} ${teacher.lastName}`,
+                    subjectCount: teacher.subjectCount,
+                },
+                assignedInternships,
+            });
+
+            // Stop assigning if all internships are assigned
+            if (internshipIndex >= totalInternships) break;
+        }
+
+        // Return the results in JSON format
+        res.status(200).json({ message: 'Internships successfully assigned to teachers.', results });
+    } catch (error) {
+        console.error('Error assigning internships to teachers:', error.message);
+        res.status(500).json({ error: 'Failed to assign internships to teachers.' });
+    }
+};
+
+// JUST FOR DEVELOPMENT USE ONLY
+export const removeAllAssignedInternships = async (req, res) => {
+    try {
+        // Step 1: Fetch all teachers
+        const teachers = await Teacher.find();
+
+        // Step 2: Remove all assigned internships from teachers
+        for (const teacher of teachers) {
+            teacher.assignedInternships = []; // Clear the assignedInternships array
+            await teacher.save(); // Save the teacher document
+        }
+
+        // Step 3: Fetch all internships and set their teacher field to null
+        const internships = await Internship.find();
+
+        for (const internship of internships) {
+            internship.teacher = null; // Remove the teacher reference
+            await internship.save(); // Save the internship document
+        }
+
+        res.status(200).json({ message: 'All assigned internships cleared for teachers and updated in internships.' });
+    } catch (error) {
+        console.error('Error removing assigned internships:', error.message);
+        res.status(500).json({ error: 'Failed to remove assigned internships.' });
+    }
+};
+
+export const getAssignedInternships = async (req, res) => {
+    try {
+        const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
+        // Validate teacher existence using the teacherId from the decoded token
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: 'Teacher not found.' });
+        }
+
+        // Fetch internships assigned to this teacher
+        const internships = await Internship.find({ teacher: teacherId })
+            .populate({
+                path: 'student', // Populate internship field
+                select: 'firstName lastName user', // Select specific fields from internship
+                populate: {
+                    path: 'user', // Populate user to fetch email
+                    select: 'email', // Select only email from user
+                },
+            })
+            .select("-teacher")
+            .exec(); // Populate internship, student, and teacher details
+
+        // If no internships are found for the teacher
+        if (internships.length === 0) {
+            return res.status(404).json({ message: 'No internships assigned to this teacher.' });
+        }
+
+        // Return the internships
+        res.status(200).json({
+            message: 'Internships fetched successfully.',
+            data: internships,
+        });
+    } catch (error) {
+        console.error('Error fetching assigned internships:', error.message);
+
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ message: 'Invalid or expired token.' });
+        }
+
+        res.status(500).json({ message: 'Error fetching assigned internships.', error });
+    }
+};
+
+// teacher validate internship
+export const validateInternship = async (req, res) => {
+    const { id } = req.params;
+    const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
+
+    const { isValid, reasonIfNotValid } = req.body;
+
+    try {
+        // Find the internship by ID and populate teacher details
+        const internship = await Internship.findById(id).populate('teacher');
+
+        // Check if the internship exists
+        if (!internship) {
+            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
+        }
+
+        // Validate that the internship has a teacher assigned
+        if (!internship.teacher) {
+            return res.status(400).json({ message: "Ce stage n'a pas d'enseignant assigné." });
+        }
+
+        // Check if the teacherId from the token matches the teacher assigned to the internship
+        if (internship.teacher._id.toString() !== teacherId) {
+            return res.status(403).json({ message: "L'enseignant ne correspond pas." });
+        }
+
+        // Validate the 'isValid' field: it should be a boolean
+        if (typeof isValid !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'isValid' doit être un booléen." });
+        }
+
+        // If 'isValid' is false, ensure that the 'reasonIfNotValid' field is provided
+        if (!isValid && !reasonIfNotValid) {
+            return res.status(400).json({ message: "Le champ 'reasonIfNotValid' est obligatoire lorsque 'isValid' est faux." });
+        }
+
+        // Update the internship's 'reasonIfNotValid' field if provided
+        if (reasonIfNotValid) {
+            internship.reasonIfNotValid = reasonIfNotValid;
+        }
+
+        // Update the 'isValid' field of the internship
+        internship.isValid = isValid;
+
+        // Save the updated internship
+        const updatedInternship = await internship.save();
+
+        // Send the updated internship in the response
+        res.status(200).json({
+            message: 'Stage mis à jour avec succès.',
+            updatedInternship,
+        });
+
+    } catch (error) {
+        // Log error details for debugging
+        console.error("Error updating internship:", error.message);
+
+        // Return a generic server error
+        res.status(500).json({
+            message: "Erreur lors de la mise à jour du stage.",
+            error: error.message,
+        });
     }
 };

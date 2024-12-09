@@ -1,4 +1,3 @@
-
 import cors from "cors";
 import dotenv from "dotenv";
 import routerPFA from "./routes/PFARoutes.js";
@@ -12,9 +11,7 @@ import teacherRoutes from "./routes/teacherRoutes.js";
 import topicsRoutes from "./routes/topicRoutes.js";
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 import choicePFA from "./routes/ChoiceRoutes.js";
-
-
-
+import PFE from "./routes/PFE.js";
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -24,13 +21,9 @@ const PORT = process.env.PORT || 8800;
 
 // MongoDB Connection
 dbConnection();
-app.use(express.json());
+
 // Middleware
 app.use(cors());
-
-app.use(express.json());
-
-
 app.use(express.json()); // To parse JSON data in POST requests
 
 // ROUTES
@@ -52,11 +45,6 @@ app.use("/topics", topicsRoutes);
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
-
-
-app.use(cors());
-app.use(express.json());
-
 
 
 export default app;
