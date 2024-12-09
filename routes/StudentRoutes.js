@@ -5,7 +5,7 @@ import {
     getAllStudents,
     getStudentById,
     getStudentProfile,
-    updateStudent,
+    updateStudent, updateStudentPassword
 } from '../controllers/StudentController.js';
 import { isAdmin, isStudent } from "../middlewares/authentication.js";
 
@@ -25,6 +25,8 @@ router.post('/profile', isStudent, getStudentProfile);
 
 // PATCH /students/:id - Update a student by ID
 router.patch('/:id', isAdmin, updateStudent);
+// patch update student password
+router.patch('/:id/password', isAdmin, updateStudentPassword);
 
 // DELETE /students/:id - Delete a student by ID
 router.delete('/:id', isAdmin, deleteStudent);
