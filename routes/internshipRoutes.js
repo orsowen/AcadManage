@@ -15,37 +15,38 @@ import {
 import {
     addDepositPeriod
 } from "../controllers/DepositPeriod.js";
+import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentification.js";
 
 const router = express.Router();
 
 // POST /internships - Add a new internship
-router.post('/', addInternship);
+router.post('/', isStudent, isStillStudent, addInternship);
 
 // GET /internships - Get all internships
-router.get('/', getAllInternships);
+router.get('/', isAdmin, getAllInternships);
 
 // GET /internships/:id - Get an internship by ID
-router.get('/:id', getInternshipById);
+router.get('/:id', isTeacher, getInternshipById);
 
 // PATCH /internships/:id - Update an internship by ID
-router.patch('/:id', updateInternship);
+router.patch('/:id', isStudent, isStillStudent, updateInternship);
 
 // DELETE /internships/:id - Delete an internship by ID
-router.delete('/:id', deleteInternship);
+router.delete('/:id', isAdmin, deleteInternship);
 
-router.post('/planning/assign', assignTeachersToInternships);
+router.post('/planning/assign', isAdmin, assignTeachersToInternships);
 // 
-router.post('/planning/update', addTeacherToInternship);
+router.post('/planning/update', isAdmin, addTeacherToInternship);
 // FOR DEVELOPMENT USE ONLY
-router.post('/planning/remove-all-assigned', removeAllAssignedInternships);
+router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternships);
 // 
-router.post("/open", addDepositPeriod);
+router.post("/open", isAdmin, addDepositPeriod);
 
-// 
-router.post('/assigned-to-me', getAssignedInternships);
+// Assuming you have a JWT middleware that decodes the token
+router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 
 // valider stage (teacher)
-router.put('/:id', validateInternship);
+router.put('/:id', isTeacher, validateInternship);
 
 
 export default router;

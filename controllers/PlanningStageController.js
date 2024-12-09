@@ -32,7 +32,7 @@ export const getAllPlanningStages = async (req, res) => {
         startDate,
         endDate
     } = req.query; // Default to page 1 and 5 results per page
-
+    const skip = (page - 1) * limit;
     try {
         // Build the filter object dynamically
         let filter = {};
@@ -47,25 +47,32 @@ export const getAllPlanningStages = async (req, res) => {
             if (endDate) filter.day.$lte = new Date(endDate); // Day <= endDate
         }
 
-        // Fetch Planning Stages with filters, pagination, and population
-        const PlanningStages = await PlanningStage.find(filter)
+        // Fetch Planning Stages with the provided filters, pagination, and population
+        const planningStages = await PlanningStage.find(filter)
             .populate({
                 path: 'internship', // Populate internship field
                 select: 'title topic student teacher', // Select specific fields from internship
                 populate: [
                     {
                         path: 'student', // Populate student inside internship
-                        select: 'firstName lastName email', // Fetch these fields from student
+                        select: 'firstName lastName', // Fetch these fields from student
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                     {
                         path: 'teacher', // Populate teacher inside internship
-                        select: 'firstName lastName email', // Fetch these fields from teacher
+                        select: 'firstName lastName', // Fetch these fields from teacher
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                 ],
-            })// Populate student details 
-            .skip((page - 1) * limit) // Skip results for previous pages
+            }) // Populate internship, student, and teacher details
+            .skip(skip) // Skip results for previous pages
             .limit(Number(limit)); // Limit the results to the specified number
-
         // Fetch the total count of filtered Planning Stages
         const total = await PlanningStage.countDocuments(filter);
 
@@ -74,7 +81,7 @@ export const getAllPlanningStages = async (req, res) => {
             page: Number(page),
             limit: Number(limit),
             totalPages: Math.ceil(total / limit),
-            data: PlanningStages,
+            data: planningStages,
         });
     } catch (error) {
         console.error('Error fetching planning stages:', error.message);
@@ -94,14 +101,22 @@ export const getPlanningStageById = async (req, res) => {
                 populate: [
                     {
                         path: 'student', // Populate student inside internship
-                        select: 'firstName lastName email', // Fetch these fields from student
+                        select: 'firstName lastName', // Fetch these fields from student
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                     {
                         path: 'teacher', // Populate teacher inside internship
-                        select: 'firstName lastName email', // Fetch these fields from teacher
+                        select: 'firstName lastName', // Fetch these fields from teacher
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                 ],
-            }); // Populate student details 
+            }) // Populate internship, student, and teacher details
         if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }

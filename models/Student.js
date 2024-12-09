@@ -105,6 +105,12 @@ const StudentSchema = new mongoose.Schema({
     address: {
         type: String,
     },
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
+    },
 });
 
 export default mongoose.model('Student', StudentSchema);

@@ -20,28 +20,30 @@ const validateFiles = (documents) => {
 
 // Add a new internship
 export const addInternship = async (req, res) => {
-    // const { title, documents, StartDate, EndDate, isValid, typeInternship, studentId, teacherId, topicDetails } = req.body;
     const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
 
-    // Validate dates
+    // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        // Validate `topicDetails` input
+        // Validate topicDetails input
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
-        // Validate `documents` input
+
+        // Validate documents input
         if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
             return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
         }
-        // Validate the file formats using the validateFiles function
+
+        // Validate file formats using the validateFiles function
         const fileValidation = validateFiles(documents);
         if (!fileValidation.isValid) {
             return res.status(400).json({ error: fileValidation.message });
         }
+
         // Validate the student (if provided)
         let student = null;
         if (studentId) {
@@ -58,18 +60,18 @@ export const addInternship = async (req, res) => {
             if (!teacher) {
                 return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
             }
-        }
-        if (teacher != null && teacher.subjectCount >= teacher.assignedInternships.length) {
-            return res.status(400).json({ error: `Teacher ${teacher.firstName} is Full.` });
+            // Ensure teacher is not assigned to the maximum number of internships
+            if (teacher.subjectCount <= teacher.assignedInternships.length) {
+                return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
+            }
         }
 
-        // Create the internship with the embedded topic
+        // Create the internship object with the provided topic and student/teacher if available
         const newInternship = new Internship({
             title,
             documents,
             StartDate,
             EndDate,
-            // isValid,
             typeInternship,
             topic: {
                 title: topicDetails.title,
@@ -80,14 +82,20 @@ export const addInternship = async (req, res) => {
             teacher: teacherId || null,
         });
 
+        // Save the internship
         const savedInternship = await newInternship.save();
+
+        // If a teacher is associated, add the internship to the teacher's list of assigned internships
         if (teacher) {
-            // Add the internship to the teacher's assignedInternships array
             teacher.assignedInternships.push(savedInternship._id);
             await teacher.save();
         }
-        res.status(201).json({ message: "Internship created successfully", savedInternship });
+
+        // Respond with the created internship details
+        res.status(201).json({ message: "Internship created successfully.", savedInternship });
+
     } catch (error) {
+        // Handle and log unexpected errors
         console.error("Error adding internship:", error.message);
         res.status(500).json({ error: "Erreur lors de l'ajout du stage.", error });
     }
@@ -411,12 +419,9 @@ export const removeAllAssignedInternships = async (req, res) => {
 };
 
 export const getAssignedInternships = async (req, res) => {
-    // need to be updated later with token
-    const { teacherId } = req.body;  // Teacher ID from the request body
-    // console.log(teacherId);
-
     try {
-        // Validate teacher existence
+        const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
+        // Validate teacher existence using the teacherId from the decoded token
         const teacher = await Teacher.findById(teacherId);
         if (!teacher) {
             return res.status(404).json({ message: 'Teacher not found.' });
@@ -424,10 +429,16 @@ export const getAssignedInternships = async (req, res) => {
 
         // Fetch internships assigned to this teacher
         const internships = await Internship.find({ teacher: teacherId })
-            .populate('student', 'firstName lastName email')  // Populate student details
-            .populate('topic', 'title description')  // Populate topic details
-            .select('-teacher')  // Exclude the 'teacher' field from the result
-            .exec();
+            .populate({
+                path: 'student', // Populate internship field
+                select: 'firstName lastName user', // Select specific fields from internship
+                populate: {
+                    path: 'user', // Populate user to fetch email
+                    select: 'email', // Select only email from user
+                },
+            })
+            .select("-teacher")
+            .exec(); // Populate internship, student, and teacher details
 
         // If no internships are found for the teacher
         if (internships.length === 0) {
@@ -441,51 +452,76 @@ export const getAssignedInternships = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching assigned internships:', error.message);
+
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ message: 'Invalid or expired token.' });
+        }
+
         res.status(500).json({ message: 'Error fetching assigned internships.', error });
     }
 };
 
-
 // 
 export const validateInternship = async (req, res) => {
     const { id } = req.params;
-    const { isValid, teacherId, reasonIfNotValid } = req.body;
+    const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
+
+    const { isValid, reasonIfNotValid } = req.body;
 
     try {
         // Find the internship by ID and populate teacher details
         const internship = await Internship.findById(id).populate('teacher');
 
+        // Check if the internship exists
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
 
-        // Check if the internship has an assigned teacher
+        // Validate that the internship has a teacher assigned
         if (!internship.teacher) {
-            return res.status(404).json({ message: "Vous n'etes pas assigné à ce stage." });
+            return res.status(400).json({ message: "Ce stage n'a pas d'enseignant assigné." });
         }
 
-        // Check if the teacherId in the request matches the teacher assigned to the internship
+        // Check if the teacherId from the token matches the teacher assigned to the internship
         if (internship.teacher._id.toString() !== teacherId) {
             return res.status(403).json({ message: "L'enseignant ne correspond pas." });
         }
 
-        // Check if isValid is a boolean
+        // Validate the 'isValid' field: it should be a boolean
         if (typeof isValid !== 'boolean') {
             return res.status(400).json({ message: "Le champ 'isValid' doit être un booléen." });
         }
+
+        // If 'isValid' is false, ensure that the 'reasonIfNotValid' field is provided
         if (!isValid && !reasonIfNotValid) {
-            return res.status(400).json({ message: "Le champ 'reasonIfNotValid' est Obligatoire." });
+            return res.status(400).json({ message: "Le champ 'reasonIfNotValid' est obligatoire lorsque 'isValid' est faux." });
         }
 
-        if (reasonIfNotValid) internship.reasonIfNotValid = reasonIfNotValid;
+        // Update the internship's 'reasonIfNotValid' field if provided
+        if (reasonIfNotValid) {
+            internship.reasonIfNotValid = reasonIfNotValid;
+        }
 
-        // Update the internship's isValid field
+        // Update the 'isValid' field of the internship
         internship.isValid = isValid;
+
+        // Save the updated internship
         const updatedInternship = await internship.save();
-        // Send the updated internship as the response
-        res.status(200).json(updatedInternship);
+
+        // Send the updated internship in the response
+        res.status(200).json({
+            message: 'Stage mis à jour avec succès.',
+            updatedInternship,
+        });
+
     } catch (error) {
+        // Log error details for debugging
         console.error("Error updating internship:", error.message);
-        res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
+
+        // Return a generic server error
+        res.status(500).json({
+            message: "Erreur lors de la mise à jour du stage.",
+            error: error.message,
+        });
     }
 };

@@ -27,6 +27,12 @@ const TeacherSchema = new mongoose.Schema({
         type: Boolean,
         default: false, // Default value
     },
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
+    },
 
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
