@@ -531,7 +531,7 @@ export const getAssignedInternships = async (req, res) => {
     }
 };
 
-// 
+// teacher validate internship
 export const validateInternship = async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
