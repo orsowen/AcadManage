@@ -1,6 +1,6 @@
 
 import express from 'express';
-import { createPFE, updatePFE, ListAllPFEInfo, choosePFE, validateAssignments } from '../controllers/PFE.js';
+import { createPFE, updatePFE, ListAllPFEInfo, choosePFE, validateAssignments, assignPFEToTeacher } from '../controllers/PFE.js';
 
 
 const router = express.Router();
@@ -18,6 +18,6 @@ router.get('/:id/choice', choosePFE);
 
 router.get('/planning/assign', validateAssignments);
 
-router.get('/:id/planning/assign');
+router.get('/:id/planning/assign' , assignPFEToTeacher);
 
 export default router;

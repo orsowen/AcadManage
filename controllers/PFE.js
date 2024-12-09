@@ -237,3 +237,49 @@ export const validateAssignments = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const assignPFEToTeacher = async (req, res) => {
+    const { id } = req.params; // PFE ID
+    const { teacherId, force } = req.body; // Teacher ID and force flag
+
+    try {
+        // Find the PFE by ID
+        const pfe = await PFE.findById(id);
+
+        if (!pfe) {
+            return res.status(404).json({ error: "PFE not found." });
+        }
+
+        // Check if the PFE is already assigned to a teacher
+        if (pfe.teacher) {
+            if (force) {
+                // If force is true, unassign from the current teacher and assign to the new teacher
+                pfe.teacher = teacherId;
+                await pfe.save();
+                return res.status(200).json({
+                    message: "PFE successfully reassigned to the new teacher.",
+                    PFE: pfe,
+                });
+            } else {
+                // If force is false, return an error
+                return res.status(400).json({
+                    error: "This PFE is already assigned to another teacher. Use force=true to reassign.",
+                });
+            }
+        }
+
+        // If not assigned, assign the PFE to the teacher
+        pfe.teacher = teacherId;
+        await pfe.save();
+
+        res.status(200).json({
+            message: "PFE successfully assigned to the teacher.",
+            PFE: pfe,
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "An error occurred while assigning the PFE.",
+            details: error.message,
+        });
+    }
+};
