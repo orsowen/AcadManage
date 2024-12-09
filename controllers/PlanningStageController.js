@@ -32,7 +32,7 @@ export const getAllPlanningStages = async (req, res) => {
         startDate,
         endDate
     } = req.query; // Default to page 1 and 5 results per page
-
+    const skip = (page - 1) * limit;
     try {
         // Build the filter object dynamically
         let filter = {};
@@ -47,25 +47,32 @@ export const getAllPlanningStages = async (req, res) => {
             if (endDate) filter.day.$lte = new Date(endDate); // Day <= endDate
         }
 
-        // Fetch Planning Stages with filters, pagination, and population
-        const PlanningStages = await PlanningStage.find(filter)
+        // Fetch Planning Stages with the provided filters, pagination, and population
+        const planningStages = await PlanningStage.find(filter)
             .populate({
                 path: 'internship', // Populate internship field
                 select: 'title topic student teacher', // Select specific fields from internship
                 populate: [
                     {
                         path: 'student', // Populate student inside internship
-                        select: 'firstName lastName email', // Fetch these fields from student
+                        select: 'firstName lastName', // Fetch these fields from student
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                     {
                         path: 'teacher', // Populate teacher inside internship
-                        select: 'firstName lastName email', // Fetch these fields from teacher
+                        select: 'firstName lastName', // Fetch these fields from teacher
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                 ],
-            })// Populate student details 
-            .skip((page - 1) * limit) // Skip results for previous pages
+            }) // Populate internship, student, and teacher details
+            .skip(skip) // Skip results for previous pages
             .limit(Number(limit)); // Limit the results to the specified number
-
         // Fetch the total count of filtered Planning Stages
         const total = await PlanningStage.countDocuments(filter);
 
@@ -74,7 +81,7 @@ export const getAllPlanningStages = async (req, res) => {
             page: Number(page),
             limit: Number(limit),
             totalPages: Math.ceil(total / limit),
-            data: PlanningStages,
+            data: planningStages,
         });
     } catch (error) {
         console.error('Error fetching planning stages:', error.message);
@@ -94,14 +101,22 @@ export const getPlanningStageById = async (req, res) => {
                 populate: [
                     {
                         path: 'student', // Populate student inside internship
-                        select: 'firstName lastName email', // Fetch these fields from student
+                        select: 'firstName lastName', // Fetch these fields from student
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                     {
                         path: 'teacher', // Populate teacher inside internship
-                        select: 'firstName lastName email', // Fetch these fields from teacher
+                        select: 'firstName lastName', // Fetch these fields from teacher
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
                     },
                 ],
-            }); // Populate student details 
+            }) // Populate internship, student, and teacher details
         if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }
@@ -112,26 +127,103 @@ export const getPlanningStageById = async (req, res) => {
     }
 };
 
+// Get planning for a student
+export const getPlanningStageByStudent = async (req, res) => {
+    try {
+        const studentId = req.user.idRole; // Extract student ID from JWT token
+
+        // Validate that the student ID is present
+        if (!studentId) {
+            return res.status(403).json({ message: "Unauthorized access. Only students can access this route." });
+        }
+
+        // Fetch planning stages for the student
+        const planningStages = await PlanningStage.find({ isPublished: true })
+            .populate({
+                path: 'internship', // Populate internship field
+                match: { student: studentId }, // Ensure the student matches
+                select: 'title topic student teacher', // Select specific fields from internship
+                populate: [
+                    {
+                        path: 'teacher', // Populate teacher inside internship
+                        select: 'firstName lastName', // Fetch specific fields from teacher
+                        populate: {
+                            path: 'user', // Populate teacher's user details to get email
+                            select: 'email', // Fetch only email from user
+                        },
+                    },
+                ],
+            });
+
+        // Filter out planning stages without matched internships
+        const filteredStages = planningStages.filter((stage) => stage.internship);
+
+        // Check if no planning stages are found
+        if (filteredStages.length === 0) {
+            return res.status(404).json({ message: 'No planning stages found for this student.' });
+        }
+
+        // Respond with the fetched planning stages
+        res.status(200).json({
+            message: "Planning stages fetched successfully.",
+            data: filteredStages,
+        });
+    } catch (error) {
+        console.error('Error fetching planning stages:', error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            message: 'An error occurred while fetching planning stages.',
+            error: error.message,
+        });
+    }
+};
+
 // Update a Planning Stage
 export const updatePlanningStage = async (req, res) => {
+    const teacherId = req.user.idRole; // Extract teacher ID from JWT token
     const { id } = req.params;
     const { horaire, day, meet_link, internship } = req.body;
 
     try {
-        const updatedPlanningStage = await PlanningStage.findByIdAndUpdate(
-            id,
-            { horaire, day, meet_link, internship },
-            { new: true, runValidators: true }
-        );
-        if (!updatedPlanningStage) {
+        // Fetch the planning stage and populate the internship's teacher details
+        const planningStage = await PlanningStage.findById(id).populate({
+            path: 'internship',
+            populate: { path: 'teacher', select: '_id' },
+        });
+
+        if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }
-        res.status(200).json(updatedPlanningStage);
+
+        // Check if the logged-in teacher is authorized to update this planning stage
+        if (planningStage.internship.teacher._id.toString() !== teacherId) {
+            return res.status(403).json({ message: 'Not authorized to update this planning stage.' });
+        }
+
+        // Validate and update fields
+        if (horaire) planningStage.horaire = horaire;
+        if (day) planningStage.day = day;
+        if (meet_link) planningStage.meet_link = meet_link;
+        if (internship) planningStage.internship = internship;
+
+        // Save the updated planning stage
+        const updatedPlanningStage = await planningStage.save();
+
+        // Respond with the updated planning stage
+        res.status(200).json({
+            message: 'Planning Stage updated successfully.',
+            data: updatedPlanningStage,
+        });
     } catch (error) {
         console.error('Error updating planning stage:', error.message);
-        res.status(500).json({ error: 'Failed to update planning stage.' });
+        res.status(500).json({
+            message: 'An error occurred while updating the planning stage.',
+            error: error.message,
+        });
     }
 };
+
 
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
