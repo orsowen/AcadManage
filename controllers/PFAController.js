@@ -1,6 +1,7 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
+import User from "../models/User.js"; 
 import Student from "../models/Student.js";
 import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
@@ -150,7 +151,8 @@ export const publishSubjects = async (req, res) => {
   }
 };
 
-// Handle first send option
+
+
 export const firstSend = async () => {
   try {
     // Logique pour le premier envoi
@@ -160,10 +162,16 @@ export const firstSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, 'email');
-    const teachers = await Teacher.find({}, 'email');
+    const users = await User.find()
+      .populate('student', 'email')
+      .populate('teacher', 'email')
+      .exec();
 
-    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+    const emails = users.map(user => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject = "Publication des sujets et ouverture de la période de choix";
@@ -193,10 +201,16 @@ export const modifiedSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, 'email');
-    const teachers = await Teacher.find({}, 'email');
+    const users = await User.find()
+      .populate('student', 'email')
+      .populate('teacher', 'email')
+      .exec();
 
-    const emails = [...students.map(student => student.email), ...teachers.map(teacher => teacher.email)];
+    const emails = users.map(user => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject = "Modification des sujets";
