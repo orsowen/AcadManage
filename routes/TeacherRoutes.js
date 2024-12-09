@@ -6,22 +6,23 @@ import {
     getTeacherById,
     updateTeacher,
 } from '../controllers/TeacherController.js';
+import { isAdmin } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
 // Create a new teacher
-router.post('/', createTeacher);
+router.post('/', isAdmin, createTeacher);
 
 // Get all teachers
-router.get('/', getAllTeachers);
+router.get('/', isAdmin, getAllTeachers);
 
 // Get a single teacher by ID
-router.get('/:id', getTeacherById);
+router.get('/:id', isAdmin, getTeacherById);
 
 // Update a teacher
-router.patch('/:id', updateTeacher);
+router.patch('/:id', isAdmin, updateTeacher);
 
 // Delete a teacher
-router.delete('/:id', deleteTeacher);
+router.delete('/:id', isAdmin, deleteTeacher);
 
 export default router;

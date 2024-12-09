@@ -4,24 +4,28 @@ import {
     deleteStudent,
     getAllStudents,
     getStudentById,
-    updateStudent
+    getStudentProfile,
+    updateStudent,
 } from '../controllers/StudentController.js';
+import { isAdmin, isStudent } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
 // POST /students - Create a new student
-router.post('/', createStudent);
+router.post('/', isAdmin, createStudent);
 
 // GET /students - Get all students
-router.get('/', getAllStudents);
+router.get('/', isAdmin, getAllStudents);
 
 // GET /students/:id - Get a student by ID
-router.get('/:id', getStudentById);
+router.get('/:id', isAdmin, getStudentById);
+// (still dont work)
+router.get('/profile', isStudent, getStudentProfile);
 
 // PATCH /students/:id - Update a student by ID
-router.patch('/:id', updateStudent);
+router.patch('/:id', isAdmin, updateStudent);
 
 // DELETE /students/:id - Delete a student by ID
-router.delete('/:id', deleteStudent);
+router.delete('/:id', isAdmin, deleteStudent);
 
 export default router;

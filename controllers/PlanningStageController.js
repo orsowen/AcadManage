@@ -1,10 +1,31 @@
+import Internship from '../models/Internship.js';
 import PlanningStage from '../models/PlanningStage.js';
 
 // Create a new Planning Stage
 export const createPlanningStage = async (req, res) => {
+    const teacherId = req.user.idRole; // Extract teacher ID from JWT token
+    const role = req.user.role; // Extract role from JWT token
     const { horaire, day, meet_link, internship } = req.body;
 
     try {
+        // Check if internship exists
+        const internshipDoc = await Internship.findById(internship);
+        if (!internshipDoc) {
+            return res.status(404).json({ error: 'Internship not found.' });
+        }
+
+        // Check if a planning stage already exists for this internship
+        const existingPlanningStage = await PlanningStage.findOne({ internship });
+        if (existingPlanningStage) {
+            return res.status(400).json({ error: 'Planning for this internship already exists.' });
+        }
+
+        // Ensure the user is authorized to plan this stage (teacher or admin)
+        if (teacherId !== internshipDoc.teacher.toString() && role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to plan this stage.' });
+        }
+
+        // Create the new planning stage
         const newPlanningStage = new PlanningStage({
             horaire,
             day,
@@ -12,16 +33,22 @@ export const createPlanningStage = async (req, res) => {
             internship,
         });
 
+        // Save the new planning stage to the database
         const savedPlanningStage = await newPlanningStage.save();
+
+        // Respond with the created planning stage
         res.status(201).json({
-            message: "Created Successfully",
-            savedPlanningStage
+            message: 'Planning stage created successfully.',
+            savedPlanningStage,
         });
+
     } catch (error) {
         console.error('Error creating planning stage:', error.message);
         res.status(500).json({ error: 'Failed to create planning stage.' });
     }
 };
+
+// get all the planning stages
 export const getAllPlanningStages = async (req, res) => {
     const {
         page = 1,
@@ -241,34 +268,6 @@ export const deletePlanningStage = async (req, res) => {
     }
 };
 
-
-// Update the isPublished status for all non-archived planning stages
-// export const updatePublicationStatus = async (req, res) => {
-//     const { type, response } = req.params;
-
-//     // Validate response parameter
-//     if (response !== "true" && response !== "false") {
-//         return res.status(400).json({ message: "'response' parameter must be 'true' or 'false'." });
-//     }
-
-//     const publish = response === "true"; // Convert response to boolean
-
-//     try {
-//         // Update all non-archived PlanningStage objects
-//         const result = await PlanningStage.updateMany(
-//             { isArchived: false }, // Condition: not archived
-//             { isPublished: publish } // Update: set isPublished based on the 'publish' value
-//         );
-
-//         res.status(200).json({
-//             message: `Planning stages for ${type} successfully ${publish ? "published" : "hidden"}.`,
-//             updatedCount: result.modifiedCount, // Number of documents updated
-//         });
-//     } catch (error) {
-//         console.error("Error updating publication status:", error.message);
-//         res.status(500).json({ error: "Failed to update publication status." });
-//     }
-// };
 // Update the isPublished status for all non-archived planning stages
 export const updatePublicationStatus = async (req, res) => {
     const { response } = req.params; // Extract  'response' from the route parameters
