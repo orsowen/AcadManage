@@ -4,24 +4,29 @@ import {
     deleteTeacher,
     getAllTeachers,
     getTeacherById,
-    updateTeacher,
+    getTeacherProfile,
+    updateTeacher
 } from '../controllers/TeacherController.js';
+import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
 // Create a new teacher
-router.post('/', createTeacher);
+router.post('/', isAdmin, createTeacher);
 
 // Get all teachers
-router.get('/', getAllTeachers);
+router.get('/', isAdmin, getAllTeachers);
 
 // Get a single teacher by ID
-router.get('/:id', getTeacherById);
+router.get('/:id', isAdmin, getTeacherById);
+
+// ( get dont work thats why post)
+router.post('/profile', isTeacher, getTeacherProfile);
 
 // Update a teacher
-router.patch('/:id', updateTeacher);
+router.patch('/:id', isAdmin, updateTeacher);
 
 // Delete a teacher
-router.delete('/:id', deleteTeacher);
+router.delete('/:id', isAdmin, deleteTeacher);
 
 export default router;

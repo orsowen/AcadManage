@@ -12,7 +12,6 @@ const TeacherSchema = new mongoose.Schema({
         trim: true,
     },
 
-
     subjectCount: {
         type: Number,
         required: true,
@@ -27,6 +26,12 @@ const TeacherSchema = new mongoose.Schema({
     isArchived: {
         type: Boolean,
         default: false, // Default value
+    },
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
     },
 
 }, {

@@ -7,21 +7,46 @@ import { generateRandomPassword } from './UserController.js';
 export const createTeacher = async (req, res) => {
     const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
 
+    // Initialize session for transactions
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        // Create a new teacher
-        const newTeacher = new Teacher({ lastName, firstName, subjectCount });
+        // Validation: Check if essential fields are provided
+        const missingFields = [];
+        if (!lastName) missingFields.push('lastName');
+        if (!firstName) missingFields.push('firstName');
+        if (!cin) missingFields.push('cin');
+        if (!email) missingFields.push('email');
+        if (!subjectCount) missingFields.push('subjectCount');
 
-        // Save the teacher
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                message: `Missing required fields: ${missingFields.join(', ')}.`
+            });
+        }
+
+        // Check if the CIN, email, or phone already exists
+        const existingTeacher = await Teacher.findOne({ cin });
+        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+
+        if (existingTeacher) {
+            return res.status(400).json({ message: 'CIN is already in use.' });
+        }
+        if (existingUser) {
+            const field = existingUser.email === email ? 'Email' : 'Phone';
+            return res.status(400).json({ message: `${field} is already in use.` });
+        }
+
+        // Create the teacher
+        const newTeacher = new Teacher({ lastName, firstName, subjectCount });
         const savedTeacher = await newTeacher.save({ session });
 
         // Generate a random password for the user
         const password = generateRandomPassword();
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create a new user for the teacher
+        // Create a user for the teacher
         const newUser = new User({
             cin,
             email,
@@ -31,31 +56,40 @@ export const createTeacher = async (req, res) => {
             teacher: savedTeacher._id, // Link the user to the teacher
         });
 
-        // Save the user to the database
         const savedUser = await newUser.save({ session });
 
         // Commit the transaction if both teacher and user are successfully created
         await session.commitTransaction();
 
-        // Return both the teacher and user details in the response
+        // Associate the teacher with the created user
+        savedTeacher.user = savedUser._id;
+        await savedTeacher.save();
+
+        // Return the created teacher and user data
         res.status(201).json({
             message: 'Teacher and user created successfully.',
-            savedTeacher,
+            teacher: savedTeacher,
             userCredentials: {
                 cin: savedUser.cin,
                 role: savedUser.role,
                 email: savedUser.email,
                 phone: savedUser.phone,
-                password, // Optionally include the password if needed, but usually, it's not recommended to expose the password
+                password, // Optionally include the plaintext password for communication purposes
             },
         });
     } catch (error) {
-        // Roll back the transaction in case of an error
+        // Roll back the transaction if an error occurs
         await session.abortTransaction();
-        console.error('Error creating teacher and user:', error.message);
-        res.status(500).json({ error: 'Failed to create teacher and user.', error });
+        console.error('Error creating teacher and user:', error);
+
+        // Send detailed error response
+        res.status(500).json({
+            error: 'Failed to create teacher and user.',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Provide stack trace in development mode
+        });
     } finally {
-        session.endSession();
+        session.endSession(); // End the session
     }
 };
 
@@ -65,19 +99,7 @@ export const getAllTeachers = async (req, res) => {
     try {
         // Fetch teachers and populate user-related fields
         const teachers = await Teacher.find()
-            .lean() // Convert documents to plain objects for easier manipulation
-            .then(async (teachersList) => {
-                // Populate user details for each teacher
-                const populatedTeachers = await Promise.all(
-                    teachersList.map(async (teacher) => {
-                        const user = await User.findOne({ teacher: teacher._id })
-                            .select("cin email phone -_id") // Fetch specific fields only
-                            .lean();
-                        return { ...teacher, ...user }; // Merge teacher and user data
-                    })
-                );
-                return populatedTeachers;
-            });
+            .populate('user', 'email');
 
         res.status(200).json({
             message: "Teachers fetched successfully.",
@@ -94,22 +116,16 @@ export const getTeacherById = async (req, res) => {
 
     try {
         // Fetch the teacher by ID
-        const teacher = await Teacher.findById(id).lean(); // Convert to plain object for easier manipulation
+        const teacher = await Teacher.findById(id)
+            .populate('user', 'email');
+
         if (!teacher) {
             return res.status(404).json({ error: "Teacher not found." });
         }
 
-        // Fetch the corresponding user details
-        const user = await User.findOne({ teacher: id })
-            .select("cin email phone -_id") // Fetch specific fields
-            .lean();
-
-        // Merge user details into the teacher object
-        const result = { ...teacher, ...user };
-
         res.status(200).json({
             message: "Teacher fetched successfully.",
-            data: result,
+            data: teacher,
         });
     } catch (error) {
         console.error("Error fetching teacher:", error.message);
@@ -126,14 +142,6 @@ export const updateTeacher = async (req, res) => {
         const teacher = await Teacher.findById(id);
         if (!teacher) {
             return res.status(404).json({ error: 'Teacher not found.' });
-        }
-
-        // If the cin is different from the current one, check if the new cin already exists in the database
-        if (cin !== teacher.cin) {
-            const existingTeacher = await Teacher.findOne({ cin });
-            if (existingTeacher && existingTeacher._id !== teacher._id) {
-                return res.status(400).json({ error: 'Teacher with this CIN already exists.' });
-            }
         }
 
         // Proceed to update the teacher's details
@@ -182,5 +190,33 @@ export const deleteTeacher = async (req, res) => {
     } catch (error) {
         console.error("Error deleting teacher:", error.message);
         res.status(500).json({ error: "Error deleting teacher." });
+    }
+};
+
+// 
+
+// Fetch logged in teacher infos (still dont work)
+export const getTeacherProfile = async (req, res) => {
+    const id = req.user.idRole; // Extract the  ID from the JWT token (assuming it stores the  ID)
+
+    if (!id) {
+        return res.status(400).json({ message: 'ID is not available in the token.' });
+    }
+
+    try {
+        // Fetch the student by ID and populate the necessary fields
+        const teacher = await Teacher.findById(id)
+            .populate('user', 'email cin phone') // Populate the user info (email, cin, phone) associated with the student
+            .exec();
+
+        if (!teacher) {
+            return res.status(404).json({ message: 'teacher not found.' });
+        }
+
+        // Respond with the student profile
+        res.status(200).json(teacher);
+    } catch (error) {
+        console.error('Error fetching teacher profile:', error.message);
+        res.status(500).json({ error: 'Failed to fetch teacher profile.' });
     }
 };

@@ -23,11 +23,14 @@ export const createStudent = async (req, res) => {
             null,
             { session }
         );
-        if (existingUser) {
-            // console.log(existingUser);
 
-            const field = existingUser.phone === phone ? 'Phone' : existingUser.email === email ? 'Email' : 'CIN';
-            throw new Error(`${field} is already in use.`);
+        if (existingUser) {
+            const field = existingUser.phone === phone
+                ? 'Phone'
+                : existingUser.email === email
+                    ? 'Email'
+                    : 'CIN';
+            return res.status(400).json({ error: `${field} is already in use.` });
         }
 
         // Create a new student
@@ -57,12 +60,13 @@ export const createStudent = async (req, res) => {
             cFil,
             scoreG,
             bacYear,
-            address
+            address,
         });
 
+        // Save the student
         const savedStudent = await newStudent.save({ session });
 
-        // Generate a random password for the user
+        // Generate a secure random password
         const password = generateRandomPassword();
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -76,11 +80,17 @@ export const createStudent = async (req, res) => {
             student: savedStudent._id, // Link the user to the student
         });
 
+        // Save the user
         const savedUser = await newUser.save({ session });
 
-        // Commit the transaction if all operations succeed
+        // Commit the transaction if both student and user are saved successfully
         await session.commitTransaction();
 
+        // Link the saved user to the student
+        savedStudent.user = savedUser._id;
+        await savedStudent.save(); // Update the student with the user ID
+
+        // Return the success response
         res.status(201).json({
             message: "Student and user created successfully.",
             student: savedStudent,
@@ -89,21 +99,22 @@ export const createStudent = async (req, res) => {
                 role: savedUser.role,
                 email: savedUser.email,
                 phone: savedUser.phone,
-                password, // Optionally include the plaintext password for initial communication
+                password, // Returning the plaintext password (you may want to omit this in production)
             },
         });
     } catch (error) {
-        // Roll back the transaction on failure
+        // Roll back the transaction if an error occurs
         await session.abortTransaction();
-        console.error("Error creating student and user:", error.message);
 
-        // Return specific error messages for validation errors
+        // Log the error and return a response
+        console.error("Error creating student and user:", error.message);
         const statusCode = error.message.includes("already in use") ? 400 : 500;
         res.status(statusCode).json({ error: error.message });
     } finally {
         session.endSession();
     }
 };
+
 // Fetch all students
 export const getAllStudents = async (req, res) => {
     try {
@@ -130,51 +141,92 @@ export const getStudentById = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch student.' });
     }
 };
+
+
+// Fetch logged in student infos (still dont work)
+export const getStudentProfile = async (req, res) => {
+    const studentId = req.user.idRole; // Extract the student ID from the JWT token (assuming it stores the student ID)
+
+    if (!studentId) {
+        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+    }
+
+    try {
+        // Fetch the student by ID and populate the necessary fields
+        const student = await Student.findById(studentId)
+            .populate('user', 'email cin phone') // Populate the user info (email, cin, phone) associated with the student
+            .exec();
+
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        // Respond with the student profile
+        res.status(200).json(student);
+    } catch (error) {
+        console.error('Error fetching student profile:', error.message);
+        res.status(500).json({ error: 'Failed to fetch student profile.' });
+    }
+};
+
+
 export const updateStudent = async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;
 
     try {
-        // Find the student by ID
+        // Step 1: Find the student by ID
         const student = await Student.findById(id);
         if (!student) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        // Validate that only valid fields are being updated
-        const validFields = Object.keys(Student.schema.paths); // List of valid fields in the Student model
-        const updateFields = Object.keys(updatedData);
+        // Step 2: Validate that only valid fields are being updated
+        const validFields = Object.keys(Student.schema.paths); // Get list of valid fields in the Student model
+        const updateFields = Object.keys(updatedData); // Get the fields being updated
 
+        // Check for invalid fields
         const invalidFields = updateFields.filter(field => !validFields.includes(field));
         if (invalidFields.length > 0) {
             return res.status(400).json({ message: `Invalid fields: ${invalidFields.join(', ')}` });
         }
 
-        // Update the student with the provided data
+        // Step 3: Perform the update only for the valid fields
         updateFields.forEach((key) => {
+            // Update only the existing fields in the document
             if (student[key] !== undefined && updatedData[key] !== undefined) {
-                student[key] = updatedData[key]; // Update only the existing fields
+                student[key] = updatedData[key]; // Update the student field
             }
         });
 
-        // Save the updated student
+        // Step 4: Validate fields before saving
+        await student.validate(); // Ensure the updated student data is valid based on model validation
+
+        // Step 5: Save the updated student
         const updatedStudent = await student.save();
 
-        // Return the updated student
+        // Step 6: Return the updated student
         res.status(200).json({ message: 'Student updated successfully.', updatedStudent });
     } catch (error) {
         // Log detailed error for debugging
         console.error('Error updating student:', error.message);
 
-        // Specific error handling based on error type
+        // Step 7: Specific error handling
         if (error.name === 'CastError') {
             return res.status(400).json({ message: 'Invalid student ID format.' });
+        }
+
+        // Validation errors from the model
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation failed.', error: error.message });
         }
 
         // Catch any other unexpected errors
         res.status(500).json({ message: 'Server error while updating student.', error: error.message });
     }
 };
+
+
 // Delete a student by ID
 export const deleteStudent = async (req, res) => {
     const { id } = req.params;

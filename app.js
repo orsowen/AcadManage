@@ -4,14 +4,9 @@ import dotenv from "dotenv";
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
-import internshipRoutes from "./routes/InternshipRoutes.js";
+import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
-
 import PFE from "./routes/PFE.js";
-import planningStageRoutes from "./routes/PlanningStageRoutes.js";
-import studentRoutes from "./routes/StudentRoutes.js";
-import teacherRoutes from "./routes/teacherRoutes.js";
-import UserConnexionRoutes from "./routes/UserConnexionRoutes.js";
 
 
 // ENVIRONMENT variables configuration
@@ -29,16 +24,12 @@ app.use(express.json());
 
 // ROUTES
 
-
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/PFE", PFE);
-
-app.use("/internships", planningStageRoutes);
-app.use("/internships", internshipRoutes);
-app.use("/users", UserConnexionRoutes);
-app.use("/teachers", teacherRoutes);
-app.use("/students", studentRoutes);
 app.use("/", routerPFA);
+// All the endpoints below are in index.js for a better ordering and structure
+app.use(router);
+
 
 // Start server
 app.listen(PORT, () => {
