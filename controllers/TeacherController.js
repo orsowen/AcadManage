@@ -192,3 +192,31 @@ export const deleteTeacher = async (req, res) => {
         res.status(500).json({ error: "Error deleting teacher." });
     }
 };
+
+// 
+
+// Fetch logged in teacher infos (still dont work)
+export const getTeacherProfile = async (req, res) => {
+    const id = req.user.idRole; // Extract the  ID from the JWT token (assuming it stores the  ID)
+
+    if (!id) {
+        return res.status(400).json({ message: 'ID is not available in the token.' });
+    }
+
+    try {
+        // Fetch the student by ID and populate the necessary fields
+        const teacher = await Teacher.findById(id)
+            .populate('user', 'email cin phone') // Populate the user info (email, cin, phone) associated with the student
+            .exec();
+
+        if (!teacher) {
+            return res.status(404).json({ message: 'teacher not found.' });
+        }
+
+        // Respond with the student profile
+        res.status(200).json(teacher);
+    } catch (error) {
+        console.error('Error fetching teacher profile:', error.message);
+        res.status(500).json({ error: 'Failed to fetch teacher profile.' });
+    }
+};

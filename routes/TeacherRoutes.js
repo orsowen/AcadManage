@@ -4,9 +4,10 @@ import {
     deleteTeacher,
     getAllTeachers,
     getTeacherById,
-    updateTeacher,
+    getTeacherProfile,
+    updateTeacher
 } from '../controllers/TeacherController.js';
-import { isAdmin } from "../middlewares/authentication.js";
+import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
@@ -18,6 +19,9 @@ router.get('/', isAdmin, getAllTeachers);
 
 // Get a single teacher by ID
 router.get('/:id', isAdmin, getTeacherById);
+
+// ( get dont work thats why post)
+router.post('/profile', isTeacher, getTeacherProfile);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);

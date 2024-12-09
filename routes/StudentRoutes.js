@@ -19,8 +19,9 @@ router.get('/', isAdmin, getAllStudents);
 
 // GET /students/:id - Get a student by ID
 router.get('/:id', isAdmin, getStudentById);
-// (still dont work)
-router.get('/profile', isStudent, getStudentProfile);
+
+// ( get dont work thats why post)
+router.post('/profile', isStudent, getStudentProfile);
 
 // PATCH /students/:id - Update a student by ID
 router.patch('/:id', isAdmin, updateStudent);
