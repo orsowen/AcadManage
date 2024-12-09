@@ -3,27 +3,37 @@ import PlanningStage from '../models/PlanningStage.js';
 import { sendMail } from './mailer.js';
 
 // Create a new Planning Stage
+
 export const createPlanningStage = async (req, res) => {
     const teacherId = req.user.idRole; // Extract teacher ID from JWT token
     const role = req.user.role; // Extract role from JWT token
-    const { horaire, day, meet_link, internship } = req.body;
+    const { horaire, day, meet_link, internship, sendMail: shouldSendMail } = req.body;
 
     try {
         // Check if internship exists
-        const internshipDoc = await Internship.findById(internship);
+        const internshipDoc = await Internship.findById(internship)
+            .populate({
+                path: "student",
+                select: "firstName lastName user",
+                populate: {
+                    path: "user",
+                    select: "email",
+                },
+            });
+
         if (!internshipDoc) {
-            return res.status(404).json({ error: 'Internship not found.' });
+            return res.status(404).json({ error: "Internship not found." });
         }
 
         // Check if a planning stage already exists for this internship
         const existingPlanningStage = await PlanningStage.findOne({ internship });
         if (existingPlanningStage) {
-            return res.status(400).json({ error: 'Planning for this internship already exists.' });
+            return res.status(400).json({ error: "Planning for this internship already exists." });
         }
 
         // Ensure the user is authorized to plan this stage (teacher or admin)
-        if (teacherId !== internshipDoc.teacher.toString() && role !== 'admin') {
-            return res.status(403).json({ error: 'Unauthorized to plan this stage.' });
+        if (teacherId !== internshipDoc.teacher.toString() && role !== "admin") {
+            return res.status(403).json({ error: "Unauthorized to plan this stage." });
         }
 
         // Create the new planning stage
@@ -34,18 +44,44 @@ export const createPlanningStage = async (req, res) => {
             internship,
         });
 
+        // Optionally send an email to the student with planning details
+        if (shouldSendMail) {
+            const studentEmail = internshipDoc.student?.user?.email;
+            const studentName = `${internshipDoc.student?.firstName} ${internshipDoc.student?.lastName}`;
+
+            if (studentEmail) {
+                const subject = "Détails de votre planning de stage";
+                const message = `
+                    <p>Cher ${studentName},</p>
+                    <p>Voici les détails de votre planning :</p>
+                    <ul>
+                        <li><strong>Horaire :</strong> ${horaire}</li>
+                        <li><strong>Jour :</strong> ${day}</li>
+                        <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                    </ul>
+                    <p>Cordialement,</p>
+                    <p>L'équipe de gestion de stages</p>
+                `;
+
+                await sendMail(studentEmail, subject, message);
+                console.log("mail sent");
+                newPlanningStage.sendStatusMessage = "First Sent";
+            } else {
+                console.warn("Student email not found, skipping email sending.");
+            }
+        }
+
         // Save the new planning stage to the database
         const savedPlanningStage = await newPlanningStage.save();
 
         // Respond with the created planning stage
         res.status(201).json({
-            message: 'Planning stage created successfully.',
+            message: "Planning stage created successfully.",
             savedPlanningStage,
         });
-
     } catch (error) {
-        console.error('Error creating planning stage:', error.message);
-        res.status(500).json({ error: 'Failed to create planning stage.' });
+        console.error("Error creating planning stage:", error.message);
+        res.status(500).json({ error: "Failed to create planning stage." });
     }
 };
 
