@@ -127,6 +127,58 @@ export const getPlanningStageById = async (req, res) => {
     }
 };
 
+// Get planning for a student
+export const getPlanningStageByStudent = async (req, res) => {
+    try {
+        const studentId = req.user.idRole; // Extract student ID from JWT token
+
+        // Validate that the student ID is present
+        if (!studentId) {
+            return res.status(403).json({ message: "Unauthorized access. Only students can access this route." });
+        }
+
+        // Fetch planning stages for the student
+        const planningStages = await PlanningStage.find()
+            .populate({
+                path: 'internship', // Populate internship field
+                match: { student: studentId }, // Ensure the student matches
+                select: 'title topic student teacher', // Select specific fields from internship
+                populate: [
+                    {
+                        path: 'teacher', // Populate teacher inside internship
+                        select: 'firstName lastName', // Fetch specific fields from teacher
+                        populate: {
+                            path: 'user', // Populate teacher's user details to get email
+                            select: 'email', // Fetch only email from user
+                        },
+                    },
+                ],
+            });
+
+        // Filter out planning stages without matched internships
+        const filteredStages = planningStages.filter((stage) => stage.internship);
+
+        // Check if no planning stages are found
+        if (filteredStages.length === 0) {
+            return res.status(404).json({ message: 'No planning stages found for this student.' });
+        }
+
+        // Respond with the fetched planning stages
+        res.status(200).json({
+            message: "Planning stages fetched successfully.",
+            data: filteredStages,
+        });
+    } catch (error) {
+        console.error('Error fetching planning stages:', error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            message: 'An error occurred while fetching planning stages.',
+            error: error.message,
+        });
+    }
+};
+
 // Update a Planning Stage
 export const updatePlanningStage = async (req, res) => {
     const { id } = req.params;
