@@ -4,14 +4,14 @@ import {
   getDepositPeriods,
   updateDepositPeriod,
 } from "../controllers/DepositPeriod.js";
-import { isAdmin, loggedMiddleware } from "../middlewares/authentification.js";
+import { isAdmin } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
-router.post("/open",loggedMiddleware,isAdmin, addDepositPeriod);
+router.post("/open",isAdmin, addDepositPeriod);
 
-router.get("/open",loggedMiddleware,isAdmin,  getDepositPeriods);
+router.get("/open",isAdmin,  getDepositPeriods);
 
-router.patch("/open", loggedMiddleware,isAdmin, updateDepositPeriod);
+router.patch("/open",isAdmin, updateDepositPeriod);
 
 export default router;
