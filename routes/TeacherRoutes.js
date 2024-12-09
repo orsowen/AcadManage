@@ -5,7 +5,8 @@ import {
     getAllTeachers,
     getTeacherById,
     getTeacherProfile,
-    updateTeacher, updateTeacherPassword
+    updateTeacher, 
+    updateTeacherPassword,
 } from '../controllers/TeacherController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 

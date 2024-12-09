@@ -221,8 +221,6 @@ export const getTeacherProfile = async (req, res) => {
     }
 };
 
-
-
 export const updateTeacherPassword = async (req, res) => {
     const { id } = req.params; // Student ID passed as a parameter
     const { password } = req.body; // New password from the request body
