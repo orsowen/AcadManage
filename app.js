@@ -43,7 +43,7 @@ app.use("/internships", soutenanceStageRoutes);
 app.use("/users", UserConnexionRoutes);
 app.use("/teachers", teacherRoutes);
 app.use("/students", studentRoutes);
-app.use("/", routerPFA);
+app.use("/PFA", routerPFA);
 app.use("/", choicePFA);
 // FOR TESTING ONLY (DO NOT DELETE)
 app.use("/topics", topicsRoutes);

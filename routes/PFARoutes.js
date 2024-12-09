@@ -13,47 +13,48 @@ import {
   getSubjectById,
 } from "../controllers/PFAController.js";
 import express from "express";
+import { isAdmin, isStudent, isTeacher, loggedMiddleware } from "../middlewares/authentification.js";
 
 const router = express.Router();
 
 // Route to create multiple subjects
-router.post("/PFA/post", createSubjects);
+router.post("/post", loggedMiddleware , isTeacher , createSubjects);
 
 // Route to get all subjects Admin
-router.get("/PFA", getSubjects);
+router.get("",loggedMiddleware,isAdmin, getSubjects);
 
 // route to get a subject by id Admin
-router.get("/PFA/:id", getSubjectById);
+router.get("/:id",loggedMiddleware,isAdmin, getSubjectById);
 
 // Route to get all subjects teacher
-router.get("/PFA/mine", getSubjects);
+router.get("/mine",loggedMiddleware , isTeacher , getSubjects);
 
 // route to get a subject by id teacher
-router.get("/PFA/:id/mine", getSubjectById);
+router.get("/:id/mine", loggedMiddleware , isTeacher ,  getSubjectById);
 
 // Route to update a subject  teacher
-router.patch("/PFA/:id", updateSubject);
+router.patch("/:id", loggedMiddleware , isTeacher , updateSubject);
 
 // Route to delete a subject teacher
-router.delete("/PFA/:id", deleteSubject);
+router.delete("/:id", loggedMiddleware , isTeacher , deleteSubject);
 
 // Route to publish subjects and open choice period for students admin
-router.post("/PFA/publish", publishSubjects);
+router.post("/publish",loggedMiddleware,isAdmin, publishSubjects);
 
 // Route to reject a subject  admin
-router.patch("/PFA/reject/:id", rejectSubject);
+router.patch("/reject/:id",loggedMiddleware,isAdmin,  rejectSubject);
 
 // Route to approve a subject admin
-router.patch("/PFA/approve/:id", approveSubject);
+router.patch("/approve/:id",loggedMiddleware,isAdmin,  approveSubject);
 
 // Route to handle first send option  admin
-router.get("/PFA/first-send", firstSend);
+router.get("/first-send", firstSend);
 
 // Route to handle modified send option
-router.get("/PFA/modified-send", modifiedSend);
+router.get("/modified-send", modifiedSend);
 
 //Route to list subjects by teachers student 
-router.get("/PFA/teacher/:teacherId", PFASubjectsByTeacher);
+router.get("/teacher/:teacherId",loggedMiddleware,isStudent,  PFASubjectsByTeacher);
 
 
 export default router;

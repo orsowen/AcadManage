@@ -56,7 +56,7 @@ export const createSubjects = async (req, res) => {
         }
       }
     }
-
+    
     const newSubjects = subjects.map((subject) => {
       const {
         binomeExits,
