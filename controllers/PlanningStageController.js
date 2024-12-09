@@ -1,5 +1,6 @@
 import Internship from '../models/Internship.js';
 import PlanningStage from '../models/PlanningStage.js';
+import { sendMail } from './mailer.js';
 
 // Create a new Planning Stage
 export const createPlanningStage = async (req, res) => {
@@ -293,5 +294,134 @@ export const updatePublicationStatus = async (req, res) => {
     } catch (error) {
         console.error("Error updating planning stages:", error.message);
         res.status(500).json({ error: "Failed to update publication status." });
+    }
+};
+
+// 
+export const sendMailPlanning = async (req, res) => {
+    try {
+        // Fetch all published and non-archived planning stages
+        const planningStages = await PlanningStage.find({ isPublished: true, isArchived: false })
+            .populate({
+                path: "internship",
+                select: "student teacher topic",
+                populate: [
+                    {
+                        path: "student",
+                        select: "firstName lastName user",
+                        populate: {
+                            path: "user",
+                            select: "email",
+                        },
+                    },
+                    {
+                        path: "teacher",
+                        select: "firstName lastName user",
+                        populate: {
+                            path: "user",
+                            select: "email",
+                        },
+                    },
+                    {
+                        path: "topic",
+                        select: "title description techList",
+                    },
+                ],
+            });
+
+        if (planningStages.length === 0) {
+            return res.status(404).json({ message: "Aucun planning trouvé à envoyer." });
+        }
+
+        const emailsToSend = [];
+
+        // Build email content dynamically
+        for (const stage of planningStages) {
+            const { horaire, day, meet_link, sendStatus } = stage;
+            const { internship } = stage;
+            const { topic, student, teacher } = internship || {};
+
+            const studentEmail = student?.user?.email;
+            const teacherEmail = teacher?.user?.email;
+
+            if (!topic) continue;
+
+            // Determine email subject and message based on `sendStatus`
+            const isFirstSend = sendStatus === "First Sent";
+            const isModifiedSend = sendStatus === "Modified Sent";
+
+            const emailSubject = isModifiedSend
+                ? "Détails modifiés de votre planning de stage"
+                : "Détails de votre planning de stage";
+
+            // Prepare email message for teacher
+            if (teacherEmail) {
+                emailsToSend.push({
+                    email: teacherEmail,
+                    subject: emailSubject,
+                    message: `
+                        <p>Cher ${teacher.firstName} ${teacher.lastName},</p>
+                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"
+                        } du planning pour le stage :</p>
+                        <ul>
+                            <li><strong>Horaire :</strong> ${horaire}</li>
+                            <li><strong>Jour :</strong> ${day}</li>
+                            <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                            <li><strong>Étudiant :</strong> ${student?.firstName} ${student?.lastName}</li>
+                            <li><strong>Email étudiant :</strong> ${studentEmail || "Non disponible"}</li>
+                            <li><strong>Sujet :</strong> ${topic.title}</li>
+                            <li><strong>Description :</strong> ${topic.description}</li>
+                            <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
+                        </ul>
+                    `,
+                });
+            }
+
+            // Prepare email message for student
+            if (studentEmail) {
+                emailsToSend.push({
+                    email: studentEmail,
+                    subject: emailSubject,
+                    message: `
+                        <p>Cher ${student.firstName} ${student.lastName},</p>
+                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"
+                        } du planning pour le stage :</p>
+                        <ul>
+                            <li><strong>Horaire :</strong> ${horaire}</li>
+                            <li><strong>Jour :</strong> ${day}</li>
+                            <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                            <li><strong>Enseignant :</strong> ${teacher?.firstName} ${teacher?.lastName}</li>
+                            <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
+                            <li><strong>Sujet :</strong> ${topic.title}</li>
+                            <li><strong>Description :</strong> ${topic.description}</li>
+                            <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
+                        </ul>
+                    `,
+                });
+            }
+        }
+
+        if (emailsToSend.length === 0) {
+            return res.status(400).json({ message: "Aucune adresse email trouvée à envoyer." });
+        }
+
+        // Send emails
+        const emailPromises = emailsToSend.map(({ email, subject, message }) =>
+            sendMail(email, subject, message)
+        );
+        await Promise.all(emailPromises);
+
+        // Update the send status for all planning stages
+        await PlanningStage.updateMany(
+            { isPublished: true, isArchived: false },
+            {
+                sendStatus: "Modified Sent", // Set to "Modified Sent" after emails are successfully sent
+            }
+        );
+
+        res.status(200).json({ message: "Emails envoyés avec succès." });
+    } catch (error) {
+        console.error("Error during email sending:", error.message);
+        res.status(500).json({ message: "Échec de l'envoi des emails.", error: error.message });
     }
 };

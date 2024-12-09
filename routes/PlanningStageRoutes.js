@@ -5,6 +5,7 @@ import {
     getAllPlanningStages,
     getPlanningStageById,
     getPlanningStageByStudent,
+    sendMailPlanning,
     updatePlanningStage,
     updatePublicationStatus,
 } from '../controllers/PlanningStageController.js';
@@ -14,6 +15,7 @@ const router = express.Router();
 
 // POST /planning-stages - Create a new planning stage
 router.post('/', isAdminOrTeacher, createPlanningStage);
+router.post('/send', isAdmin, sendMailPlanning);
 
 // GET /planning-stages - Fetch all planning stages
 router.get('/', isAdmin, getAllPlanningStages);
