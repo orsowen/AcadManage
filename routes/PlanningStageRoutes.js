@@ -8,7 +8,7 @@ import {
     updatePlanningStage,
     updatePublicationStatus,
 } from '../controllers/PlanningStageController.js';
-import { isAdmin, isAdminOrTeacher, isStillStudent, isStudent, isTeacher } from "../middlewares/authentification.js";
+import { isAdmin, isAdminOrTeacher, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 

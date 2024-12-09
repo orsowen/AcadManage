@@ -17,7 +17,7 @@ import {
 import {
     addDepositPeriod
 } from "../controllers/DepositPeriod.js";
-import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentification.js";
+import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
