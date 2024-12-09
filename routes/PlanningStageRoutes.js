@@ -15,6 +15,7 @@ const router = express.Router();
 
 // POST /planning-stages - Create a new planning stage
 router.post('/', isAdminOrTeacher, createPlanningStage);
+// SEND EMAIL
 router.post('/send', isAdmin, sendMailPlanning);
 
 // GET /planning-stages - Fetch all planning stages
