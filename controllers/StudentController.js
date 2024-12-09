@@ -143,6 +143,33 @@ export const getStudentById = async (req, res) => {
 };
 
 
+// Fetch logged in student infos (still dont work)
+export const getStudentProfile = async (req, res) => {
+    const studentId = req.user.idRole; // Extract the student ID from the JWT token (assuming it stores the student ID)
+
+    if (!studentId) {
+        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+    }
+
+    try {
+        // Fetch the student by ID and populate the necessary fields
+        const student = await Student.findById(studentId)
+            .populate('user', 'email cin phone') // Populate the user info (email, cin, phone) associated with the student
+            .exec();
+
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        // Respond with the student profile
+        res.status(200).json(student);
+    } catch (error) {
+        console.error('Error fetching student profile:', error.message);
+        res.status(500).json({ error: 'Failed to fetch student profile.' });
+    }
+};
+
+
 export const updateStudent = async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;

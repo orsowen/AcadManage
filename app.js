@@ -27,14 +27,8 @@ app.use(express.json());
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/PFE", PFE);
 app.use("/", routerPFA);
-// endpoints in index.js for a better ordering and structure
+// All the endpoints below are in index.js for a better ordering and structure
 app.use(router);
-
-// app.use("/internships/stage/planning", planningStageRoutes);
-// app.use("/internships/stage", internshipRoutes);
-// app.use("/users", UserConnexionRoutes);
-// app.use("/teachers", teacherRoutes);
-// app.use("/students", studentRoutes);
 
 
 // Start server
