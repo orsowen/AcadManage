@@ -5,7 +5,7 @@ import {
     getAllTeachers,
     getTeacherById,
     getTeacherProfile,
-    updateTeacher
+    updateTeacher, updateTeacherPassword
 } from '../controllers/TeacherController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
@@ -25,6 +25,9 @@ router.post('/profile', isTeacher, getTeacherProfile);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
+
+// patch update teacher password
+router.patch('/:id/password', isAdmin, updateTeacherPassword);
 
 // Delete a teacher
 router.delete('/:id', isAdmin, deleteTeacher);
