@@ -14,9 +14,12 @@ const PFESchema = new Schema(
         isValid: { type: Boolean, default: false },
         techList: { type: [String], required: true },
         isAssigned: { type: Boolean, default: false },
+        Publisher: { type: Boolean, default: false },
+        emailStatus: { type: String, enum: ["none", "first", "second"], default: "none" },
         student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
         teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
         Defense: { type: mongoose.Schema.Types.ObjectId, ref: 'DefensePFE' },
+
     },
     { timestamps: true }
 );

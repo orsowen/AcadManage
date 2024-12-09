@@ -1,6 +1,8 @@
 import DefensePFE from '../models/DefensePFE.js';
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
+import User from '../models/User.js';
+import { sendMail } from './mailer.js';
 
 export const createPFE = async (req, res) => {
     const {
@@ -281,5 +283,133 @@ export const assignPFEToTeacher = async (req, res) => {
             error: "An error occurred while assigning the PFE.",
             details: error.message,
         });
+    }
+};
+
+import PFE from '../models/PFE.js';
+
+export const publishOrHidePFE = async (req, res) => {
+    const { response } = req.params; // Expected values: "publish" or "hide"
+
+    try {
+        // Validate response parameter
+        if (!["publish", "hide"].includes(response)) {
+            return res.status(400).json({
+                error: "Invalid response. Expected 'publish' or 'hide'.",
+            });
+        }
+
+        // Determine the desired state
+        const isPublished = response === "publish";
+
+        // Update all PFEs to the desired state
+        const updatedPFEs = await PFE.updateMany(
+            {},
+            { $set: { Publisher: isPublished } }
+        );
+
+        if (updatedPFEs.matchedCount === 0) {
+            return res.status(404).json({
+                error: "No PFEs found to update.",
+            });
+        }
+
+        res.status(200).json({
+            message: isPublished
+                ? "All PFEs successfully published."
+                : "All PFEs successfully hidden.",
+            details: updatedPFEs,
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "An error occurred while updating the PFEs.",
+            details: error.message,
+        });
+    }
+};
+
+
+export const sendPlanningEmails = async (req, res) => {
+    try {
+        // Fetch all PFEs with associated data
+        const allPFEs = await PFE.find()
+            .populate('student', '_id') // Populate student ID
+            .populate('teacher', '_id'); // Populate teacher ID
+
+        // Fetch students and teachers from the User model
+        const userIds = [
+            ...allPFEs.map((pfe) => pfe.student?._id).filter(Boolean),
+            ...allPFEs.map((pfe) => pfe.teacher?._id).filter(Boolean),
+        ];
+        const users = await User.find({ $or: [{ _id: { $in: userIds } }] });
+
+        const emailsToSend = [];
+
+        // Build emails for students and teachers
+        for (const pfe of allPFEs) {
+            const isFirstEnvoi = !pfe.emailStatus || pfe.emailStatus === 'first';
+
+            // Email content changes based on whether it's the first or second email
+            const studentEmailContent = `
+                <p>Dear Student,</p>
+                <p>Your PFE details:</p>
+                <ul>
+                    <li>Title: ${pfe.title}</li>
+                    <li>Company: ${pfe.Nom_societe}</li>
+                    <li>Description: ${pfe.description}</li>
+                    <li>Technologies: ${pfe.techList.join(', ')}</li>
+                    <li>Start Date: ${pfe.StartDate.toDateString()}</li>
+                    <li>End Date: ${pfe.EndDate.toDateString()}</li>
+                </ul>
+                ${isFirstEnvoi
+                    ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
+                    : '<p>This email includes updated information about your PFE.</p>'
+                }
+                <p>Best regards,<br>Admin Team</p>
+            `;
+
+            const teacherEmailContent = `
+                <p>Dear Teacher,</p>
+                <p>You are assigned to supervise the following PFE:</p>
+                <ul>
+                    <li>Title: ${pfe.title}</li>
+                    <li>Company: ${pfe.Nom_societe}</li>
+                    <li>Assigned Student: ${pfe.student?.cin || 'N/A'}</li>
+                </ul>
+                ${isFirstEnvoi
+                    ? '<p>This is the first time you are receiving this assignment. Please verify the information.</p>'
+                    : '<p>This email includes updated information about the PFE assignment.</p>'
+                }
+                <p>Best regards,<br>Admin Team</p>
+            `;
+
+            // Find student user
+            const studentUser = users.find((user) => user.student?.toString() === pfe.student?.toString());
+            if (studentUser?.email) {
+                emailsToSend.push(
+                    sendMail(studentUser.email, 'Your PFE Assignment', studentEmailContent)
+                );
+            }
+
+            // Find teacher user
+            const teacherUser = users.find((user) => user.teacher?.toString() === pfe.teacher?.toString());
+            if (teacherUser?.email) {
+                emailsToSend.push(
+                    sendMail(teacherUser.email, 'PFE Assignments', teacherEmailContent)
+                );
+            }
+
+            // Update PFE email status
+            pfe.emailStatus = isFirstEnvoi ? 'second' : 'resend';
+            await pfe.save();
+        }
+
+        // Send all emails
+        await Promise.all(emailsToSend);
+
+        res.status(200).json({ message: 'Planning emails sent successfully.' });
+    } catch (error) {
+        console.error('Error sending emails:', error);
+        res.status(500).json({ error: 'Failed to send planning emails.', details: error.message });
     }
 };
