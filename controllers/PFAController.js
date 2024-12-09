@@ -1,6 +1,7 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
+import User from "../models/User.js";
 import Student from "../models/Student.js";
 import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
@@ -10,13 +11,11 @@ dotenv.config();
 export const createSubjects = async (req, res) => {
   try {
     const { subjects } = req.body; // Expecting an array of subjects
-
     if (!Array.isArray(subjects)) {
       return res
         .status(400)
         .json({ message: "Invalid input, expected an array of subjects" });
     }
-
     // Check if we are in the deposit period
     const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
     if (!depositPeriod) {
@@ -54,11 +53,9 @@ export const createSubjects = async (req, res) => {
       if (binomeExits) {
         const binomeExists = await Student.exists({ _id: binome });
         if (!binomeExists) {
-          return res
-            .status(400)
-            .json({
-              message: `Binome student with ID ${binome} does not exist`,
-            });
+          return res.status(400).json({
+            message: `Binome student with ID ${binome} does not exist`,
+          });
         }
       }
     }
@@ -121,12 +118,6 @@ export const publishSubjects = async (req, res) => {
       { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
     );
 
-    // Cacher les sujets rejetés
-    const hiddenRejectedSubjects = await Subject_PFA.updateMany(
-      { status: "Rejected" },
-      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
-    );
-
     // Ouvrir la période de choix pour les étudiants
     const choicePeriod = await DepositPeriod.findOneAndUpdate(
       { For: "PFA" },
@@ -153,7 +144,6 @@ export const publishSubjects = async (req, res) => {
   }
 };
 
-// Handle first send option
 export const firstSend = async () => {
   try {
     // Logique pour le premier envoi
@@ -163,13 +153,16 @@ export const firstSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, "email");
-    const teachers = await Teacher.find({}, "email");
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
 
-    const emails = [
-      ...students.map((student) => student.email),
-      ...teachers.map((teacher) => teacher.email),
-    ];
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject =
@@ -200,13 +193,16 @@ export const modifiedSend = async () => {
     );
 
     // Récupérer les emails des étudiants et des enseignants
-    const students = await Student.find({}, "email");
-    const teachers = await Teacher.find({}, "email");
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
 
-    const emails = [
-      ...students.map((student) => student.email),
-      ...teachers.map((teacher) => teacher.email),
-    ];
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject = "Modification des sujets";
@@ -252,7 +248,6 @@ export const getSubjectById = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
-
     res.status(200).json(subject);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -321,7 +316,6 @@ export const deleteSubject = async (req, res) => {
     if (!depositPeriod) {
       return res.status(400).json({ message: "Deposit period not found" });
     }
-
     const currentDate = new Date();
     const endDepositDate = new Date(depositPeriod.End_Deposit);
     endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
@@ -344,7 +338,6 @@ export const deleteSubject = async (req, res) => {
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
-
     res.status(200).json({ message: "Subject deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

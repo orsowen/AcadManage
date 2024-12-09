@@ -55,3 +55,17 @@ export const isTeacher = (req, res, next) => {
     res.status(401).json({ error: error.message });
   }
 };
+
+export const isStudent = (req, res, next) => {
+  try {
+    if (req.auth.role === "Student") {
+      next();
+    } else {
+      res
+        .status(403)
+        .json({ error: "vous n'avez pas l'autorisation d'acceder a ce route" });
+    }
+  } catch (e) {
+    res.status(401).json({ error: error.message });
+  }
+}

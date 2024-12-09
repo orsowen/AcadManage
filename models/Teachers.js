@@ -12,39 +12,30 @@ const TeacherSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    cin: {
-      type: Number,
-      required: true,
-      unique: true, // CIN should be unique
-      validate: {
-        validator: Number.isInteger, // Ensure CIN is an integer
-        message: "CIN must be an integer value.",
-      },
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true, // Email should be unique
-      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Validate email format
-    },
-    phone: {
-      type: String,
-      required: false,
-      match: /^\+?[0-9]{7,15}$/, // Optional: Validate phone number
-    },
+
     subjectCount: {
       type: Number,
       required: true,
       default: 0, // Default number of subjects is 0
     },
-    assignedTopics: [
-      {
+    assignedInternships: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Topic", // Reference to the Topic model
-      },
-    ],
-  },
-  {
+        ref: 'Internship', // Reference to the Internship model
+        default: [], // Ensure it's an array by default
+    }],
+
+    isArchived: {
+        type: Boolean,
+        default: false, // Default value
+    },
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
+    },
+
+}, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
   }
 );
