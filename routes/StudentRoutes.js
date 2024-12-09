@@ -5,7 +5,9 @@ import {
     getAllStudents,
     getStudentById,
     getStudentProfile,
-    updateStudent, updateStudentPassword
+    updateStudent,
+    updateStudentPassword,
+    updateStudentProfile,
 } from '../controllers/StudentController.js';
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
 
@@ -25,6 +27,9 @@ router.post('/profile', isStudent, getStudentProfile);
 
 // PATCH /students/:id - Update a student by ID
 router.patch('/:id', isAdmin, updateStudent);
+
+// update own profile
+router.put('/me', isStudent, updateStudentProfile);
 // patch update student password
 router.patch('/:id/password', isAdmin, updateStudentPassword);
 
