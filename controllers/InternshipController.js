@@ -580,7 +580,7 @@ export const getInternshipByStudentToken = async (req, res) => {
     try {
         // Fetch internships assigned to the student with pagination
         const internships = await Internship.find(filter)
-            .select('-student -isArchived -isValid -reasonIfNotValid') // Exclude  from the result
+            .select('-student -isArchived -isValid -reasonIfNotValid') // Exclude  from
             .populate({
                 path: 'teacher',
                 select: 'firstName lastName', // Populate teacher's first name and last name
@@ -619,7 +619,6 @@ export const getInternshipByStudentToken = async (req, res) => {
         });
     }
 };
-
 
 // Fetch internships for a student for PV
 export const getInternshipByStudentForPV = async (req, res) => {
