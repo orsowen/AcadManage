@@ -51,7 +51,7 @@ router.post('/planning/update', isAdmin, addTeacherToInternship);
 router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternships);
 
 // open period depot 
-router.post("/open", isAdmin, addDepositPeriod);
+router.post("/open", isAdmin, addDepositPeriod(false));
 
 // get assigned internships for the logged in teacher
 router.post('/assigned-to-me', isTeacher, getAssignedInternships);

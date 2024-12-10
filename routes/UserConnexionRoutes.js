@@ -12,7 +12,7 @@ import { isAdmin } from "../middlewares/authentication.js";
 const router = express.Router();
 
 // User Routes
-router.post("/register", createUser); // Route to create a new user
+router.post("/register",isAdmin, createUser); // Route to create a new user
 router.get("/:id", isAdmin, getUserById); // Route to get user by ID
 router.get("/cin/:cin", isAdmin, getUserByCin); // Route to get user by Cin
 router.patch("/:id", isAdmin, updateUser); // Route to update user details

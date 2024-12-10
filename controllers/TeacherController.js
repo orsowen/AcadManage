@@ -192,3 +192,72 @@ export const deleteTeacher = async (req, res) => {
         res.status(500).json({ error: "Error deleting teacher." });
     }
 };
+
+// 
+
+// Fetch logged in teacher infos (still dont work)
+export const getTeacherProfile = async (req, res) => {
+    const id = req.user.idRole; // Extract the  ID from the JWT token (assuming it stores the  ID)
+
+    if (!id) {
+        return res.status(400).json({ message: 'ID is not available in the token.' });
+    }
+
+    try {
+        // Fetch the student by ID and populate the necessary fields
+        const teacher = await Teacher.findById(id)
+            .populate('user', 'email cin phone') // Populate the user info (email, cin, phone) associated with the student
+            .exec();
+
+        if (!teacher) {
+            return res.status(404).json({ message: 'teacher not found.' });
+        }
+
+        // Respond with the student profile
+        res.status(200).json(teacher);
+    } catch (error) {
+        console.error('Error fetching teacher profile:', error.message);
+        res.status(500).json({ error: 'Failed to fetch teacher profile.' });
+    }
+};
+
+export const updateTeacherPassword = async (req, res) => {
+    const { id } = req.params; // Student ID passed as a parameter
+    const { password } = req.body; // New password from the request body
+
+    try {
+        // Check if the password is provided
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required.' });
+        }
+
+        // Validate password length and complexity (you can adjust the regex as per requirements)
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+
+
+        // Update the password in the associated user account
+        const user = await User.findOne({ teacher: id });
+        if (!user) {
+            return res.status(404).json({ message: 'Associated user account not found.' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        // Respond with success message
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Error updating student password:', error.message);
+
+        // Handle unexpected errors
+        res.status(500).json({ error: 'Failed to update student password.', details: error.message });
+    }
+};
