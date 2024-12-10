@@ -11,7 +11,7 @@ dotenv.config();
 export const createSubjects = async (req, res) => {
   try {
     const { subjects } = req.body; // Expecting an array of subjects
-    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     if (!Array.isArray(subjects)) {
       return res
@@ -114,6 +114,9 @@ export const createSubjects = async (req, res) => {
 // Publish approved subjects and manage statuses
 export const publishSubjects = async (req, res) => {
   try {
+    // Vérifier si des sujets ont déjà été publiés
+    const previouslyPublishedSubjects = await Subject_PFA.find({ published: true });
+  console.log("Previously published subjects:", previouslyPublishedSubjects);
     // Publier les sujets approuvés
     const publishedSubjects = await Subject_PFA.updateMany(
       { status: "Approved" },
@@ -144,8 +147,12 @@ export const publishSubjects = async (req, res) => {
       message: "Subjects published and choice period opened successfully",
     });
 
-    // Appeler la fonction firstSend après avoir envoyé la réponse
-    await firstSend();
+    // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    if (previouslyPublishedSubjects.length === 0) {
+      await firstSend();
+    } else {
+      await modifiedSend();
+    }
 
   } catch (error) {
     console.error("Error publishing subjects:", error);
@@ -154,14 +161,9 @@ export const publishSubjects = async (req, res) => {
 };
 
 
-
 export const firstSend = async () => {
   try {
-    // Logique pour le premier envoi
-    await Subject_PFA.updateMany(
-      { status: "Approved" },
-      { sendStatus: "First Sent" }
-    );
+
 
     // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
@@ -196,12 +198,7 @@ export const firstSend = async () => {
 // Handle modified send option
 export const modifiedSend = async () => {
   try {
-    // Logique pour l'envoi modifié
-    await Subject_PFA.updateMany(
-      { status: "Approved" },
-      { sendStatus: "Modified Sent" }
-    );
-
+  
     // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
       .populate('student', 'email')
@@ -250,7 +247,7 @@ export const getSubjects = async (req, res) => {
 // Get all subjects by the authenticated teacher
 export const getSubjectsByTeacher = async (req, res) => {
   try {
-    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     const subjects = await Subject_PFA.find({ teacher: teacherId })
       .populate('binome', 'firstName lastName email') // Populate binome with specific fields
@@ -276,7 +273,7 @@ export const getSubjectsByTeacher = async (req, res) => {
 export const getSubjectByIdForTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId })
       .populate('binome', 'firstName lastName email') // Populate binome with specific fields
@@ -336,7 +333,7 @@ export const updateSubject = async (req, res) => {
     }
 
     const { id } = req.params;
-    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
     const {
       binomeExits,
       title,
@@ -369,8 +366,7 @@ export const updateSubject = async (req, res) => {
 
     res.status(200).json(subjectWithoutTeacher);
 
-    // Appeler la fonction modifiedSend après avoir envoyé la réponse
-    await modifiedSend();
+  
 
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -401,7 +397,7 @@ export const deleteSubject = async (req, res) => {
     }
 
     const { id } = req.params;
-    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     const subject = await Subject_PFA.findOneAndDelete({ _id: id, teacher: teacherId }); // Ensure the subject belongs to the authenticated teacher
 

@@ -38,9 +38,6 @@ router.get("/:id", isAdmin, getSubjectById);
 // route to get a subject by id teacher
 router.get("/:id/mine", isTeacher, getSubjectByIdForTeacher);
 
-// Route to update a subject  teacher
-router.patch("/:id", isTeacher, updateSubject);
-
 // Route to delete a subject  by teacher
 router.delete("/:id/mine", isTeacher, deleteSubject);
 
