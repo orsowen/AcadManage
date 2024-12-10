@@ -57,7 +57,9 @@ const InternshipSchema = new Schema({
         type: DocsSchema, // Embedding the DocsSchema
         required: true, // Make this field mandatory
     },
-
+    nomSociete: {
+        type: String,
+    },
     StartDate: {
         type: Date,
         required: true,

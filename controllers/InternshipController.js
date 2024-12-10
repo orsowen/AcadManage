@@ -21,7 +21,7 @@ const validateFiles = (documents) => {
 // Add a new internship
 export const addInternship = async (req, res) => {
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
-    const { title, documents, StartDate, EndDate, typeInternship, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Validate dates (StartDate should be before EndDate)
@@ -74,6 +74,7 @@ export const addInternship = async (req, res) => {
             documents,
             StartDate,
             EndDate,
+            nomSociete,
             typeInternship,
             topic: {
                 title: topicDetails.title,
@@ -104,7 +105,7 @@ export const addInternship = async (req, res) => {
 };
 
 export const getAllInternships = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day } = req.query;
+    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day, nomSociete } = req.query;
 
     // Build the filter object
     let filter = {};
@@ -113,6 +114,7 @@ export const getAllInternships = async (req, res) => {
     if (studentId) filter.student = studentId;
     if (teacherId) filter.teacher = teacherId;
     if (day) filter.day = new Date(day);
+    if (nomSociete) filter.nomSociete = nomSociete;
 
     try {
         // Fetch internships with filters, pagination, and population
@@ -195,7 +197,7 @@ export const updateInternship = async (req, res) => {
     const { id } = req.params;
     // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
     // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
-    const { title, documents, StartDate, EndDate, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
@@ -239,6 +241,7 @@ export const updateInternship = async (req, res) => {
         if (title) internship.title = title;
         if (StartDate) internship.StartDate = StartDate;
         if (EndDate) internship.EndDate = EndDate;
+        if (nomSociete) internship.nomSociete = nomSociete;
         // if (isValid !== undefined) internship.isValid = isValid;
 
         // Validate and update student
@@ -459,7 +462,7 @@ export const getAssignedInternships = async (req, res) => {
         }
 
         // Fetch internships assigned to this teacher
-        const internships = await Internship.find({ teacher: teacherId })
+        const internships = await Internship.find({ teacher: teacherId, isArchived: false })
             .populate({
                 path: 'student', // Populate internship field
                 select: 'firstName lastName user', // Select specific fields from internship
@@ -559,7 +562,7 @@ export const validateInternship = async (req, res) => {
 
 // Get internships for a specific student by Token
 export const getInternshipByStudentToken = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, teacherId, day } = req.query;
+    const { page = 1, limit = 5, isValid, Type, teacherId, day, nomSociete } = req.query;
     const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Validate query parameters for pagination
@@ -571,12 +574,13 @@ export const getInternshipByStudentToken = async (req, res) => {
     if (isValid !== undefined) filter.isValid = isValid === 'true'; // Convert isValid to boolean
     if (Type) filter.Type = Type; // Filter by Type if provided
     if (teacherId) filter.teacher = teacherId; // Filter by teacherId if provided
+    if (nomSociete) filter.nomSociete = nomSociete; // Filter by nomSociete if provided
     if (day) filter.day = new Date(day); // Filter by day, assuming day is a valid date string
 
     try {
         // Fetch internships assigned to the student with pagination
         const internships = await Internship.find(filter)
-            .select('-student -isArchived') // Exclude student and isArchived from the result
+            .select('-student -isArchived -isValid -reasonIfNotValid') // Exclude  from
             .populate({
                 path: 'teacher',
                 select: 'firstName lastName', // Populate teacher's first name and last name
@@ -611,6 +615,67 @@ export const getInternshipByStudentToken = async (req, res) => {
         // Return a descriptive error response
         res.status(500).json({
             message: "Une erreur est survenue lors de la récupération des stages.",
+            error: error.message,
+        });
+    }
+};
+
+// Fetch internships for a student for PV
+export const getInternshipByStudentForPV = async (req, res) => {
+    const { page = 1, limit = 5, isValid, Type, teacherId, day, nomSociete } = req.query;
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+
+    // Parse and validate pagination values
+    const currentPage = Math.max(parseInt(page, 10), 1);
+    const currentLimit = Math.max(parseInt(limit, 10), 5);
+
+    // Build the filter object dynamically
+    const filter = { student: studentId, isArchived: false };
+
+    if (isValid !== undefined) filter.isValid = isValid === 'true'; // Ensure isValid is a boolean
+    if (Type) filter.Type = Type;
+    if (teacherId) filter.teacher = teacherId;
+    if (nomSociete) filter.nomSociete = nomSociete;
+    if (day) filter.day = new Date(day);
+
+    try {
+        // Fetch internships with pagination and populate relevant fields
+        const internships = await Internship.find(filter)
+            .select('-_id -student -isArchived -documents -topic')
+            .skip((currentPage - 1) * currentLimit)
+            .limit(currentLimit)
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate email of teacher
+                },
+            })
+            .exec();
+
+        // If no internships are found, return a 404 response
+        if (!internships.length) {
+            return res.status(404).json({ message: 'Aucun stage trouvé pour cet étudiant.' });
+        }
+
+        // Fetch the total count of internships to calculate pagination info
+        const total = await Internship.countDocuments(filter);
+
+        // Return the internships and pagination data
+        res.status(200).json({
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: internships,
+        });
+    } catch (error) {
+        console.error('Error fetching internships for student:', error.message);
+
+        // Handle unexpected errors with a generic message
+        res.status(500).json({
+            message: 'Une erreur est survenue lors de la récupération des stages.',
             error: error.message,
         });
     }
