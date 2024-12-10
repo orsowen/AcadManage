@@ -408,8 +408,8 @@ export const sendPlanningEmail = async (req, res) => {
                 <ul>
                     <li>Title: ${pfe.title}</li>
                     <li>Company: ${pfe.Nom_societe}</li>
-                    <li>Description: ${pfe.description}</li>
-                    <li>Technologies: ${pfe.techList.join(', ')}</li>
+                    <li>Description: ${pfe.topic.description}</li>
+                    <li>Technologies: ${pfe.topic.techList.join(', ')}</li>
                     <li>Start Date: ${pfe.StartDate.toDateString()}</li>
                     <li>End Date: ${pfe.EndDate.toDateString()}</li>
                     <li> Teacher${pfe.teacher.firstName} ${pfe.teacher.lastName}<li>
