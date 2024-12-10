@@ -16,20 +16,22 @@ const Subject_PFASchema = new Schema({
   },
   monome: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Student',
+    ref: "Student",
     required: true,
   },
-    binome: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student',
-      required: function() { return this.binome; } // Required if binome is true
-    },
- 
-    teacher: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Teacher",
-      required: true,
-    },
+  binome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: function () {
+      return this.binome;
+    }, // Required if binome is true
+  },
+
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+    required: true,
+  },
   status: {
     type: String,
     enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
@@ -48,9 +50,6 @@ const Subject_PFASchema = new Schema({
     enum: ["First Sent", "Modified Sent", "Not Sent"],
     default: "Not Sent",
   }, // Indique l'état de l'envoi
- 
- 
-  
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

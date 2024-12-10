@@ -11,20 +11,17 @@ const DespositPeriodchema = new mongoose.Schema({
   },
   Start_Choice: {
     type: Date,
-    required: true,
-
+    //required: true,
   },
   End_Choice: {
     type: Date,
-    required: true,
-
+    //required: true,
   },
   For: {
     type: String,
     enum: ["PFA", "PFE", "STAGE"], //2 date pfa date pfa et date de choix (3.3)
     default: "STAGE",
     required: true,
-
   },
 });
 
