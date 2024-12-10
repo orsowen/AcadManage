@@ -316,9 +316,11 @@ export const loginUser = async (req, res) => {
 };
 
 // Archive or Unarchive the user account
+
 export const toggleArchiveUser = (role = "admin") => async (req, res) => {
     const { id } = req.params; // Extract user ID from request parameters
     let { isArchived } = req.body; // Determine the desired archive state from the request body
+
 
     try {
         // Default isArchived to true if not provided
@@ -352,6 +354,7 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 
         // Respond with the updated user details
         res.status(200).json({
+
             message: `${role.charAt(0).toUpperCase() + role.slice(1)} ${isArchived ? "archived" : "unarchived"} successfully.`,
             user: updatedUser,
         });

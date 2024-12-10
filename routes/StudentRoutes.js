@@ -9,7 +9,9 @@ import {
     updateStudentPassword,
     updateStudentProfile,
 } from '../controllers/StudentController.js';
+
 import { toggleArchiveUser } from '../controllers/UserController.js';
+
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
 
 const router = express.Router();

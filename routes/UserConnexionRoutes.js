@@ -23,4 +23,5 @@ router.delete('/:id', isAdmin, deleteUser); // Route to delete user
 router.post('/login', loginUser); // Route to log in a user
 router.put('/:id', isAdmin, toggleArchiveUser("admin")); // Route to Archive user
 
+
 export default router;
