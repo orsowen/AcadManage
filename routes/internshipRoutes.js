@@ -8,10 +8,11 @@ import {
     getAllInternships,
     getAssignedInternships,
     getInternshipById,
+    getInternshipByStudentForPV,
     getInternshipByStudentToken,
     removeAllAssignedInternships,
     updateInternship,
-    validateInternship
+    validateInternship,
 } from '../controllers/internshipController.js';
 
 import {
@@ -23,6 +24,9 @@ const router = express.Router();
 
 // get own Internship 
 router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
+
+// consult PV
+router.get('/pv', isStudent, getInternshipByStudentForPV);
 
 // POST /internships - Add a new internship
 router.post('/', isStudent, isStillStudent, addInternship);
@@ -59,5 +63,6 @@ router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);
 
+// 
 
 export default router;
