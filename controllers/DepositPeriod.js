@@ -13,30 +13,6 @@ const depositValidationSchema = Joi.object({
         "La date de fin de dépôt doit être supérieure à la date de début.",
       "any.required": "La date de fin de dépôt est requise.",
     }),
-  Start_Choice: Joi.date().when(Joi.ref("For"), {
-    is: "PFA",
-    then: Joi.required().messages({
-      "any.required": "La date de début de choix est requise pour PFA.",
-    }),
-    otherwise: Joi.forbidden().messages({
-      "any.unknown":
-        "La date de début de choix ne doit pas être remplie pour PFE ou STAGE.",
-    }),
-  }),
-  End_Choice: Joi.date()
-    .greater(Joi.ref("Start_Choice"))
-    .when(Joi.ref("For"), {
-      is: "PFA",
-      then: Joi.required().messages({
-        "date.greater":
-          "La date de fin de choix doit être supérieure à la date de début de choix pour PFA.",
-        "any.required": "La date de fin de choix est requise pour PFA.",
-      }),
-      otherwise: Joi.forbidden().messages({
-        "any.unknown":
-          "La date de fin de choix ne doit pas être remplie pour PFE ou STAGE.",
-      }),
-    }),
   For: Joi.string().valid("PFA", "PFE", "STAGE").required().messages({
     "any.required": "Le type de dépôt est requis.",
     "any.only": "Le type de dépôt doit être PFA, PFE ou STAGE.",
@@ -45,7 +21,51 @@ const depositValidationSchema = Joi.object({
 
 // **Ajouter une période de dépôt**
 
-export const addDepositPeriod = async (req, res) => {};
+export const addDepositPeriod =
+  (useUrl = true) =>
+  async (req, res) => {
+    try {
+      const choix =
+        useUrl == true ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
+      req.body.For = choix; // Injecting 'For' into request body
+
+      // Validation des données
+      const { error } = depositValidationSchema.validate(req.body);
+      if (error) {
+        return res.status(400).json({ message: error.details[0].message });
+      }
+
+      const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
+
+      // Vérifier s'il existe déjà une période pour ce choix
+      const existingPeriod = await DepositPeriod.findOne({ For: choix });
+      if (existingPeriod) {
+        return res.status(400).json({
+          message: `Une période de dépôt pour ${choix} existe déjà. Veuillez la supprimer ou la modifier avant d'en ajouter une nouvelle.`,
+        });
+      }
+
+      // Création d'une nouvelle période de dépôt
+      const newDepositPeriod = new DepositPeriod({
+        Start_Deposit,
+        End_Deposit,
+        Start_Choice,
+        End_Choice,
+        For: choix,
+      });
+
+      // Sauvegarde dans la base de données
+      await newDepositPeriod.save();
+
+      res.status(201).json({
+        message: "Période de dépôt ajoutée avec succès.",
+        data: newDepositPeriod,
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'ajout de la période de dépôt :", error);
+      res.status(500).json({ message: "Erreur de serveur." });
+    }
+  };
 
 // **Récupérer toutes les périodes de dépôt**
 export const getDepositPeriods = async (req, res) => {

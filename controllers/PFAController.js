@@ -224,7 +224,7 @@ export const modifiedSend = async () => {
   }
 };
 
-// Get all subjects
+// Get all subjects for Admin
 export const getSubjects = async (req, res) => {
   try {
     const subjects = await Subject_PFA.find()
@@ -238,7 +238,57 @@ export const getSubjects = async (req, res) => {
   }
 };
 
-// Get a subject by ID (2.2)
+// Get all subjects by the authenticated teacher
+export const getSubjectsByTeacher = async (req, res) => {
+  try {
+    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+
+    const subjects = await Subject_PFA.find({ teacher: teacherId })
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
+    if (!subjects || subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No subjects found for this teacher" });
+    }
+
+    // Remove the teacher field from the results
+    const subjectsWithoutTeacher = subjects.map((subject) => {
+      const { teacher, ...subjectWithoutTeacher } = subject.toObject();
+      return subjectWithoutTeacher;
+    });
+
+    res.status(200).json(subjectsWithoutTeacher);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get a subject by ID for the authenticated teacher
+export const getSubjectByIdForTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+
+    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId })
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
+    if (!subject) {
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to view this subject",
+      });
+    }
+
+    res.status(200).json(subject);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get a subject by ID  ( admine)
 export const getSubjectById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -256,7 +306,7 @@ export const getSubjectById = async (req, res) => {
   }
 };
 
-// Update a subject
+// Update a subject for a specific teacher
 export const updateSubject = async (req, res) => {
   try {
     // Check if we are in the deposit period
@@ -281,8 +331,8 @@ export const updateSubject = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { binomeExits, title, description, binome, monome, teacher } =
-      req.body;
+    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+    const { binomeExits, title, description, binome, monome } = req.body;
 
     let updatedSubject = {
       binomeExits,
@@ -290,18 +340,26 @@ export const updateSubject = async (req, res) => {
       description,
       binome,
       monome,
-      teacher,
+      teacher: teacherId, // Ensure the teacher ID is set to the authenticated user
     };
 
-    const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, {
-      new: true,
-    });
+    const subject = await Subject_PFA.findOneAndUpdate(
+      { _id: id, teacher: teacherId }, // Ensure the subject belongs to the authenticated teacher
+      updatedSubject,
+      { new: true }
+    );
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to update this subject",
+      });
     }
 
-    res.status(200).json(subject);
+    // Remove the teacher field from the results
+    const { teacher, ...subjectWithoutTeacher } = subject.toObject();
+
+    res.status(200).json(subjectWithoutTeacher);
 
     // Appeler la fonction modifiedSend après avoir envoyé la réponse
     await modifiedSend();
@@ -310,7 +368,7 @@ export const updateSubject = async (req, res) => {
   }
 };
 
-// Delete a subject
+// Delete a subject for a specific teacher
 export const deleteSubject = async (req, res) => {
   try {
     // Check if we are in the deposit period
@@ -334,12 +392,20 @@ export const deleteSubject = async (req, res) => {
     }
 
     const { id } = req.params;
+    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
 
-    const subject = await Subject_PFA.findByIdAndDelete(id);
+    const subject = await Subject_PFA.findOneAndDelete({
+      _id: id,
+      teacher: teacherId,
+    }); // Ensure the subject belongs to the authenticated teacher
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to delete this subject",
+      });
     }
+
     res.status(200).json({ message: "Subject deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
