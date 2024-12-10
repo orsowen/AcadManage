@@ -21,7 +21,7 @@ const validateFiles = (documents) => {
 // Add a new internship
 export const addInternship = async (req, res) => {
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
-    const { title, documents, StartDate, EndDate, typeInternship, teacherId, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Validate dates (StartDate should be before EndDate)
@@ -74,6 +74,7 @@ export const addInternship = async (req, res) => {
             documents,
             StartDate,
             EndDate,
+            nomSociete,
             typeInternship,
             topic: {
                 title: topicDetails.title,
@@ -104,7 +105,7 @@ export const addInternship = async (req, res) => {
 };
 
 export const getAllInternships = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day } = req.query;
+    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day, nomSociete } = req.query;
 
     // Build the filter object
     let filter = {};
@@ -113,6 +114,7 @@ export const getAllInternships = async (req, res) => {
     if (studentId) filter.student = studentId;
     if (teacherId) filter.teacher = teacherId;
     if (day) filter.day = new Date(day);
+    if (nomSociete) filter.nomSociete = nomSociete;
 
     try {
         // Fetch internships with filters, pagination, and population
@@ -195,7 +197,7 @@ export const updateInternship = async (req, res) => {
     const { id } = req.params;
     // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
     // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
-    const { title, documents, StartDate, EndDate, topicDetails } = req.body;
+    const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
@@ -239,6 +241,7 @@ export const updateInternship = async (req, res) => {
         if (title) internship.title = title;
         if (StartDate) internship.StartDate = StartDate;
         if (EndDate) internship.EndDate = EndDate;
+        if (nomSociete) internship.nomSociete = nomSociete;
         // if (isValid !== undefined) internship.isValid = isValid;
 
         // Validate and update student
@@ -459,7 +462,7 @@ export const getAssignedInternships = async (req, res) => {
         }
 
         // Fetch internships assigned to this teacher
-        const internships = await Internship.find({ teacher: teacherId })
+        const internships = await Internship.find({ teacher: teacherId, isArchived: false })
             .populate({
                 path: 'student', // Populate internship field
                 select: 'firstName lastName user', // Select specific fields from internship
@@ -559,7 +562,7 @@ export const validateInternship = async (req, res) => {
 
 // Get internships for a specific student by Token
 export const getInternshipByStudentToken = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, teacherId, day } = req.query;
+    const { page = 1, limit = 5, isValid, Type, teacherId, day, nomSociete } = req.query;
     const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Validate query parameters for pagination
@@ -571,6 +574,7 @@ export const getInternshipByStudentToken = async (req, res) => {
     if (isValid !== undefined) filter.isValid = isValid === 'true'; // Convert isValid to boolean
     if (Type) filter.Type = Type; // Filter by Type if provided
     if (teacherId) filter.teacher = teacherId; // Filter by teacherId if provided
+    if (nomSociete) filter.nomSociete = nomSociete; // Filter by nomSociete if provided
     if (day) filter.day = new Date(day); // Filter by day, assuming day is a valid date string
 
     try {
