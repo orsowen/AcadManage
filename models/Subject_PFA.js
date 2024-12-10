@@ -42,11 +42,6 @@ const Subject_PFASchema = new Schema({
     type: Boolean,
     default: false,
   }, // Indique si le sujet est publié
-  sendStatus: {
-    type: String,
-    enum: ["First Sent", "Modified Sent", "Not Sent"],
-    default: "Not Sent",
-  }, // Indique l'état de l'envoi
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);
