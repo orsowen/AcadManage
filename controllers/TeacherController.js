@@ -158,38 +158,66 @@ export const updateTeacher = async (req, res) => {
     }
 };
 
-// Delete a teacher
+// Delete or archive a teacher
 export const deleteTeacher = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params; // Extract teacher ID from the request parameters
+    const { isArchive } = req.body; // Determine if the teacher should be archived
 
     try {
-        // Start a session for transaction
+        if (isArchive) {
+            // Archive the teacher (soft delete)
+            const teacher = await Teacher.findById(id);
+            if (!teacher) {
+                return res.status(404).json({ message: "Teacher not found." });
+            }
+            // Archive the associated user account
+            const user = await User.findOne({ teacher: id });
+            if (user) {
+                user.isArchived = true;
+                await user.save();
+            }
+
+            return res.status(200).json({
+                message: "Teacher and associated user archived successfully.",
+                archivedTeacher: teacher,
+                archivedUser: user || null,
+            });
+        }
+
+        // Hard delete (completely remove teacher and associated user)
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        // Delete the teacher by ID
-        const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
-        if (!deletedTeacher) {
+        try {
+            // Delete the teacher by ID
+            const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
+            if (!deletedTeacher) {
+                throw new Error("Teacher not found.");
+            }
+
+            // Delete the associated user account
+            const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({
+                message: "Teacher and associated user deleted successfully.",
+                deletedTeacher,
+                deletedUser,
+            });
+        } catch (transactionError) {
             await session.abortTransaction();
             session.endSession();
-            return res.status(404).json({ error: "Teacher not found." });
+            console.error("Transaction failed:", transactionError.message);
+            return res.status(500).json({
+                error: "Error during transaction while deleting teacher.",
+                details: transactionError.message,
+            });
         }
-
-        // Delete the associated user account
-        const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
-
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
-
-        res.status(200).json({
-            message: "Teacher and associated user account deleted successfully.",
-            deletedTeacher,
-            deletedUser,
-        });
     } catch (error) {
-        console.error("Error deleting teacher:", error.message);
-        res.status(500).json({ error: "Error deleting teacher." });
+        console.error("Error processing teacher deletion:", error.message);
+        res.status(500).json({ error: "An error occurred while deleting the teacher.", details: error.message });
     }
 };
 
@@ -218,5 +246,73 @@ export const getTeacherProfile = async (req, res) => {
     } catch (error) {
         console.error('Error fetching teacher profile:', error.message);
         res.status(500).json({ error: 'Failed to fetch teacher profile.' });
+    }
+};
+
+export const updateTeacherPassword = async (req, res) => {
+    const { id } = req.params; // Student ID passed as a parameter
+    const { password } = req.body; // New password from the request body
+
+    try {
+        // Check if the password is provided
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required.' });
+        }
+
+        // Validate password length and complexity (you can adjust the regex as per requirements)
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+
+
+        // Update the password in the associated user account
+        const user = await User.findOne({ teacher: id });
+        if (!user) {
+            return res.status(404).json({ message: 'Associated user account not found.' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        // Respond with success message
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Error updating student password:', error.message);
+
+        // Handle unexpected errors
+        res.status(500).json({ error: 'Failed to update student password.', details: error.message });
+    }
+};
+
+
+// Update a teacher
+export const updateTeacherByToken = async (req, res) => {
+    const id = req.user.idRole;
+    const { lastName, firstName, subjectCount } = req.body;
+
+    try {
+        // Fetch the existing teacher by ID
+        const teacher = await Teacher.findById(id);
+        if (!teacher) {
+            return res.status(404).json({ error: 'Teacher not found.' });
+        }
+
+        // Proceed to update the teacher's details
+        teacher.lastName = lastName || teacher.lastName;
+        teacher.firstName = firstName || teacher.firstName;
+        teacher.subjectCount = subjectCount || teacher.subjectCount;
+
+        const updatedTeacher = await teacher.save(); // Save the updated teacher document
+
+        res.status(200).json(updatedTeacher);
+    } catch (error) {
+        console.error('Error updating teacher:', error.message);
+        res.status(400).json({ error: 'Error updating teacher. ' + error.message });
     }
 };

@@ -226,38 +226,208 @@ export const updateStudent = async (req, res) => {
     }
 };
 
-
-// Delete a student by ID
+// Delete or Archive a student by ID
 export const deleteStudent = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params; // Extract student ID from request parameters
+    let { isArchived } = req.body; // Extract isArchived from the request body
 
     try {
+        // Default isArchived to true if not provided
+        if (isArchived === undefined) {
+            isArchived = true;
+        }
+
+        // Validate that isArchived is a boolean
+        if (typeof isArchived !== "boolean") {
+            return res.status(400).json({ message: "Invalid value for 'isArchived'. It must be a boolean." });
+        }
+
         // Start a session for transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        // Delete the student by ID
-        const deletedStudent = await Student.findByIdAndDelete(id, { session });
-        if (!deletedStudent) {
-            await session.abortTransaction();
+        if (isArchived) {
+            // Archive the student and associated user
+            const student = await Student.findById(id);
+            if (!student) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ message: "Student not found." });
+            }
+
+            student.isArchived = true;
+            await student.save({ session });
+
+            const user = await User.findOne({ student: id });
+            if (user) {
+                user.isArchived = true;
+                await user.save({ session });
+            }
+
+            // Commit the transaction
+            await session.commitTransaction();
             session.endSession();
-            return res.status(404).json({ message: "Student not found." });
+
+            return res.status(200).json({
+                message: "Student and associated user archived successfully.",
+                student,
+                user,
+            });
+        } else {
+            // Permanently delete the student and associated user
+            const deletedStudent = await Student.findByIdAndDelete(id, { session });
+            if (!deletedStudent) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ message: "Student not found." });
+            }
+
+            const deletedUser = await User.findOneAndDelete({ student: id }, { session });
+
+            // Commit the transaction
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({
+                message: "Student and associated user account deleted successfully.",
+                deletedStudent,
+                deletedUser,
+            });
+        }
+    } catch (error) {
+        console.error("Error processing student deletion:", error.message);
+        res.status(500).json({ error: "Failed to process student deletion." });
+    }
+};
+
+
+
+export const updateStudentPassword = async (req, res) => {
+    const { id } = req.params; // Student ID passed as a parameter
+    const { password } = req.body; // New password from the request body
+
+    try {
+        // Check if the password is provided
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required.' });
         }
 
-        // Delete the associated user account
-        const deletedUser = await User.findOneAndDelete({ student: id }, { session });
+        // Validate password length and complexity (you can adjust the regex as per requirements)
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
 
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
+
+        // Update the password in the associated user account
+        const user = await User.findOne({ student: id });
+        if (!user) {
+            return res.status(404).json({ message: 'Associated user account not found.' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        // Respond with success message
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Error updating student password:', error.message);
+
+        // Handle unexpected errors
+        res.status(500).json({ error: 'Failed to update student password.', details: error.message });
+    }
+};
+
+export const updateStudentProfile = async (req, res) => {
+    const studentId = req.user.idRole; // Extract the student ID from the JWT token
+    const userId = req.user.userId; // Extract the user ID from the JWT token
+    const { firstName, lastName, phone, email, address } = req.body;
+
+    if (!studentId || !userId) {
+        return res.status(400).json({
+            error: "Missing student or user ID in the token."
+        });
+    }
+
+    try {
+        // Fetch the student and user records
+        const [student, user] = await Promise.all([
+            Student.findById(studentId),
+            User.findById(userId),
+        ]);
+
+        if (!student) {
+            return res.status(404).json({
+                error: "Student not found."
+            });
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                error: "User not found."
+            });
+        }
+
+        // Validate the inputs
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({
+                error: "Invalid email format."
+            });
+        }
+
+        if (phone && !/^\+?[0-9]{7,15}$/.test(phone)) {
+            return res.status(400).json({
+                error: "Invalid phone number format."
+            });
+        }
+
+        // Update student details if provided
+        if (firstName) student.firstName = firstName.trim();
+        if (lastName) student.lastName = lastName.trim();
+        if (address) student.city = address.trim();
+
+        // Update user details if provided
+        if (phone) user.phone = phone.trim();
+        if (email) user.email = email.trim();
+
+        // Save the updates
+        await Promise.all([student.save(), user.save()]);
+
+        // Return the updated student profile with populated user details
+        const updatedStudent = await Student.findById(studentId).populate({
+            path: "user",
+            select: "email phone",
+        });
 
         res.status(200).json({
-            message: "Student and associated user account deleted successfully.",
-            deletedStudent,
-            deletedUser,
+            message: "Student profile updated successfully.",
+            student: updatedStudent,
         });
     } catch (error) {
-        console.error("Error deleting student:", error.message);
-        res.status(500).json({ error: "Failed to delete student." });
+        console.error("Error updating student profile:", error.message);
+
+        // Handle specific Mongoose errors
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                error: "Validation error while updating student profile.",
+                details: error.errors
+            });
+        }
+
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                error: "Invalid ID format provided."
+            });
+        }
+
+        res.status(500).json({
+            error: "An unexpected error occurred while updating student profile.",
+            details: error.message
+        });
     }
 };
