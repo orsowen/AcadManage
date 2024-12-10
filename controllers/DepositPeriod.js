@@ -44,7 +44,7 @@ const depositValidationSchema = Joi.object({
 
 export const addDepositPeriod = (useUrl = true) => async (req, res) => {
   try {
-    const choix = useUrl == undefined ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
+    const choix = useUrl == true ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
     req.body.For = choix; // Injecting 'For' into request body
 
     // Validation des données
