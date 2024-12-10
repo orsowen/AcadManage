@@ -188,45 +188,6 @@ export const getInternshipById = async (req, res) => {
     }
 };
 
-// Get internships for a specific student
-export const getInternshipByStudent = async (req, res) => {
-    const studentId = req.user.idRole; // Extract student ID from JWT token
-
-    try {
-        // Fetch internships assigned to the student where they are not archived
-        const internships = await Internship.find({ student: studentId, isArchived: false })
-            .select('-student') // Exclude the student field from the result
-            .populate({
-                path: 'teacher',
-                select: 'firstName lastName', // Populate teacher's first name and last name
-                populate: {
-                    path: 'user',
-                    select: 'email', // Populate the teacher's email from the User model
-                },
-            });
-
-        // Handle the case where no internships are found
-        if (!internships || internships.length === 0) {
-            return res.status(404).json({ message: "Aucun stage trouvé pour cet étudiant." });
-        }
-
-        // Respond with the fetched internships
-        res.status(200).json({
-            message: "Stages récupérés avec succès.",
-            data: internships,
-        });
-    } catch (error) {
-        console.error("Error fetching internships for student:", error.message);
-
-        // Return a descriptive error response
-        res.status(500).json({
-            message: "Une erreur est survenue lors de la récupération des stages.",
-            error: error.message,
-        });
-    }
-};
-
-
 // Update an internship and its associated topic
 export const updateInternship = async (req, res) => {
     const studentId = req.user.idRole; // Extract student ID from JWT token
@@ -591,6 +552,65 @@ export const validateInternship = async (req, res) => {
         // Return a generic server error
         res.status(500).json({
             message: "Erreur lors de la mise à jour du stage.",
+            error: error.message,
+        });
+    }
+};
+
+// Get internships for a specific student by Token
+export const getInternshipByStudentToken = async (req, res) => {
+    const { page = 1, limit = 5, isValid, Type, teacherId, day } = req.query;
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+
+    // Validate query parameters for pagination
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 5;
+
+    // Build the filter object
+    let filter = { student: studentId, isArchived: false }; // Include filter for the student ID and isArchived
+    if (isValid !== undefined) filter.isValid = isValid === 'true'; // Convert isValid to boolean
+    if (Type) filter.Type = Type; // Filter by Type if provided
+    if (teacherId) filter.teacher = teacherId; // Filter by teacherId if provided
+    if (day) filter.day = new Date(day); // Filter by day, assuming day is a valid date string
+
+    try {
+        // Fetch internships assigned to the student with pagination
+        const internships = await Internship.find(filter)
+            .select('-student -isArchived') // Exclude student and isArchived from the result
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName', // Populate teacher's first name and last name
+                populate: {
+                    path: 'user',
+                    select: 'email', // Populate teacher's email from the User model
+                },
+            })
+            .skip((currentPage - 1) * currentLimit) // Skip the appropriate number of results based on the page
+            .limit(currentLimit) // Limit the number of results to the specified limit
+            .exec();
+
+        // Handle the case where no internships are found
+        if (!internships || internships.length === 0) {
+            return res.status(404).json({ message: "Aucun stage trouvé pour cet étudiant." });
+        }
+
+        // Fetch total count of internships
+        const total = await Internship.countDocuments(filter);
+
+        // Respond with the fetched internships and pagination data
+        res.status(200).json({
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: internships,
+        });
+    } catch (error) {
+        console.error("Error fetching internships for student:", error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            message: "Une erreur est survenue lors de la récupération des stages.",
             error: error.message,
         });
     }

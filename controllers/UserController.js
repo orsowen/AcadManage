@@ -316,24 +316,36 @@ export const loginUser = async (req, res) => {
 };
 
 // Archive or Unarchive the user account
-export const toggleArchiveUser = async (req, res) => {
+
+export const toggleArchiveUser = (role = "admin") => async (req, res) => {
     const { id } = req.params; // Extract user ID from request parameters
-    const { isArchived } = req.body; // Determine the desired archive state from the request body
+    let { isArchived } = req.body; // Determine the desired archive state from the request body
+
 
     try {
         // Default isArchived to true if not provided
         if (isArchived === undefined) {
             isArchived = true;
         }
+
         // Validate the isArchived field
         if (typeof isArchived !== "boolean") {
-            return res.status(400).json({ message: "Invalid value for 'isArchived'. It must be a boolean." });
+            return res.status(400).json({ message: "'isArchived' must be a boolean value." });
         }
 
-        // Find the user to update
-        const user = await User.findById(id);
+        // Find the user to update based on the role
+        let user;
+        if (role === "admin") {
+            user = await User.findById(id);
+        } else if (role === "student") {
+            user = await User.findOne({ student: id });
+        } else if (role === "teacher") {
+            user = await User.findOne({ teacher: id });
+        }
+
+        // Handle case where the user is not found
         if (!user) {
-            return res.status(404).json({ message: "User not found." });
+            return res.status(404).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} not found.` });
         }
 
         // Update the archive status
@@ -342,11 +354,16 @@ export const toggleArchiveUser = async (req, res) => {
 
         // Respond with the updated user details
         res.status(200).json({
-            message: `User ${isArchived ? "archived" : "unarchived"} successfully.`,
+
+            message: `${role.charAt(0).toUpperCase() + role.slice(1)} ${isArchived ? "archived" : "unarchived"} successfully.`,
             user: updatedUser,
         });
+
     } catch (error) {
         console.error("Error updating user archive status:", error.message);
-        res.status(500).json({ message: "Server error while updating user archive status.", error: error.message });
+        res.status(500).json({
+            message: "Server error while updating user archive status.",
+            error: error.message,
+        });
     }
 };

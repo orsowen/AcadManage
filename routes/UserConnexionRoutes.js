@@ -21,6 +21,7 @@ router.get('/cin/:cin', isAdmin, getUserByCin); // Route to get user by Cin
 router.patch('/:id', isAdmin, updateUser); // Route to update user details
 router.delete('/:id', isAdmin, deleteUser); // Route to delete user
 router.post('/login', loginUser); // Route to log in a user
-router.put('/:id', isAdmin, toggleArchiveUser); // Route to Archive user
+router.put('/:id', isAdmin, toggleArchiveUser("admin")); // Route to Archive user
+
 
 export default router;

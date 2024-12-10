@@ -3,7 +3,7 @@ import express from "express";
 import internshipRoutes from "./InternshipRoutes.js";
 import planningStageRoutes from "./PlanningStageRoutes.js";
 import studentRoutes from "./StudentRoutes.js";
-import teacherRoutes from "./teacherRoutes.js";
+import teacherRoutes from "./TeacherRoutes.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
 
 const router = express.Router();
