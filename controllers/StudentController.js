@@ -226,39 +226,77 @@ export const updateStudent = async (req, res) => {
     }
 };
 
-
-// Delete a student by ID
+// Delete or Archive a student by ID
 export const deleteStudent = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params; // Extract student ID from request parameters
+    let { isArchived } = req.body; // Extract isArchived from the request body
 
     try {
+        // Default isArchived to true if not provided
+        if (isArchived === undefined) {
+            isArchived = true;
+        }
+
+        // Validate that isArchived is a boolean
+        if (typeof isArchived !== "boolean") {
+            return res.status(400).json({ message: "Invalid value for 'isArchived'. It must be a boolean." });
+        }
+
         // Start a session for transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        // Delete the student by ID
-        const deletedStudent = await Student.findByIdAndDelete(id, { session });
-        if (!deletedStudent) {
-            await session.abortTransaction();
+        if (isArchived) {
+            // Archive the student and associated user
+            const student = await Student.findById(id);
+            if (!student) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ message: "Student not found." });
+            }
+
+            student.isArchived = true;
+            await student.save({ session });
+
+            const user = await User.findOne({ student: id });
+            if (user) {
+                user.isArchived = true;
+                await user.save({ session });
+            }
+
+            // Commit the transaction
+            await session.commitTransaction();
             session.endSession();
-            return res.status(404).json({ message: "Student not found." });
+
+            return res.status(200).json({
+                message: "Student and associated user archived successfully.",
+                student,
+                user,
+            });
+        } else {
+            // Permanently delete the student and associated user
+            const deletedStudent = await Student.findByIdAndDelete(id, { session });
+            if (!deletedStudent) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ message: "Student not found." });
+            }
+
+            const deletedUser = await User.findOneAndDelete({ student: id }, { session });
+
+            // Commit the transaction
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({
+                message: "Student and associated user account deleted successfully.",
+                deletedStudent,
+                deletedUser,
+            });
         }
-
-        // Delete the associated user account
-        const deletedUser = await User.findOneAndDelete({ student: id }, { session });
-
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
-
-        res.status(200).json({
-            message: "Student and associated user account deleted successfully.",
-            deletedStudent,
-            deletedUser,
-        });
     } catch (error) {
-        console.error("Error deleting student:", error.message);
-        res.status(500).json({ error: "Failed to delete student." });
+        console.error("Error processing student deletion:", error.message);
+        res.status(500).json({ error: "Failed to process student deletion." });
     }
 };
 
