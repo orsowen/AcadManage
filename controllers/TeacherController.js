@@ -261,3 +261,30 @@ export const updateTeacherPassword = async (req, res) => {
         res.status(500).json({ error: 'Failed to update student password.', details: error.message });
     }
 };
+
+
+// Update a teacher
+export const updateTeacherByToken = async (req, res) => {
+    const id = req.user.idRole;
+    const { lastName, firstName, subjectCount } = req.body;
+
+    try {
+        // Fetch the existing teacher by ID
+        const teacher = await Teacher.findById(id);
+        if (!teacher) {
+            return res.status(404).json({ error: 'Teacher not found.' });
+        }
+
+        // Proceed to update the teacher's details
+        teacher.lastName = lastName || teacher.lastName;
+        teacher.firstName = firstName || teacher.firstName;
+        teacher.subjectCount = subjectCount || teacher.subjectCount;
+
+        const updatedTeacher = await teacher.save(); // Save the updated teacher document
+
+        res.status(200).json(updatedTeacher);
+    } catch (error) {
+        console.error('Error updating teacher:', error.message);
+        res.status(400).json({ error: 'Error updating teacher. ' + error.message });
+    }
+};
