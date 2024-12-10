@@ -22,11 +22,6 @@ const TeacherSchema = new mongoose.Schema({
         ref: 'Internship', // Reference to the Internship model
         default: [], // Ensure it's an array by default
     }],
-
-    isArchived: {
-        type: Boolean,
-        default: false, // Default value
-    },
     // Link to User 
     user: {
         type: mongoose.Schema.Types.ObjectId,
