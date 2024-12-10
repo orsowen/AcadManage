@@ -227,13 +227,31 @@ export const updateUser = async (req, res) => {
 // Delete a user
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
+    const { isArchive } = req.body; // Determine if should be archived
 
     try {
+        // SOFT DELETE
+        if (isArchive) {
+            // Archive the associated user account
+            const user = await User.findById(id);
+            if (!user) {
+                return res.status(404).json({ message: "User not found." });
+            }
+            if (user) {
+                user.isArchived = true;
+                await user.save();
+            }
+            return res.status(200).json({
+                message: "User archived successfully.",
+                archivedUser: user || null,
+            });
+        }
+        // HARD DELETE
         const deletedUser = await User.findByIdAndDelete(id);
         if (!deletedUser) {
             return res.status(404).json({ message: 'User not found.' });
         }
-        res.status(200).json({ message: 'User deleted successfully.' });
+        res.status(200).json({ message: 'User deleted successfully.', deletedUser });
     } catch (error) {
         console.error('Error deleting user:', error.message);
         res.status(500).json({ message: 'Server error while deleting user.', error });
