@@ -1,7 +1,6 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
-import User from "../models/User.js"; 
 import Student from "../models/Student.js";
 import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
@@ -11,11 +10,14 @@ dotenv.config();
 export const createSubjects = async (req, res) => {
   try {
     const { subjects } = req.body; // Expecting an array of subjects
+    const teacherId = req.user.userId; // Extract teacher ID from authenticated user
+
     if (!Array.isArray(subjects)) {
       return res
         .status(400)
         .json({ message: "Invalid input, expected an array of subjects" });
     }
+
     // Check if we are in the deposit period
     const depositPeriod = await DepositPeriod.findOne({ For: "PFA" });
     if (!depositPeriod) {
@@ -55,7 +57,7 @@ export const createSubjects = async (req, res) => {
         }
       }
     }
-    
+
     const newSubjects = subjects.map((subject) => {
       const {
         binomeExits,
@@ -63,7 +65,7 @@ export const createSubjects = async (req, res) => {
         description,
         binome,
         monome,
-        teacher,
+  
       } = subject;
       let addedSubject;
 
@@ -74,7 +76,7 @@ export const createSubjects = async (req, res) => {
           description,
           binome,
           monome,
-          teacher,
+          teacher: teacherId, // Use the teacher ID from the authenticated user
         };
       } else {
         addedSubject = {
@@ -82,14 +84,13 @@ export const createSubjects = async (req, res) => {
           title,
           description,
           monome,
-          teacher,
+          teacher: teacherId, // Use the teacher ID from the authenticated user
         };
       }
 
       console.log("Processed subject:", addedSubject);
       return new Subject_PFA(addedSubject);
     });
-
 
     await Subject_PFA.insertMany(newSubjects);
     console.log("Subjects inserted successfully");
