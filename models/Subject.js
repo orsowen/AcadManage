@@ -52,27 +52,14 @@ const SubjectSchema = new mongoose.Schema({
             },
         },
     ],
-    teacher: {
+    teacher: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Référence au modèle User
-        validate: {
-            validator: async function (id) {
-                const user = await mongoose.model("User").findById(id);
-                return user && user.role === "teacher";
-            },
-            message: "L'utilisateur référencé doit être un enseignant (teacher).",
-        },
-    },
+        ref: 'Teacher', // Référence au modèle User
+    }],
+    
     students: [{  // Tableau d'ID d'étudiants
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        validate: {
-            validator: async function (id) {
-                const user = await mongoose.model("User").findById(id);
-                return user && user.role === "student";
-            },
-            message: "L'utilisateur référencé doit être un étudiant (student).",
-        },
+        ref: 'Student',
     }],
 
     published: {

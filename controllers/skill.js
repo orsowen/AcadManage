@@ -16,17 +16,24 @@ export const addSkill = async (req, res) => {
 // Lister toutes les compétences et leurs matières associées
 export const getSkills = async (req, res) => {
     try {
-        const skills = await Skill.find().populate("associatedSubjects");
-        res.status(200).json(skills);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching skills", error: error.message });
+        const Skills = await Skill.find();
+        res.status(200).json({
+            success: true,
+            data: Skills
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 };
 
 // Récupérer une compétence par ID
 export const getSkillById = async (req, res) => {
     try {
-        const skill = await Skill.findById(req.params.id).populate("associatedSubjects"); 
+        const skill = await Skill.findById(req.params.id);  // Récupérer la compétence par ID
+        // const skill = await Skill.findById(req.params.id).populate("associatedSubjects"); 
         if (!skill) {
             return res.status(404).json({ message: "Skill not found" });
         }

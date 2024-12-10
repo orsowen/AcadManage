@@ -7,7 +7,7 @@ import {
 
 const router = express.Router();
 
-router.post("/open", addDepositPeriod);
+router.post("/open", addDepositPeriod(true));
 
 router.get("/open", getDepositPeriods);
 

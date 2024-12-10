@@ -1,6 +1,6 @@
 import express from 'express';
 import { addSubject, getAllSubjects, getSubjectById, updateSubject, toggleSubjectPublish, updateAvancement} from '../controllers/subject.js';
-import { isAdmin, isAdminOrTeacher, isTeacher } from '../middlewares/authentification.js';
+import { isAdmin, isAdminOrTeacher } from '../middlewares/authentication.js';
 
 const router = express.Router();
 

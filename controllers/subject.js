@@ -232,14 +232,14 @@ export const updateAvancement = async (req, res) => {
         const admin = await User.findOne({ role: "admin" });
         if (admin) {
             try {
-                console.log(`Tentative d'envoi d'email à l'administrateur ${admin.login}...`);
+                console.log(`Tentative d'envoi d'email à l'administrateur ${admin.email}...`);
                 await transporter.sendMail({
                     from: { name: "acadManager", address: process.env.EMAIL_USER },
-                    to: admin.login, // Assurez-vous que l'admin a un champ 'email'
+                    to: admin.email, // Assurez-vous que l'admin a un champ 'email'
                     subject: `Mise à jour de l'avancement de "${subject.title}"`,
                     text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
                 });
-                console.log(`Email envoyé à l'administrateur ${admin.login}`);
+                console.log(`Email envoyé à l'administrateur ${admin.email}`);
             } catch (error) {
                 console.error("Erreur lors de l'envoi de l'email à l'administrateur :", error);
             }
@@ -250,22 +250,25 @@ export const updateAvancement = async (req, res) => {
         // Test de l'envoi de l'email aux étudiants
         for (const studentId of subject.students) {
             try {
-                const student = await User.findById(studentId);
+                const student = await User.find({student : studentId});
+                
                 if (!student) {
                     console.log(`Étudiant avec ID ${studentId} non trouvé.`);
                     continue;
                 }
 
-                console.log(`Tentative d'envoi d'email à l'étudiant ${student.login}...`);
+                console.log(`Tentative d'envoi d'email à l'étudiant ${student.email}...`);
 
-                if (student.login) {  // Vérifiez le champ 'email' au lieu de 'login'
+                if (student.email) {  // Vérifiez le champ 'email' au lieu de 'email'
                     await transporter.sendMail({
-                        from: { name: "acadManager", address: process.env.EMAIL_USER },
-                        to: student.login, // Utilisez l'email de l'étudiant
+                        from: { 
+                            name: "acadManager", 
+                            address: process.env.EMAIL_USER },
+                        to: student.email, // Utilisez l'email de l'étudiant
                         subject: `Mise à jour de "${subject.title}"`,
                         text: `Le chapitre "${chapterName}" a été mis à jour à "${status}".`,
                     });
-                    console.log(`Email envoyé à ${student.login}.`);
+                    console.log(`Email envoyé à ${student.email}.`);
                 } else {
                     console.log(`Adresse email invalide ou absente pour l'étudiant ${studentId}.`);
                 }

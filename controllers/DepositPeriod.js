@@ -42,9 +42,9 @@ const depositValidationSchema = Joi.object({
 
 // **Ajouter une période de dépôt**
 
-export const addDepositPeriod = async (req, res) => {
+export const addDepositPeriod = (useUrl = true) => async (req, res) => {
   try {
-    const choix = req.baseUrl.replace("/", "").toUpperCase(); // Extracts PFE, PFA, STAGE
+    const choix = useUrl == undefined ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
     req.body.For = choix; // Injecting 'For' into request body
 
     // Validation des données
@@ -132,7 +132,6 @@ export const updateDepositPeriod = async (req, res) => {
       { Start_Deposit, End_Deposit, Start_Choice, End_Choice },
       { new: true }
     );
-    console.log(choix);
     if (!updatedPeriod) {
       return res.status(404).json({ message: `Aucune période trouvée pour ${choix}.` });
     }
