@@ -2,6 +2,7 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
 import Student from "../models/Student.js";
+import User from "../models/User.js";
 import Teacher from "../models/Teachers.js";
 import dotenv from "dotenv";
 dotenv.config();
