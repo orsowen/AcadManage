@@ -117,12 +117,61 @@ export const createStudent = async (req, res) => {
 
 // Fetch all students
 export const getAllStudents = async (req, res) => {
+    const { page = 1, limit = 10, search, isArchived, grade, nationality, sort = "firstName" } = req.query;
+
+    // Validate and parse pagination parameters
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+    // Build the filter object
+    let filter = {};
+    if (isArchived !== undefined) filter.isArchived = isArchived === "true"; // Convert to boolean
+    if (grade) filter.grade = grade; // Filter by grade if provided
+    if (nationality) filter.nationality = nationality; // Filter by nationality if provided
+
     try {
-        const students = await Student.find();
-        res.status(200).json(students);
+        // Handle search specifically for email or student fields
+        let searchFilter = {};
+        if (search) {
+            searchFilter = {
+                $or: [
+                    { firstName: { $regex: search, $options: "i" } }, // Case-insensitive search on firstName
+                    { lastName: { $regex: search, $options: "i" } },  // Case-insensitive search on lastName
+                ],
+            };
+        }
+
+        // Fetch students with filters, pagination, and populate user details
+        const students = await Student.find({ ...filter, ...searchFilter })
+            .populate({
+                path: "user",
+                select: "email phone cin", // Populate specific fields from the User model
+                match: search ? { email: { $regex: search, $options: "i" } } : {}, // Apply search filter on email
+            })
+            .sort(sort) // Sort results by the specified field
+            .skip((currentPage - 1) * currentLimit) // Skip results for pagination
+            .limit(currentLimit) // Limit the number of results
+            .exec();
+
+        // Fetch the total count of students matching the filter
+        const total = await Student.countDocuments(filter);
+
+        // Respond with paginated and filtered student data
+        res.status(200).json({
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: students,
+        });
     } catch (error) {
-        console.error('Error fetching students:', error.message);
-        res.status(500).json({ error: 'Failed to fetch students.' });
+        console.error("Error fetching students:", error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            error: "An error occurred while fetching students.",
+            details: error.message,
+        });
     }
 };
 
@@ -229,24 +278,24 @@ export const updateStudent = async (req, res) => {
 // Delete or Archive a student by ID
 export const deleteStudent = async (req, res) => {
     const { id } = req.params; // Extract student ID from request parameters
-    let { isArchived } = req.body; // Extract isArchived from the request body
+    let { force } = req.body; // Extract force from the request body
 
     try {
         // Default isArchived to true if not provided
-        if (isArchived === undefined) {
-            isArchived = true;
+        if (force === undefined) {
+            force = false;
         }
 
         // Validate that isArchived is a boolean
-        if (typeof isArchived !== "boolean") {
-            return res.status(400).json({ message: "Invalid value for 'isArchived'. It must be a boolean." });
+        if (typeof force !== "boolean") {
+            return res.status(400).json({ message: "Invalid value for 'force'. It must be a boolean." });
         }
 
         // Start a session for transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        if (isArchived) {
+        if (!force) {
             // Archive the student and associated user
             const student = await Student.findById(id);
             if (!student) {
@@ -273,27 +322,28 @@ export const deleteStudent = async (req, res) => {
                 student,
                 user,
             });
-        } else {
-            // Permanently delete the student and associated user
-            const deletedStudent = await Student.findByIdAndDelete(id, { session });
-            if (!deletedStudent) {
-                await session.abortTransaction();
-                session.endSession();
-                return res.status(404).json({ message: "Student not found." });
-            }
-
-            const deletedUser = await User.findOneAndDelete({ student: id }, { session });
-
-            // Commit the transaction
-            await session.commitTransaction();
-            session.endSession();
-
-            return res.status(200).json({
-                message: "Student and associated user account deleted successfully.",
-                deletedStudent,
-                deletedUser,
-            });
         }
+        // HARD DELETE
+        // Permanently delete the student and associated user
+        const deletedStudent = await Student.findByIdAndDelete(id, { session });
+        if (!deletedStudent) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({ message: "Student not found." });
+        }
+
+        const deletedUser = await User.findOneAndDelete({ student: id }, { session });
+
+        // Commit the transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({
+            message: "Student and associated user account deleted successfully.",
+            deletedStudent,
+            deletedUser,
+        });
+
     } catch (error) {
         console.error("Error processing student deletion:", error.message);
         res.status(500).json({ error: "Failed to process student deletion." });
@@ -344,61 +394,77 @@ export const updateStudentPassword = async (req, res) => {
 };
 
 export const updateStudentProfile = async (req, res) => {
-    const studentId = req.user.idRole; // Extract the student ID from the JWT token
-    const userId = req.user.userId; // Extract the user ID from the JWT token
-    const { firstName, lastName, phone, email, address } = req.body;
+    const { idRole: studentId, userId } = req.user; // Extract IDs from JWT token
+    const { firstName, lastName, arabicFirstName, arabicLastName, phone, email, address } = req.body;
 
     if (!studentId || !userId) {
         return res.status(400).json({
-            error: "Missing student or user ID in the token."
+            error: "Missing student or user ID in the token.",
         });
     }
 
     try {
-        // Fetch the student and user records
+        // Fetch the student and user records concurrently
         const [student, user] = await Promise.all([
             Student.findById(studentId),
             User.findById(userId),
         ]);
 
         if (!student) {
-            return res.status(404).json({
-                error: "Student not found."
-            });
+            return res.status(404).json({ error: "Student not found." });
         }
 
         if (!user) {
-            return res.status(404).json({
-                error: "User not found."
-            });
+            return res.status(404).json({ error: "User not found." });
         }
 
-        // Validate the inputs
+        // Check for duplicate email if it is being updated
+        if (email && email !== user.email) {
+            const existingUserWithEmail = await User.findOne({ email });
+            if (existingUserWithEmail && existingUserWithEmail._id.toString() !== userId) {
+                return res.status(400).json({
+                    error: "The provided email is already in use by another user.",
+                });
+            }
+        }
+
+        // Check for duplicate phone if it is being updated
+        if (phone && phone !== user.phone) {
+            const existingUserWithPhone = await User.findOne({ phone });
+            if (existingUserWithPhone && existingUserWithPhone._id.toString() !== userId) {
+                return res.status(400).json({
+                    error: "The provided phone number is already in use by another user.",
+                });
+            }
+        }
+
+        // Validate inputs
+        const errors = [];
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({
-                error: "Invalid email format."
-            });
+            errors.push("Invalid email format.");
         }
-
         if (phone && !/^\+?[0-9]{7,15}$/.test(phone)) {
-            return res.status(400).json({
-                error: "Invalid phone number format."
-            });
+            errors.push("Invalid phone number format.");
+        }
+        if (errors.length) {
+            return res.status(400).json({ error: errors });
         }
 
         // Update student details if provided
         if (firstName) student.firstName = firstName.trim();
         if (lastName) student.lastName = lastName.trim();
+        if (arabicFirstName) student.arabicFirstName = arabicFirstName.trim();
+        if (arabicLastName) student.arabicLastName = arabicLastName.trim();
         if (address) student.city = address.trim();
 
         // Update user details if provided
         if (phone) user.phone = phone.trim();
         if (email) user.email = email.trim();
 
-        // Save the updates
+        // Save updates concurrently
         await Promise.all([student.save(), user.save()]);
 
-        // Return the updated student profile with populated user details
+        // Fetch updated student profile with populated user details
         const updatedStudent = await Student.findById(studentId).populate({
             path: "user",
             select: "email phone",
@@ -412,22 +478,29 @@ export const updateStudentProfile = async (req, res) => {
         console.error("Error updating student profile:", error.message);
 
         // Handle specific Mongoose errors
+        if (error.code === 11000) {
+            const duplicateField = Object.keys(error.keyValue)[0];
+            return res.status(400).json({
+                error: `Duplicate value for field: ${duplicateField}.`,
+            });
+        }
+
         if (error.name === "ValidationError") {
             return res.status(400).json({
                 error: "Validation error while updating student profile.",
-                details: error.errors
+                details: error.errors,
             });
         }
 
         if (error.name === "CastError") {
             return res.status(400).json({
-                error: "Invalid ID format provided."
+                error: "Invalid ID format provided.",
             });
         }
 
         res.status(500).json({
             error: "An unexpected error occurred while updating student profile.",
-            details: error.message
+            details: error.message,
         });
     }
 };
