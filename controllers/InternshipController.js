@@ -265,8 +265,21 @@ export const updateInternship = async (req, res) => {
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
     const { id } = req.params;
+    const { force } = req.body;
 
     try {
+
+        // SOFT DELETE
+        if (!force) {
+            const internship = await Internship.findById(id);
+            if (!internship) {
+                return res.status(404).json({ message: "Stage introuvable." });
+            }
+            internship.isArchived = true;
+            await internship.save();
+            return res.status(200).json({ message: 'Internship archived successfully.' });
+        }
+        // HARD DELETE
         const deletedInternship = await Internship.findByIdAndDelete(id);
 
         if (!deletedInternship) {

@@ -43,8 +43,8 @@ export const createPlanningStage = async (req, res) => {
         }
 
         // Ensure the user is authorized to plan this stage (teacher or admin)
-        if (teacherId !== internshipDoc.teacher._id.toString() && role !== "admin") {
-            return res.status(403).json({ error: "Unauthorized to plan this stage." });
+        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher.toString() && role !== "admin")) {
+            return res.status(403).json({ error: internshipDoc.teacher ? "Unauthorized to plan this stage." : "No teacher assigned to the internship." });
         }
 
         // Create the new planning stage
@@ -319,8 +319,17 @@ export const updatePlanningStage = async (req, res) => {
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
     const { id } = req.params;
+    const { force } = req.body;
 
     try {
+        // SOFT DELETE
+        if (!force) {
+            const planningStage = await PlanningStage.findById(id);
+            planningStage.isArchived = true;
+            await planningStage.save();
+            return res.status(200).json({ message: 'Planning Stage archived successfully.' });
+        }
+        // HARD DELETE
         const deletedPlanningStage = await PlanningStage.findByIdAndDelete(id);
         if (!deletedPlanningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });

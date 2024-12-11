@@ -227,11 +227,11 @@ export const updateUser = async (req, res) => {
 // Delete a user
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
-    const { isArchive } = req.body; // Determine if should be archived
+    const { force } = req.body; // Determine if should be archived
 
     try {
         // SOFT DELETE
-        if (isArchive) {
+        if (!force) {
             // Archive the associated user account
             const user = await User.findById(id);
             if (!user) {
