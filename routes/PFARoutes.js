@@ -9,9 +9,10 @@ import {
   approveSubject,
   firstSend,
   modifiedSend,
-  PFASubjectsByTeacher,
+  getAllSubjectsForStudent,
   getSubjectById,
   getSubjectsByTeacher,
+  PFASubjectsByTeacher,
   getSubjectByIdForTeacher,
 } from "../controllers/PFAController.js";
 import express from "express";
@@ -23,11 +24,14 @@ import {
 
 const router = express.Router();
 
+//Route to list subjects by teachers student
+router.get("/PFASubjects", isStudent, getAllSubjectsForStudent);
+
 // Route to create multiple subjects
 router.post("/post", isTeacher, createSubjects);
 
 // // Route to get all subjects Admin
-router.get("", isAdmin, getSubjects);
+router.get("/", isAdmin, getSubjects);
 
 // Route to get all subjects teacher
 router.get("/mine", isTeacher, getSubjectsByTeacher);
@@ -37,6 +41,9 @@ router.get("/:id", isAdmin, getSubjectById);
 
 // route to get a subject by id teacher
 router.get("/:id/mine", isTeacher, getSubjectByIdForTeacher);
+
+// Route to update a subject  teacher
+router.patch("/:id", isTeacher, updateSubject);
 
 // Route to delete a subject  by teacher
 router.delete("/:id/mine", isTeacher, deleteSubject);
