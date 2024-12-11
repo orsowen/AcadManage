@@ -5,13 +5,9 @@ import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
-
 import PFE from "./routes/PFE.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js"
-import skillRoutes from "./routes/skill.js";
-import subjectRoutes from "./routes/subject.js";
-import testNotificationsRouter from './routes/test_notif.js';
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -29,22 +25,19 @@ app.use(express.json());
 // ROUTES
 
 app.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
-app.use('/test-notifications', testNotificationsRouter);
-app.use("/competences", skillRoutes);
-app.use("/matieres", subjectRoutes);
 app.use("/pfe", DepositPeriod);
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/PFE", PFE);
 app.use("/", routerPFA);
+app.use("/internships", internshipRoutes);
+app.use("/users", UserConnexionRoutes);
+
+
 app.use(router); // Place router here for better organization
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
-
-// Additional routes
-app.use("/internships", internshipRoutes);
-app.use("/users", UserConnexionRoutes);
 
 export default app;
