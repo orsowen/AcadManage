@@ -24,7 +24,7 @@ router.use('/test-notifications', testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 // Hot l route mta3ek lenna fi 3oudh fi App.js
-// esstaamel router.use() mouch app.use() w kahaw mriguel
+// esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
 
 
 export default router;

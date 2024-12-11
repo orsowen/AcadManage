@@ -55,7 +55,8 @@ const SubjectSchema = new mongoose.Schema({
     teachers: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Référence au modèle User
-    }],
+        default: null,
+}],
     
     students: [{  // Tableau d'ID d'étudiants
         type: mongoose.Schema.Types.ObjectId,

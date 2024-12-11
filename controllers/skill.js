@@ -79,7 +79,7 @@ export const deleteSkill = async (req, res) => {
         const { force } = req.body
         const skill = await Skill.findById(req.params.id);
         if (!skill) {
-            return res.status(404).json({ message: "Skill not found" });
+            return res.status(404).json({ message: "Compétence introuvable" });
         }
 
         // Vérifier si des matières sont associées
@@ -91,14 +91,14 @@ export const deleteSkill = async (req, res) => {
                 skill.archived = true;
                 await skill.save();
                 return res.status(200).json({
-                    message: "Skill archived successfully because it's linked to subjects",
+                    message: "La compétence a été archivée car elle est liée à des matières.",
                     skill
                 });
             }
         }
         await Skill.findByIdAndDelete(req.params.id);
-        res.status(200).json({ message: "Skill deleted successfully" });
+        res.status(200).json({ message: "Compétence supprimée avec succès." });
     } catch (error) {
-        res.status(500).json({ message: "Error deleting skill", error: error.message });
+        res.status(500).json({ message: "Erreur lors de la suppression de la compétence.", error: error.message });
     }
 };
