@@ -4,13 +4,8 @@ import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
-
-import PFE from "./routes/PFE.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js"
-import skillRoutes from "./routes/skill.js";
-import subjectRoutes from "./routes/subject.js";
-import testNotificationsRouter from './routes/test_notif.js';
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -26,8 +21,6 @@ app.use(cors());
 app.use(express.json());
 
 // ROUTES
-
-
 app.use("/", routerPFA);
 app.use(router); // Place router here for better organization
 
