@@ -14,7 +14,7 @@ import UserConnexionRoutes from "./UserConnexionRoutes.js";
 const router = express.Router();
 
 // ROUTES --------------------------------
-router.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
+router.use(["/PFE", "/PFA", "/stage"], DepositPeriod);
 router.use("/internships/stage/planning", planningStageRoutes);
 router.use("/internships/stage", internshipRoutes);
 router.use("/users", UserConnexionRoutes);

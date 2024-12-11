@@ -1,10 +1,10 @@
+import DepositPeriod from '../models/DepositPeriod.js';
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
 
 const validateFiles = (documents) => {
     const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
-
     const { attestation, rapport, ficheEval } = documents;
 
     // Check if each file follows the allowed extension
@@ -30,6 +30,20 @@ export const addInternship = async (req, res) => {
     }
 
     try {
+        if (studentId || req.user.role == "student") {
+            // Check if the current period allows STAGE deposits
+            const currentPeriod = await DepositPeriod.findOne({
+                For: "STAGE",
+                Start_Deposit: { $lte: new Date() },
+                End_Deposit: { $gte: new Date() }
+            });
+            if (!currentPeriod) {
+                return res.status(403).json({
+                    error: "Internships can only be created during the deposit period."
+                });
+            }
+        }
+        // CREATE 
         // Validate topicDetails input
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
@@ -67,7 +81,6 @@ export const addInternship = async (req, res) => {
                 return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
             }
         }
-
         // Create the internship object with the provided topic and student/teacher if available
         const newInternship = new Internship({
             title,
@@ -216,6 +229,20 @@ export const updateInternship = async (req, res) => {
     }
 
     try {
+        if (studentId || role === "student") {
+            // Check if the current period allows STAGE deposits
+            const currentPeriod = await DepositPeriod.findOne({
+                For: "STAGE",
+                Start_Deposit: { $lte: new Date() },
+                End_Deposit: { $gte: new Date() }
+            });
+            if (!currentPeriod) {
+                return res.status(403).json({
+                    error: "Internships can only be updated during the deposit period."
+                });
+            }
+        }
+        // UPDATE
         const internship = await Internship.findById(id);
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
@@ -225,6 +252,7 @@ export const updateInternship = async (req, res) => {
             return res.status(403).json({ message: "Unauthorized" });
 
         }
+
         // Update topic details if provided
         if (topicDetails) {
             if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
@@ -264,12 +292,64 @@ export const updateInternship = async (req, res) => {
         }
 
         const updatedInternship = await internship.save();
-        res.status(200).json(updatedInternship);
+        res.status(200).json({ message: "Internship updated successfully", updatedInternship });
     } catch (error) {
         console.error("Error updating internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
     }
 };
+
+// update internship document
+export const updateInternshipDocuments = async (req, res) => {
+    const studentId = req.user.idRole; // Extract student ID from JWT token
+    const role = req.user.role; // Extract student ID from JWT token
+    const { id } = req.params;
+    const { documents } = req.body;
+    try {
+        if (studentId || role === "student") {
+            // Check if the current period allows STAGE deposits
+            const currentPeriod = await DepositPeriod.findOne({
+                For: "STAGE",
+                Start_Deposit: { $lte: new Date() },
+                End_Deposit: { $gte: new Date() }
+            });
+            if (!currentPeriod) {
+                return res.status(403).json({
+                    error: "Documents can only be updated during the deposit period."
+                });
+            }
+        }
+        // UPDATE
+        const internship = await Internship.findById(id);
+        if (!internship) {
+            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
+        }
+
+        if (internship.student._id.toString() !== studentId && role !== "admin") {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+        if (documents) {
+            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            }
+            // Validate the file formats using the validateFiles function
+            const fileValidation = validateFiles(documents);
+            if (!fileValidation.isValid) {
+                return res.status(400).json({ error: fileValidation.message });
+            }
+            internship.documents.ficheEval = documents.ficheEval;
+            internship.documents.attestation = documents.attestation;
+            internship.documents.rapport = documents.rapport;
+        }
+        const updatedInternship = await internship.save();
+        res.status(200).json({ message: "Documents updated successfully", updatedInternship });
+    } catch (error) {
+        console.error("Error updating internship:", error.message);
+        res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
+    }
+};
+
+
 
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
