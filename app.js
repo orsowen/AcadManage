@@ -1,4 +1,3 @@
-
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -7,32 +6,45 @@ import DepositPeriod from "./routes/DepositPeriod.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
 
+import PFE from "./routes/PFE.js";
+import internshipRoutes from './routes/InternshipRoutes.js';
+import UserConnexionRoutes from "./routes/UserConnexionRoutes.js"
+import skillRoutes from "./routes/skill.js";
+import subjectRoutes from "./routes/subject.js";
+import testNotificationsRouter from './routes/test_notif.js';
 
 // ENVIRONMENT variables configuration
 dotenv.config();
 
+// MongoDB Connection
+dbConnection();
+
 const app = express();
 const PORT = process.env.PORT || 8800;
 
-// MongoDB Connection
-dbConnection();
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-
 // ROUTES
 
 app.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
-
+app.use('/test-notifications', testNotificationsRouter);
+app.use("/competences", skillRoutes);
+app.use("/matieres", subjectRoutes);
+app.use("/pfe", DepositPeriod);
+app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
+app.use("/PFE", PFE);
 app.use("/", routerPFA);
-// All the endpoints below are in index.js for a better ordering and structure
-app.use(router);
-
+app.use(router); // Place router here for better organization
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
+
+// Additional routes
+app.use("/internships", internshipRoutes);
+app.use("/users", UserConnexionRoutes);
 
 export default app;
