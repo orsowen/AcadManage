@@ -111,7 +111,6 @@ export const createPlanningStage = async (req, res) => {
     }
 };
 
-
 // get all the planning stages
 export const getAllPlanningStages = async (req, res) => {
     const {
@@ -221,7 +220,6 @@ export const getAllPlanningStages = async (req, res) => {
         });
     }
 };
-
 
 // Fetch a single Planning Stage by ID
 export const getPlanningStageById = async (req, res) => {
@@ -358,7 +356,6 @@ export const updatePlanningStage = async (req, res) => {
     }
 };
 
-
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
     const { id } = req.params;
@@ -412,7 +409,7 @@ export const updatePublicationStatus = async (req, res) => {
     }
 };
 
-// 
+// Send mail to teachers and students to inform them of planning
 export const sendMailPlanning = async (req, res) => {
     try {
         // Fetch all published and non-archived planning stages

@@ -25,6 +25,7 @@ router.get('/:id', getPlanningStageById);
 
 // POST /planning-stages - Create a new planning stage
 router.post('/', isAdminOrTeacher, createPlanningStage);
+
 // SEND EMAIL
 router.post('/send', isAdmin, sendMailPlanning);
 

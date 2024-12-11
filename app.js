@@ -20,7 +20,7 @@ app.use(express.json());
 
 // ROUTES
 app.use("/", routerPFA);
-app.use(router); // Place router here for better organization
+app.use(router); // Place router in index.js fi 3oudh lenna for better organization
 
 // Start server
 app.listen(PORT, () => {

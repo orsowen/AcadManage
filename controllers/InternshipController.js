@@ -104,6 +104,7 @@ export const addInternship = async (req, res) => {
     }
 };
 
+// get all Internships
 export const getAllInternships = async (req, res) => {
     const {
         page = 1,
@@ -208,8 +209,6 @@ export const updateInternship = async (req, res) => {
     const studentId = req.user.idRole; // Extract student ID from JWT token
     const role = req.user.role; // Extract student ID from JWT token
     const { id } = req.params;
-    // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
-    // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
     const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -221,8 +220,6 @@ export const updateInternship = async (req, res) => {
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
-        console.log(internship.student._id);
-        console.log(studentId);
 
         if (internship.student._id.toString() !== studentId && role !== "admin") {
             return res.status(403).json({ message: "Unauthorized" });
@@ -274,14 +271,12 @@ export const updateInternship = async (req, res) => {
     }
 };
 
-
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
     const { id } = req.params;
     const { force } = req.body;
 
     try {
-
         // SOFT DELETE
         if (!force) {
             const internship = await Internship.findById(id);
@@ -306,9 +301,7 @@ export const deleteInternship = async (req, res) => {
     }
 };
 
-
-
-// MANUAL ADDING
+// MANUAL ADDING TEACHER TO INTERNSHIPS
 export const addTeacherToInternship = async (req, res) => {
     try {
         const { internshipId, teacherId } = req.body;
@@ -478,7 +471,7 @@ export const removeAllAssignedInternships = async (req, res) => {
     }
 };
 
-// FOR TEACHER
+// FOR TEACHER : get internships assigned to a specific teacher
 export const getAssignedInternships = async (req, res) => {
     const { page = 1, limit = 5, isValid, day, nomSociete } = req.query;
     const teacherId = req.user.idRole;  // Extract teacherId from the JWT token
@@ -542,7 +535,6 @@ export const getAssignedInternships = async (req, res) => {
 export const validateInternship = async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
-
     const { isValid, reasonIfNotValid } = req.body;
 
     try {

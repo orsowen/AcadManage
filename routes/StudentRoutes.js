@@ -9,10 +9,9 @@ import {
     updateStudentPassword,
     updateStudentProfile,
 } from '../controllers/StudentController.js';
-
 import { toggleArchiveUser } from '../controllers/UserController.js';
-
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
+
 
 const router = express.Router();
 
@@ -33,6 +32,7 @@ router.patch('/:id', isAdmin, updateStudent);
 
 // update own profile
 router.put('/me', isStudent, updateStudentProfile);
+
 // patch update student password
 router.patch('/:id/password', isAdmin, updateStudentPassword);
 
