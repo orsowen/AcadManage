@@ -333,6 +333,23 @@ export const getAllSubjectsByTeacher = async (req, res) => {
     }
 };
 
+export const getAllSubjectsByStudent = async (req, res) => {
+    const idStudent = req.user.idRole;
+
+    console.log(idStudent);
+    try {
+
+        const subjects = await Subject.find({ students: { $in: idStudent } })
+            .populate('skills', 'name') // Récupérer les compétences associées
+            .populate('teachers', 'firstName lastName') // Récupérer les infos de l'enseignant
+            .populate('students', 'firstName lastName') // Récupérer les infos de l'étudiant
+
+        res.status(200).json(subjects);
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
+    }
+};
+
 // Affecter un enseignant à une matière
 export const assignTeacherToSubject = async (req, res) => {
     const { subjectId, teacherId } = req.body;

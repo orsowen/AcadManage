@@ -1,10 +1,12 @@
 import express from 'express';
-import { addSubject, getAllSubjects, getSubjectById, updateSubject, getAllSubjectsByTeacher, assignTeacherToSubject ,toggleSubjectPublish, updateAvancement} from '../controllers/subject.js';
-import { isAdmin, isAdminOrTeacher, isTeacher } from '../middlewares/authentication.js';
+import { addSubject, getAllSubjects, getSubjectById, updateSubject, getAllSubjectsByTeacher, getAllSubjectsByStudent,assignTeacherToSubject ,toggleSubjectPublish, updateAvancement} from '../controllers/subject.js';
+import { isAdmin, isAdminOrTeacher, isTeacher, isStudent } from '../middlewares/authentication.js';
 
 const router = express.Router();
 
-router.get('/mysubjects', isTeacher, getAllSubjectsByTeacher);
+router.get('/student/mysubjects', isStudent, getAllSubjectsByStudent);
+
+router.get('/teacher/mysubjects', isTeacher, getAllSubjectsByTeacher);
 router.patch("/:id/avancement", isTeacher, updateAvancement);
 
 router.post('/', isAdmin, addSubject);
