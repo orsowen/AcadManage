@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Teacher from '../models/Teachers.js';
 import User from '../models/User.js';
 import { generateRandomPassword } from './UserController.js';
+
 // Create a new teacher
 export const createTeacher = async (req, res) => {
     const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
@@ -92,7 +93,6 @@ export const createTeacher = async (req, res) => {
         session.endSession(); // End the session
     }
 };
-
 
 // Get all teachers
 export const getAllTeachers = async (req, res) => {
@@ -262,9 +262,7 @@ export const deleteTeacher = async (req, res) => {
     }
 };
 
-// 
-
-// Fetch logged in teacher infos (still dont work)
+// Fetch logged in teacher infos
 export const getTeacherProfile = async (req, res) => {
     const id = req.user.idRole; // Extract the  ID from the JWT token (assuming it stores the  ID)
 
@@ -290,6 +288,7 @@ export const getTeacherProfile = async (req, res) => {
     }
 };
 
+// update password for teacher
 export const updateTeacherPassword = async (req, res) => {
     const { id } = req.params; // Student ID passed as a parameter
     const { password } = req.body; // New password from the request body
@@ -331,8 +330,7 @@ export const updateTeacherPassword = async (req, res) => {
     }
 };
 
-
-// Update a teacher
+// Update a teacher (own profile)
 export const updateTeacherByToken = async (req, res) => {
     const id = req.user.idRole;
     const { lastName, firstName, subjectCount } = req.body;

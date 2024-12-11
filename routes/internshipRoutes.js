@@ -1,5 +1,6 @@
 
 import express from 'express';
+import { addDepositPeriod } from "../controllers/DepositPeriod.js";
 import {
     addInternship,
     addTeacherToInternship,
@@ -14,11 +15,12 @@ import {
     updateInternship,
     validateInternship,
 } from '../controllers/internshipController.js';
-
 import {
-    addDepositPeriod
-} from "../controllers/DepositPeriod.js";
-import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
+    isAdmin,
+    isStillStudent,
+    isStudent,
+    isTeacher,
+} from "../middlewares/authentication.js";
 
 const router = express.Router();
 
@@ -60,7 +62,6 @@ router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternshi
 
 // open period depot 
 router.post("/open", isAdmin, addDepositPeriod(false));
-
 
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);

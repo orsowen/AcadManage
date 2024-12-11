@@ -8,8 +8,9 @@ import {
     loginUser,
     toggleArchiveUser,
     updateUser,
-} from '../controllers/UserController.js'; // Import controller functions
+} from '../controllers/UserController.js';
 import { isAdmin } from "../middlewares/authentication.js";
+
 
 const router = express.Router();
 

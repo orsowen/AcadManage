@@ -1,7 +1,6 @@
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import user from "../models/User.js";
-import dotenv from "dotenv";
-import Student from "../models/Student.js";
 
 dotenv.config();
 
@@ -144,7 +143,7 @@ export const isStudent3rdYear = async (req, res, next) => {
     // Call decodeJWT to decode the token and populate req.user
     decodeJWT(req, res, () => {
       if (req.user.grade === 'ING3') {
-        next();  // Proceed to the next middleware if the role is 'admin'
+        next();  // Proceed to the next middleware if the role is 'ING3'
       } else {
         res.status(403).json({ error: "Vous n'avez pas l'autorisation d'accéder à cette route." });
       }

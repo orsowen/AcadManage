@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Student from '../models/Student.js';
 import User from '../models/User.js';
 import { generateRandomPassword } from './UserController.js';
+
 // Create a new student
 export const createStudent = async (req, res) => {
     const {
@@ -191,7 +192,6 @@ export const getStudentById = async (req, res) => {
     }
 };
 
-
 // Fetch logged in student infos (still dont work)
 export const getStudentProfile = async (req, res) => {
     const studentId = req.user.idRole; // Extract the student ID from the JWT token (assuming it stores the student ID)
@@ -218,7 +218,7 @@ export const getStudentProfile = async (req, res) => {
     }
 };
 
-
+// update student 
 export const updateStudent = async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;
@@ -350,8 +350,7 @@ export const deleteStudent = async (req, res) => {
     }
 };
 
-
-
+// update studentPassword
 export const updateStudentPassword = async (req, res) => {
     const { id } = req.params; // Student ID passed as a parameter
     const { password } = req.body; // New password from the request body
@@ -393,6 +392,7 @@ export const updateStudentPassword = async (req, res) => {
     }
 };
 
+// update student (own profile)
 export const updateStudentProfile = async (req, res) => {
     const { idRole: studentId, userId } = req.user; // Extract IDs from JWT token
     const { firstName, lastName, arabicFirstName, arabicLastName, phone, email, address } = req.body;
