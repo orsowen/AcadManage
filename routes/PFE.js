@@ -14,16 +14,17 @@ import {
     isAdmin,
     isAdminOrTeacher,
     isStudent,
+    isStudent3rdYear,
     isTeacher
 } from '../middlewares/authentication.js';
 
 const router = express.Router();
 
 // Route for students to create a new PFE (Project)
-router.post('/post', isStudent, createPFE);
+router.post('/post', isStudent3rdYear, isStudent, createPFE);
 
 // Route for students to update their PFE
-router.patch('/:id', isStudent, updatePFE);
+router.patch('/:id', isStudent3rdYear, isStudent, updatePFE);
 
 // Route for admins or teachers to list all PFE information
 router.get('/', isAdminOrTeacher, ListAllPFEInfo);

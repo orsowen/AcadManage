@@ -48,6 +48,7 @@ const PFESchema = new Schema(
         isValid: { type: Boolean, default: false },
         isAssigned: { type: Boolean, default: false },
         Publisher: { type: Boolean, default: false },
+        isArchived: { type: Boolean, default: false },
         emailStatus: { type: String, enum: ["none", "first", "second"], default: "none" },
         student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
         teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
@@ -57,5 +58,5 @@ const PFESchema = new Schema(
     { timestamps: true }
 );
 
-const PFE = mongoose.model('PFE', PFESchema, 'pfes'); // Explicit collection name
+const PFE = mongoose.model('PFE', PFESchema, 'PFES'); // Explicit collection name
 export default PFE;
