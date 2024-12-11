@@ -1,9 +1,6 @@
 // controllers/internship.controller.js
 
 import Internship from '../models/Internship.js';
-<<<<<<< HEAD
-import Topic from '../models/Topic.js';
-=======
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
 
@@ -22,18 +19,13 @@ const validateFiles = (documents) => {
 
     return { isValid: true }; // All files are valid
 };
->>>>>>> origin/main
 
 
 // Add a new internship
 export const addInternship = async (req, res) => {
-<<<<<<< HEAD
-    const { title, documents, StartDate, EndDate, isValid, topicId } = req.body;
-=======
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
     const { title, documents, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
->>>>>>> origin/main
 
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
@@ -46,16 +38,6 @@ export const addInternship = async (req, res) => {
     }
 
     try {
-<<<<<<< HEAD
-        // Check if the topic exists
-        const topic = await Topic.findById(topicId);
-        if (!topic) {
-            return res.status(404).json({ error: "Le topic associé n'existe pas." });
-        }
-
-        // Create the internship
-        const newInternship = new Internship({ title, documents, StartDate, EndDate, isValid, topic: topicId });
-=======
         // Validate topicDetails input
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
@@ -110,14 +92,10 @@ export const addInternship = async (req, res) => {
             student: studentId || null,
             teacher: teacherId || null,
         });
->>>>>>> origin/main
 
         // Save the internship
         const savedInternship = await newInternship.save();
 
-<<<<<<< HEAD
-        res.status(201).json(savedInternship);
-=======
         // If a teacher is associated, add the internship to the teacher's list of assigned internships
         if (teacher) {
             teacher.assignedInternships.push(savedInternship._id);
@@ -127,20 +105,12 @@ export const addInternship = async (req, res) => {
         // Respond with the created internship details
         res.status(201).json({ message: "Internship created successfully.", savedInternship });
 
->>>>>>> origin/main
     } catch (error) {
         // Handle and log unexpected errors
         console.error("Error adding internship:", error.message);
         res.status(500).json({ error: "Erreur lors de l'ajout du stage.", error });
     }
 };
-<<<<<<< HEAD
-// Get all internships
-export const getInternships = async (req, res) => {
-    try {
-        const internships = await Internship.find();
-        res.status(200).json(internships);
-=======
 
 export const getAllInternships = async (req, res) => {
     const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day, nomSociete } = req.query;
@@ -187,13 +157,10 @@ export const getAllInternships = async (req, res) => {
             totalPages: Math.ceil(total / limit),
             data: internships,
         });
->>>>>>> origin/main
     } catch (error) {
         res.status(500).json({ error: "Erreur lors de la récupération des stages." });
     }
 };
-<<<<<<< HEAD
-=======
 
 // Get a specific internship by ID
 export const getInternshipById = async (req, res) => {
@@ -720,4 +687,3 @@ export const getInternshipByStudentForPV = async (req, res) => {
         });
     }
 };
->>>>>>> origin/main

@@ -9,12 +9,6 @@ const TeacherSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-<<<<<<< HEAD
-    cin: { 
-        type: String,
-        required: true
-    },
-=======
 
     subjectCount: {
         type: Number,
@@ -35,7 +29,6 @@ const TeacherSchema = new mongoose.Schema({
 
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
->>>>>>> origin/main
 });
 
 export default mongoose.model("Teacher", TeacherSchema);
