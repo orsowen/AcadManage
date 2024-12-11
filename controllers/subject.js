@@ -1,9 +1,9 @@
 import Subject from '../models/Subject.js';
 import Skill from '../models/Skill.js';
 import nodemailer from 'nodemailer';
-import Teachers from '../models/Teachers.js';
+import Teacher from '../models/Teachers.js';
 import Student from '../models/Student.js';
-
+import mongoose from 'mongoose';
 
 export const addSubject = async (req, res) => {
     try {
@@ -24,7 +24,7 @@ export const addSubject = async (req, res) => {
 
         // Valider teacher
         for ( const teacher of teachers) {
-        const teacherUser = await Teachers.findById(teacher); // Vérifier si l'utilisateur est un enseignant
+        const teacherUser = await Teacher.findById(teacher); // Vérifier si l'utilisateur est un enseignant
         if (!teacherUser) {
             return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
         }}
@@ -136,7 +136,7 @@ export const updateSubject = async (req, res) => {
 
         // Valider teacher
         for (const teacher in teachers) {
-            const teacherUser = await Teachers.findById(teacher); // Vérifier si l'utilisateur est un enseignant
+            const teacherUser = await Teacher.findById(teacher); // Vérifier si l'utilisateur est un enseignant
             if (!teacherUser) {
                 return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
             }
@@ -333,7 +333,41 @@ export const getAllSubjectsByTeacher = async (req, res) => {
     }
 };
 
-// export const affectTeacher
+// Affecter un enseignant à une matière
+export const assignTeacherToSubject = async (req, res) => {
+    const { subjectId, teacherId } = req.body;
+    console.log(subjectId, teacherId);
+
+    if (!subjectId || !teacherId) {
+        return res.status(400).json({ message: 'ID de matière et ID d\'enseignant sont requis.' });
+    }
+
+    try {
+        const subject = await Subject.findById(subjectId);
+        if (!subject) {
+            return res.status(404).json({ message: 'Matière introuvable.' });
+        }
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: 'Enseignant introuvable.' });
+        }
+        // Vérifier si l'enseignant n'est pas déjà affecté à la matière
+        if (subject.teachers.includes(teacherId)) {
+            return res.status(400).json({ message: 'L\'enseignant est déjà affecté à la matière.' });
+        }
+        subject.teachers.push(teacherId);
+        await subject.save();
+        res.status(200).json({ message: 'Enseignant affecté à la matière',
+            subject: subject.title,
+            teacher: teacher.firstName +'' + teacher.lastName, });
+        
+    } catch (error) {
+        console.error("Erreur lors de l'affectation de l'enseignant :", error);
+        res.status(500).json({ error: "Erreur serveur." });
+        }
+    
+    }
+
 
 
 
