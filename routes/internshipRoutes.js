@@ -13,8 +13,7 @@ import {
     getInternshipByStudentToken,
     removeAllAssignedInternships,
     updateInternship,
-    updateInternshipDocuments,
-    validateInternship,
+    validateInternship
 } from '../controllers/internshipController.js';
 import {
     isAdmin,
@@ -47,10 +46,10 @@ router.get('/:id', isTeacher, getInternshipById);
 
 
 // PATCH /internships/:id - Update an internship by ID
-// router.patch('/:id', isStudent, isStillStudent, updateInternship);
-// router.patch('/:id', isAdmin, updateInternship);
-router.patch('/:id', isStudentOrAdmin, updateInternship);
-router.patch('/:id/documents', isStudent, isStillStudent, updateInternshipDocuments);
+// router.patch('/:id', isStudent, isStillStudent,  updateInternship(false));
+// router.patch('/:id', isAdmin,  updateInternship(false));
+router.patch('/:id', isStudentOrAdmin, updateInternship(false));
+router.patch('/:id/documents', isStudent, isStillStudent, updateInternship(true));
 
 // DELETE /internships/:id - Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);

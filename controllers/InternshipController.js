@@ -217,20 +217,21 @@ export const getInternshipById = async (req, res) => {
     }
 };
 
-// Update an internship and its associated topic
-export const updateInternship = async (req, res) => {
+// Update an internship and its associated topic (if true update only the documents)
+export const updateInternship = (onlyDocument = false) => async (req, res) => {
     const studentId = req.user.idRole; // Extract student ID from JWT token
-    const role = req.user.role; // Extract student ID from JWT token
+    const role = req.user.role; // Extract role from JWT token
     const { id } = req.params;
     const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
-    // Validate dates
+
+    // Validate date range if provided
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        if (studentId || role === "student") {
-            // Check if the current period allows STAGE deposits
+        // Ensure it's within the allowed period for internship updates (if student)
+        if (role === "student") {
             const currentPeriod = await DepositPeriod.findOne({
                 For: "STAGE",
                 Start_Deposit: { $lte: new Date() },
@@ -238,51 +239,66 @@ export const updateInternship = async (req, res) => {
             });
             if (!currentPeriod) {
                 return res.status(403).json({
-                    error: "Internships can only be updated during the deposit period."
+                    error: "Les stages peuvent uniquement être mis à jour pendant la période de dépôt."
                 });
             }
         }
-        // UPDATE
+
+        // Fetch the internship for updating
         const internship = await Internship.findById(id);
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
 
+        // Ensure the user is authorized to update the internship (student or admin)
         if (internship.student._id.toString() !== studentId && role !== "admin") {
             return res.status(403).json({ message: "Unauthorized" });
-
         }
 
-        // Update topic details if provided
-        if (topicDetails) {
-            if (!topicDetails.title || !topicDetails.description || !topicDetails.techList) {
-                return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
-            }
-            internship.topic.title = topicDetails.title;
-            internship.topic.description = topicDetails.description;
-            internship.topic.techList = topicDetails.techList;
-        }
+        // Handle document update (ficheEval, attestation, rapport)
         if (documents) {
-            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
-                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            const { ficheEval, attestation, rapport } = documents;
+
+            // Check if the necessary documents are provided
+            if (!ficheEval || !attestation || !rapport) {
+                return res.status(400).json({ error: "Les documents du stage sont incomplets." });
             }
-            // Validate the file formats using the validateFiles function
+
+            // Validate file formats using the validateFiles function
             const fileValidation = validateFiles(documents);
             if (!fileValidation.isValid) {
                 return res.status(400).json({ error: fileValidation.message });
             }
-            internship.documents.ficheEval = documents.ficheEval;
-            internship.documents.attestation = documents.attestation;
-            internship.documents.rapport = documents.rapport;
-        }
-        // Update other fields
-        if (title) internship.title = title;
-        if (StartDate) internship.StartDate = StartDate;
-        if (EndDate) internship.EndDate = EndDate;
-        if (nomSociete) internship.nomSociete = nomSociete;
-        // if (isValid !== undefined) internship.isValid = isValid;
 
-        // Validate and update student
+            // Update internship documents
+            internship.documents.ficheEval = ficheEval;
+            internship.documents.attestation = attestation;
+            internship.documents.rapport = rapport;
+        }
+
+        // Update other fields (topic, title, dates, etc.) if not only updating documents
+        if (!onlyDocument) {
+            // Ensure topic details are provided
+            if (topicDetails) {
+                const { title, description, techList } = topicDetails;
+
+                if (!title || !description || !techList) {
+                    return res.status(400).json({ error: "Les détails du sujet sont incomplets." });
+                }
+
+                internship.topic.title = title;
+                internship.topic.description = description;
+                internship.topic.techList = techList;
+            }
+
+            // Update the rest of the fields (title, dates, etc.)
+            if (title) internship.title = title;
+            if (StartDate) internship.StartDate = StartDate;
+            if (EndDate) internship.EndDate = EndDate;
+            if (nomSociete) internship.nomSociete = nomSociete;
+        }
+
+        // Update student if studentId is provided
         if (studentId) {
             const student = await Student.findById(studentId);
             if (!student) {
@@ -291,65 +307,15 @@ export const updateInternship = async (req, res) => {
             internship.student = studentId;
         }
 
+        // Save the updated internship
         const updatedInternship = await internship.save();
         res.status(200).json({ message: "Internship updated successfully", updatedInternship });
+
     } catch (error) {
         console.error("Error updating internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
     }
 };
-
-// update internship document
-export const updateInternshipDocuments = async (req, res) => {
-    const studentId = req.user.idRole; // Extract student ID from JWT token
-    const role = req.user.role; // Extract student ID from JWT token
-    const { id } = req.params;
-    const { documents } = req.body;
-    try {
-        if (studentId || role === "student") {
-            // Check if the current period allows STAGE deposits
-            const currentPeriod = await DepositPeriod.findOne({
-                For: "STAGE",
-                Start_Deposit: { $lte: new Date() },
-                End_Deposit: { $gte: new Date() }
-            });
-            if (!currentPeriod) {
-                return res.status(403).json({
-                    error: "Documents can only be updated during the deposit period."
-                });
-            }
-        }
-        // UPDATE
-        const internship = await Internship.findById(id);
-        if (!internship) {
-            return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
-        }
-
-        if (internship.student._id.toString() !== studentId && role !== "admin") {
-            return res.status(403).json({ message: "Unauthorized" });
-        }
-        if (documents) {
-            if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
-                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
-            }
-            // Validate the file formats using the validateFiles function
-            const fileValidation = validateFiles(documents);
-            if (!fileValidation.isValid) {
-                return res.status(400).json({ error: fileValidation.message });
-            }
-            internship.documents.ficheEval = documents.ficheEval;
-            internship.documents.attestation = documents.attestation;
-            internship.documents.rapport = documents.rapport;
-        }
-        const updatedInternship = await internship.save();
-        res.status(200).json({ message: "Documents updated successfully", updatedInternship });
-    } catch (error) {
-        console.error("Error updating internship:", error.message);
-        res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
-    }
-};
-
-
 
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
