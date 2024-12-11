@@ -9,10 +9,33 @@ const TeacherSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+<<<<<<< HEAD
     cin: { 
         type: String,
         required: true
     },
+=======
+
+    subjectCount: {
+        type: Number,
+        required: true,
+        default: 0, // Default number of subjects is 0
+    },
+    assignedInternships: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Internship', // Reference to the Internship model
+        default: [], // Ensure it's an array by default
+    }],
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
+    },
+
+}, {
+    timestamps: true, // Automatically add createdAt and updatedAt fields
+>>>>>>> origin/main
 });
 
 export default mongoose.model("Teacher", TeacherSchema);

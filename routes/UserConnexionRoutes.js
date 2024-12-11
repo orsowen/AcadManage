@@ -1,15 +1,27 @@
-import express from "express"
-import { logIn } from "../controllers/UserController.js"
-import { isAdmin } from "../middlewares/authentification.js"
-import { AddUser, delUser, fetchUser, fetchUserBylogin, patchUser } from "../controllers/UserController.js"
+import express from 'express';
+import {
+    // createUser,
+    createAdmin,
+    deleteUser,
+    getUserByCin,
+    getUserById,
+    loginUser,
+    toggleArchiveUser,
+    updateUser,
+} from '../controllers/UserController.js'; // Import controller functions
+import { isAdmin } from "../middlewares/authentication.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.post("/signin", logIn)
-router.get("/:login",fetchUserBylogin)
-router.get("/",fetchUser)
-router.post("/",AddUser)
-router.delete("/:login",delUser)
-router.patch("/:login",patchUser)
+// User Routes
+// router.post('/register', isAdmin, createUser); // Route to create a new user
+router.post('/register', isAdmin, createAdmin); // Route to create a new user
+router.get('/:id', isAdmin, getUserById); // Route to get user by ID
+router.get('/cin/:cin', isAdmin, getUserByCin); // Route to get user by Cin
+router.patch('/:id', isAdmin, updateUser); // Route to update user details
+router.delete('/:id', isAdmin, deleteUser); // Route to delete user
+router.post('/login', loginUser); // Route to log in a user
+router.put('/:id', isAdmin, toggleArchiveUser("admin")); // Route to Archive user
 
-export default router
+
+export default router;

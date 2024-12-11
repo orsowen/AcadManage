@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-
 const StudentSchema = new mongoose.Schema({
     lastName: {
         type: String,
@@ -8,8 +7,10 @@ const StudentSchema = new mongoose.Schema({
     },
     firstName: {
         type: String,
-        required: true
-    }, 
+        required: true,
+        trim: true,
+    },
+
     arabicLastName: {
         type: String,
         required: true
@@ -50,74 +51,63 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-
     grade: {
         type: String,
-        required: true
+        enum: ["ING1", "ING2", "ING3"],
+        default: "ING1",
     },
     isprepa: {
         type: Boolean,
-        required: true
+        default: false
+    },
+    isPrepa: {
+        type: Boolean,
     },
     university: {
         type: String,
-        required: true
     },
     etablissement: {
         type: String,
-        required: true
     },
-
     speciality: {
         type: String,
-        required: true
     },
     licenseYear: {
         type: Number,
-        required: true
     },
     M1university: {
         type: String,
-        required: true
     },
     M1Etablissement: {
         type: String,
-        required: true
     },
     M1speciality: {
         type: String,
-        required: true
     },
     M1Year: {
         type: Number,
-        required: true
     },
     M1Type: {
         type: String,
-        required: true
     },
     cfil: {
         type: String,
-        required: true
     },
     scoreG: {
         type: Number,
-        required: true
-
-    },         
+    },
     bacYear: {
         type: Number,
-        required: true
-    },
-    phone: {
-        type: String,
-        required: true
     },
     address: {
         type: String,
-        required: true
     },
-
+    // Link to User 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to User model
+        // default: null,
+    },
 });
 
 export default mongoose.model('Student', StudentSchema);
