@@ -43,25 +43,12 @@ const PFESchema = new Schema(
         Nom_societe: { type: String, required: true, trim: true },
         documents: { type: DocsSchema, required: true },
         topic: { type: TopicSchema, required: true },
-        StartDate: {
-            type: Date, required: true, validate: {
-                validator: function (value) {
-                    return value < this.EndDate;
-                },
-                message: 'Start date must be earlier than end date.',
-            },
-        },
-        EndDate: {
-            type: Date, required: true, validate: {
-                validator: function (value) {
-                    return value > this.StartDate; // Ensure EndDate is after StartDate
-                },
-                message: 'EndDate must be after StartDate',
-            },
-        },
+        StartDate: { type: Date, required: true },
+        EndDate: { type: Date, required: true },
         isValid: { type: Boolean, default: false },
         isAssigned: { type: Boolean, default: false },
         Publisher: { type: Boolean, default: false },
+        isArchived: { type: Boolean, default: false },
         emailStatus: { type: String, enum: ["none", "first", "second"], default: "none" },
         student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
         teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
@@ -71,5 +58,5 @@ const PFESchema = new Schema(
     { timestamps: true }
 );
 
-const PFE = mongoose.model('PFE', PFESchema, 'pfes'); // Explicit collection name
+const PFE = mongoose.model('PFE', PFESchema, 'PFES'); // Explicit collection name
 export default PFE;

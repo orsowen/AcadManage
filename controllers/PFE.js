@@ -1,21 +1,30 @@
 import DefensePFE from '../models/DefensePFE.js';
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
-import User from '../models/User.js';
 import { sendMail } from './mailer.js';
 
+// create  PFE
+
 export const createPFE = async (req, res) => {
-    const {
-        title, description, Nom_societe, techList, teacher,
-        StartDate, EndDate, documents
-    } = req.body;
+    const { title, documents, StartDate, EndDate, Nom_societe, teacher, topic } = req.body;
 
     try {
-        const student = req.user?.idRole; // Ensure middleware populates `req.user` with decoded token data
+
+        const student = req.user?.idRole;
         if (!student) {
             return res.status(403).json({
-                error: "Student information is missing from the token."
+                error: "Student information is missing or user is not a student."
             });
+        }
+
+        // Validate topic details
+        if (!topic || !topic.title || !topic.description || !topic.techList) {
+            return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
+        }
+
+        // Validate document fields
+        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
         }
 
         // Check if the current period allows PFE deposits
@@ -32,27 +41,29 @@ export const createPFE = async (req, res) => {
 
         // Check if the student already has a PFE
         const existingPFE = await PFE.findOne({ student });
-
         if (existingPFE) {
             return res.status(400).json({
                 error: "This student already has an assigned PFE topic."
             });
         }
 
-        // Create the new PFE
+        // Create the new PFE document
         const newPFE = new PFE({
             title,
             Nom_societe,
+            topic: {
+                title: topic.title,
+                description: topic.description,
+                techList: topic.techList,
+            },
             documents,
-            description,
-            techList,
             StartDate,
             EndDate,
             student,
             teacher
         });
 
-        // Save the PFE in the database
+        // Save the new PFE document to the database
         const savedPFE = await newPFE.save();
 
         res.status(201).json({
@@ -69,13 +80,13 @@ export const createPFE = async (req, res) => {
 
 
 
+
 // Update an existing PFE
 
 export const updatePFE = async (req, res) => {
     const { id } = req.params;
     const {
-        title, description, Nom_societe, techList, teacher,
-        StartDate, EndDate, documents, student
+        title, Nom_societe, documents, topic, StartDate, EndDate,
     } = req.body;
 
     try {
@@ -92,20 +103,21 @@ export const updatePFE = async (req, res) => {
                 error: "PFE topics can only be updated during the deposit period."
             });
         }
-
+        if (new Date(StartDate) >= new Date(EndDate)) {
+            return res.status(400).json({
+                error: "StartDate must be earlier than EndDate."
+            });
+        }
         const updatedPFE = await PFE.findOneAndUpdate(
             { _id: id },
 
             {
                 title,
                 Nom_societe,
-                StartDate,
-                description,
-                techList,
-                EndDate,
                 documents,
-                student,
-                teacher
+                topic,
+                StartDate,
+                EndDate
             },
             { new: true, runValidators: true }
         );
@@ -153,8 +165,8 @@ export const ListAllPFEInfo = async (req, res) => {
                 PFE: {
                     title: pfe.title,
                     Nom_societe: pfe.Nom_societe,
-                    description: pfe.description,
                     documents: pfe.documents,
+                    Topic: pfe.topic,
                     StartDate: pfe.StartDate,
                     EndDate: pfe.EndDate,
                     isValid: pfe.isValid,
@@ -201,7 +213,7 @@ export const ListAllPFEInfo = async (req, res) => {
 export const choosePFE = async (req, res) => {
     const { id } = req.params;
 
-    const teacherId = req.user?.idRole; // Ensure middleware populates `req.user` with decoded token data
+    const teacherId = req.user?.idRole;
 
     try {
         const pfe = await PFE.findById(id);
@@ -234,15 +246,14 @@ export const choosePFE = async (req, res) => {
         });
     }
 };
+//valide PFE
 export const validateAssignments = async (req, res) => {
     try {
         const { ids } = req.body;
 
-        // Fetch PFEs by the given IDs
         const pfes = await PFE.find({ _id: { $in: ids } });
         // Check if any PFE is missing
         if (pfes.length !== ids.length) {
-            // Find the missing IDs
             const missingIds = ids.filter(id => !pfes.some(pfe => pfe._id.toString() === id));
             return res.status(400).json({
                 error: 'Some PFEs do not exist',
@@ -271,7 +282,7 @@ export const validateAssignments = async (req, res) => {
     }
 };
 
-
+//Assigne PFE to teacher
 export const assignPFEToTeacher = async (req, res) => {
     const { id } = req.params; // PFE ID
     const { teacherId, force } = req.body;
@@ -318,7 +329,7 @@ export const assignPFEToTeacher = async (req, res) => {
     }
 };
 
-
+//Publish Or Hide PFE
 export const publishOrHidePFE = async (req, res) => {
     const { response } = req.params; // Expected values: "publish" or "hide"
 
@@ -401,7 +412,15 @@ export const sendPlanningEmail = async (req, res) => {
             }
             let subject = '';
             let status = pfe.emailStatus;
-            // Create the email content
+            if (status === 'none') {
+                subject = 'Your Planning Link';
+                status = 'first'; // Update status to "first"
+            } else if (status === 'first') {
+                subject = 'Reminder: Your Planning Link';
+                status = 'second'; // Update status to "second"
+            } else {
+                continue; // Skip sending email if already sent twice
+            }
             const emailContent = `
         <p>Dear ${pfe.student.firstName} ${pfe.student.lastName},</p>
                 <p>Your PFE details:</p>
@@ -412,19 +431,17 @@ export const sendPlanningEmail = async (req, res) => {
                     <li>Technologies: ${pfe.topic.techList.join(', ')}</li>
                     <li>Start Date: ${pfe.StartDate.toDateString()}</li>
                     <li>End Date: ${pfe.EndDate.toDateString()}</li>
-                    <li> Teacher${pfe.teacher.firstName} ${pfe.teacher.lastName}<li>
-                </ul>
-    ${status === 'none'
+                    <li>Teacher: ${pfe.teacher
+                    ? `${pfe.teacher.firstName} ${pfe.teacher.lastName}`
+                    : '<strong>You still have no supervisor assigned.</strong>'
+                }</li>               
+                 </ul>
+                  ${status === 'none'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
                 <p>Best regards,<br>Admin Team</p>
             `;
-            // Determine the email subject and content based on the current email status
-
-
-
-
             // Send email to the teacher
             const teacherEmailContent = `
         <p>Dear ${pfe.teacher.firstName} ${pfe.teacher.lastName},</p>
@@ -434,21 +451,13 @@ export const sendPlanningEmail = async (req, res) => {
                     <li>Company: ${pfe.Nom_societe}</li>
                     <li>Assigned Student: ${pfe.student.firstName} ${pfe.student.lastName}</li>
                 </ul>
-    ${status === 'none'
+    ${status === 'first'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
                 <p>Best regards,<br>Admin Team</p>
             `;
-            if (status === 'none') {
-                subject = 'Your Planning Link';
-                status = 'first'; // Update status to "first"
-            } else if (status === 'first') {
-                subject = 'Reminder: Your Planning Link';
-                status = 'second'; // Update status to "second"
-            } else {
-                continue; // Skip sending email if already sent twice
-            }
+
 
             // Send email to the student
             await sendMail(pfe.student.user.email, subject, emailContent);
