@@ -17,7 +17,7 @@ import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authenticat
 const router = express.Router();
 
 // POST /students - Create a new student
-router.post('/', isAdmin, createStudent);
+router.post('/', createStudent);
 
 // GET /students - Get all students
 router.get('/', isAdminOrTeacher, getAllStudents);
