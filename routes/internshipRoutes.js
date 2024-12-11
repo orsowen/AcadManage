@@ -1,8 +1,4 @@
-
 import express from 'express';
-<<<<<<< HEAD
-import { addInternship, getInternships } from '../controllers/InternshipController.js';
-=======
 import {
     addInternship,
     addTeacherToInternship,
@@ -18,11 +14,8 @@ import {
     validateInternship,
 } from '../controllers/internshipController.js';
 
-import {
-    addDepositPeriod
-} from "../controllers/DepositPeriod.js";
+import {addDepositPeriod} from "../controllers/DepositPeriod.js";
 import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
->>>>>>> origin/main
 
 const router = express.Router();
 
@@ -34,12 +27,6 @@ router.get('/pv', isStudent, getInternshipByStudentForPV);
 
 
 // POST /internships - Add a new internship
-<<<<<<< HEAD
-router.post('/internships', addInternship);
-
-// GET /internships - Get all internships
-router.get('/internships', getInternships);
-=======
 router.post('/', isStudent, isStillStudent, addInternship);
 
 // GET /internships - Get all internships
@@ -74,6 +61,5 @@ router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);
 
->>>>>>> origin/main
 
 export default router;

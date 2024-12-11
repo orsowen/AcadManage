@@ -49,14 +49,11 @@ const InternshipSchema = new Schema({
         required: true,
         trim: true,
     },
-<<<<<<< HEAD
-=======
     typeInternship: {
         type: String,
         enum: ["1", "2"],
         required: true,
     },
->>>>>>> origin/main
     documents: {
         type: DocsSchema, // Embedding the DocsSchema
         required: true, // Make this field mandatory
