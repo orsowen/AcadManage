@@ -22,6 +22,9 @@ import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/au
 
 const router = express.Router();
 
+// get assigned internships for the logged in teacher
+router.get('/assigned-to-me', isTeacher, getAssignedInternships);
+
 // get own Internship 
 router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
 
@@ -58,8 +61,6 @@ router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternshi
 // open period depot 
 router.post("/open", isAdmin, addDepositPeriod(false));
 
-// get assigned internships for the logged in teacher
-router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);

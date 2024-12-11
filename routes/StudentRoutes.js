@@ -38,6 +38,7 @@ router.patch('/:id/password', isAdmin, updateStudentPassword);
 
 // DELETE /students/:id - Delete a student by ID
 router.delete('/:id', isAdmin, deleteStudent);
+
 // Archive a teacher
 router.put('/:id', isAdmin, toggleArchiveUser("student")); // Route to Archive user
 

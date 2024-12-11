@@ -14,8 +14,8 @@ import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
-// Create a new teacher
-router.post('/', isAdmin, createTeacher);
+// ( get dont work thats why post)
+router.get('/profile', isTeacher, getTeacherProfile);
 
 // Get all teachers
 router.get('/', isAdmin, getAllTeachers);
@@ -23,11 +23,12 @@ router.get('/', isAdmin, getAllTeachers);
 // Get a single teacher by ID
 router.get('/:id', isAdmin, getTeacherById);
 
-// ( get dont work thats why post)
-router.post('/profile', isTeacher, getTeacherProfile);
+// Create a new teacher
+router.post('/', isAdmin, createTeacher);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
+
 // update teacher based on token
 router.put('/me', isTeacher, updateTeacherByToken);
 

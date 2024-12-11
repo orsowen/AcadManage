@@ -13,10 +13,6 @@ import { isAdmin, isAdminOrTeacher, isStillStudent, isStudent, isTeacher } from 
 
 const router = express.Router();
 
-// POST /planning-stages - Create a new planning stage
-router.post('/', isAdminOrTeacher, createPlanningStage);
-// SEND EMAIL
-router.post('/send', isAdmin, sendMailPlanning);
 
 // GET /planning-stages - Fetch all planning stages
 router.get('/', isAdmin, getAllPlanningStages);
@@ -26,6 +22,11 @@ router.get('/me', isStillStudent, isStudent, getPlanningStageByStudent);
 
 // GET /planning-stages/:id - Fetch a planning stage by ID
 router.get('/:id', getPlanningStageById);
+
+// POST /planning-stages - Create a new planning stage
+router.post('/', isAdminOrTeacher, createPlanningStage);
+// SEND EMAIL
+router.post('/send', isAdmin, sendMailPlanning);
 
 // PATCH /planning-stages/:id - Update a planning stage by ID
 router.patch('/:id', isTeacher, updatePlanningStage);

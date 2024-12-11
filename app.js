@@ -4,8 +4,6 @@ import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
-import internshipRoutes from './routes/InternshipRoutes.js';
-import UserConnexionRoutes from "./routes/UserConnexionRoutes.js"
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -28,9 +26,5 @@ app.use(router); // Place router here for better organization
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
-
-// Additional routes
-app.use("/internships", internshipRoutes);
-app.use("/users", UserConnexionRoutes);
 
 export default app;
