@@ -5,9 +5,11 @@ import {
     getAllTeachers,
     getTeacherById,
     getTeacherProfile,
-    updateTeacher, 
+    updateTeacher,
+    updateTeacherByToken,
     updateTeacherPassword,
 } from '../controllers/TeacherController.js';
+import { toggleArchiveUser } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
@@ -26,11 +28,16 @@ router.post('/profile', isTeacher, getTeacherProfile);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
+// update teacher based on token
+router.put('/me', isTeacher, updateTeacherByToken);
 
 // patch update teacher password
 router.patch('/:id/password', isAdmin, updateTeacherPassword);
 
 // Delete a teacher
 router.delete('/:id', isAdmin, deleteTeacher);
+
+// Archive a teacher
+router.put('/:id', isAdmin, toggleArchiveUser("teacher")); // Route to Archive user
 
 export default router;

@@ -8,11 +8,12 @@ import {
     getAllInternships,
     getAssignedInternships,
     getInternshipById,
-    getInternshipByStudent,
+    getInternshipByStudentForPV,
+    getInternshipByStudentToken,
     removeAllAssignedInternships,
     updateInternship,
     validateInternship,
-} from '../controllers/InternshipController.js';
+} from '../controllers/internshipController.js';
 
 import {
     addDepositPeriod
@@ -22,7 +23,11 @@ import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/au
 const router = express.Router();
 
 // get own Internship 
-router.get('/me', isStudent, isStillStudent, getInternshipByStudent);
+router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
+
+// consult PV
+router.get('/pv', isStudent, getInternshipByStudentForPV);
+
 
 // POST /internships - Add a new internship
 router.post('/', isStudent, isStillStudent, addInternship);
@@ -59,6 +64,5 @@ router.post('/assigned-to-me', isTeacher, getAssignedInternships);
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);
 
-// 
 
 export default router;

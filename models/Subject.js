@@ -52,7 +52,7 @@ const SubjectSchema = new mongoose.Schema({
             },
         },
     ],
-    teacher: [{
+    teachers: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Référence au modèle User
     }],

@@ -1,7 +1,8 @@
 import Subject from '../models/Subject.js';
 import Skill from '../models/Skill.js';
-import User from '../models/User.js';
 import nodemailer from 'nodemailer';
+import Teachers from '../models/Teachers.js';
+import Student from '../models/Student.js';
 
 
 export const addSubject = async (req, res) => {
@@ -12,7 +13,7 @@ export const addSubject = async (req, res) => {
             level,
             semester,
             curriculum,
-            teacher,
+            teachers,
             students,
             published,
             option,
@@ -21,18 +22,20 @@ export const addSubject = async (req, res) => {
             credit,
         } = req.body;
 
-        // Valider le rôle du teacher
-        const teacherUser = await User.findById(teacher); // Vérifier si l'utilisateur est un enseignant
-        if (!teacherUser || teacherUser.role !== "teacher") {
-            return res.status(400).json({ error: "L'utilisateur sélectionné pour 'teacher' n'est pas valide." });
-        }
+        // Valider teacher
+        for ( const teacher in teachers) {
+        const teacherUser = await Teachers.findById(teacher); // Vérifier si l'utilisateur est un enseignant
+        if (!teacherUser) {
+            return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
+        }}
 
-        // Valider le rôle du student
-        const studentUser = await User.findById(students); // Vérifier si l'utilisateur est un étudiant
-        if (!studentUser || studentUser.role !== "student") {
-            return res.status(400).json({ error: "L'utilisateur sélectionné pour 'student' n'est pas valide." });
-        }
-
+        // Valider student
+        for ( const student in students) {
+        const studentUser = await Student.findById(student); // Vérifier si l'utilisateur est un étudiant
+        if (!studentUser) {
+            return res.status(404).json({ error: " 'student' n'est pas valide de ID : ", student });
+        }}
+      
         // Validation des champs obligatoires
         if (!title || !skills || !level || !semester || !option || !chargeHoraire || !coeff || !credit) {
             return res.status(400).json({ message: "Tous les champs obligatoires ne sont pas remplis ou invalides." });
@@ -56,7 +59,7 @@ export const addSubject = async (req, res) => {
             level,
             semester,
             curriculum,
-            teacher,
+            teachers,
             students,
             published,
             option,
@@ -76,7 +79,9 @@ export const getAllSubjects = async (req, res) => {
     try {
         const subjects = await Subject.find()
             .populate('skills', 'name') // Récupérer les compétences associées
-            //.populate('teacher', 'name email'); // Récupérer les infos de l'enseignant
+            .populate('teachers', 'firstName lastName') // Récupérer les infos de l'enseignant
+            .populate('students', 'firstName lastName') // Récupérer les infos de l'étudiant
+
         res.status(200).json(subjects);
     } catch (error) {
         res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
@@ -109,7 +114,8 @@ export const updateSubject = async (req, res) => {
             level,
             semester,
             curriculum,
-            teacher,
+            teachers,
+            students,
             published,
             option,
             chargeHoraire,
@@ -128,13 +134,39 @@ export const updateSubject = async (req, res) => {
             return res.status(404).json({ message: "Matière introuvable." });
         }
 
+        // Valider teacher
+        for (const teacher in teachers) {
+            const teacherUser = await Teachers.findById(teacher); // Vérifier si l'utilisateur est un enseignant
+            if (!teacherUser) {
+                return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
+            }
+        }
+
+        // Valider student
+        for (const student in students) {
+            const studentUser = await Student.findById(student); // Vérifier si l'utilisateur est un étudiant
+            if (!studentUser) {
+                return res.status(404).json({ error: " 'student' n'est pas valide de ID : ", student });
+            }
+        }
+
+        // Filter out students that are already in the subject's students list
+        const nonExistentStudents = students.filter(
+            (student) => !subject.students.includes(student)
+        );
+        // Filter out teachers that are already in the subject's teachers list
+        const nonExistentTeachers = teachers.filter(
+            (teacher) =>!subject.teachers.includes(teacher)
+        );
+    
         // Mettre à jour la matière avec les nouvelles informations
         subject.title = title || subject.title;
         subject.skills = skills || subject.skills;
         subject.level = level || subject.level;
         subject.semester = semester || subject.semester;
         subject.curriculum = curriculum || subject.curriculum;
-        subject.teacher = teacher || subject.teacher;
+        subject.teachers.push(...nonExistentTeachers);
+        subject.students.push(...nonExistentStudents);
         subject.published = published !== undefined ? published : subject.published;
         subject.option = option || subject.option;
         subject.chargeHoraire = chargeHoraire || subject.chargeHoraire;

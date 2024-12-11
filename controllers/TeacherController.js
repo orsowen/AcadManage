@@ -4,94 +4,94 @@ import Teacher from '../models/Teachers.js';
 import User from '../models/User.js';
 import { generateRandomPassword } from './UserController.js';
 // Create a new teacher
-export const createTeacher = async (req, res) => {
-    const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
+    export const createTeacher = async (req, res) => {
+        const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
 
-    // Initialize session for transactions
-    const session = await mongoose.startSession();
-    session.startTransaction();
+        // Initialize session for transactions
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-    try {
-        // Validation: Check if essential fields are provided
-        const missingFields = [];
-        if (!lastName) missingFields.push('lastName');
-        if (!firstName) missingFields.push('firstName');
-        if (!cin) missingFields.push('cin');
-        if (!email) missingFields.push('email');
-        if (!subjectCount) missingFields.push('subjectCount');
+        try {
+            // Validation: Check if essential fields are provided
+            const missingFields = [];
+            if (!lastName) missingFields.push('lastName');
+            if (!firstName) missingFields.push('firstName');
+            if (!cin) missingFields.push('cin');
+            if (!email) missingFields.push('email');
+            if (!subjectCount) missingFields.push('subjectCount');
 
-        if (missingFields.length > 0) {
-            return res.status(400).json({
-                message: `Missing required fields: ${missingFields.join(', ')}.`
+            if (missingFields.length > 0) {
+                return res.status(400).json({
+                    message: `Missing required fields: ${missingFields.join(', ')}.`
+                });
+            }
+
+            // Check if the CIN, email, or phone already exists
+            const existingTeacher = await Teacher.findOne({ cin });
+            const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+
+            if (existingTeacher) {
+                return res.status(400).json({ message: 'CIN is already in use.' });
+            }
+            if (existingUser) {
+                const field = existingUser.email === email ? 'Email' : 'Phone';
+                return res.status(400).json({ message: `${field} is already in use.` });
+            }
+
+            // Create the teacher
+            const newTeacher = new Teacher({ lastName, firstName, subjectCount });
+            const savedTeacher = await newTeacher.save({ session });
+
+            // Generate a random password for the user
+            const password = generateRandomPassword();
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Create a user for the teacher
+            const newUser = new User({
+                cin,
+                email,
+                phone,
+                password: hashedPassword,
+                role: 'teacher',
+                teacher: savedTeacher._id, // Link the user to the teacher
             });
+
+            const savedUser = await newUser.save({ session });
+
+            // Commit the transaction if both teacher and user are successfully created
+            await session.commitTransaction();
+
+            // Associate the teacher with the created user
+            savedTeacher.user = savedUser._id;
+            await savedTeacher.save();
+
+            // Return the created teacher and user data
+            res.status(201).json({
+                message: 'Teacher and user created successfully.',
+                teacher: savedTeacher,
+                userCredentials: {
+                    cin: savedUser.cin,
+                    role: savedUser.role,
+                    email: savedUser.email,
+                    phone: savedUser.phone,
+                    password, // Optionally include the plaintext password for communication purposes
+                },
+            });
+        } catch (error) {
+            // Roll back the transaction if an error occurs
+            await session.abortTransaction();
+            console.error('Error creating teacher and user:', error);
+
+            // Send detailed error response
+            res.status(500).json({
+                error: 'Failed to create teacher and user.',
+                message: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Provide stack trace in development mode
+            });
+        } finally {
+            session.endSession(); // End the session
         }
-
-        // Check if the CIN, email, or phone already exists
-        const existingTeacher = await Teacher.findOne({ cin });
-        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-
-        if (existingTeacher) {
-            return res.status(400).json({ message: 'CIN is already in use.' });
-        }
-        if (existingUser) {
-            const field = existingUser.email === email ? 'Email' : 'Phone';
-            return res.status(400).json({ message: `${field} is already in use.` });
-        }
-
-        // Create the teacher
-        const newTeacher = new Teacher({ lastName, firstName, subjectCount });
-        const savedTeacher = await newTeacher.save({ session });
-
-        // Generate a random password for the user
-        const password = generateRandomPassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create a user for the teacher
-        const newUser = new User({
-            cin,
-            email,
-            phone,
-            password: hashedPassword,
-            role: 'teacher',
-            teacher: savedTeacher._id, // Link the user to the teacher
-        });
-
-        const savedUser = await newUser.save({ session });
-
-        // Commit the transaction if both teacher and user are successfully created
-        await session.commitTransaction();
-
-        // Associate the teacher with the created user
-        savedTeacher.user = savedUser._id;
-        await savedTeacher.save();
-
-        // Return the created teacher and user data
-        res.status(201).json({
-            message: 'Teacher and user created successfully.',
-            teacher: savedTeacher,
-            userCredentials: {
-                cin: savedUser.cin,
-                role: savedUser.role,
-                email: savedUser.email,
-                phone: savedUser.phone,
-                password, // Optionally include the plaintext password for communication purposes
-            },
-        });
-    } catch (error) {
-        // Roll back the transaction if an error occurs
-        await session.abortTransaction();
-        console.error('Error creating teacher and user:', error);
-
-        // Send detailed error response
-        res.status(500).json({
-            error: 'Failed to create teacher and user.',
-            message: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Provide stack trace in development mode
-        });
-    } finally {
-        session.endSession(); // End the session
-    }
-};
+    };
 
 
 // Get all teachers
@@ -158,38 +158,66 @@ export const updateTeacher = async (req, res) => {
     }
 };
 
-// Delete a teacher
+// Delete or archive a teacher
 export const deleteTeacher = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params; // Extract teacher ID from the request parameters
+    const { isArchive } = req.body; // Determine if the teacher should be archived
 
     try {
-        // Start a session for transaction
+        if (isArchive) {
+            // Archive the teacher (soft delete)
+            const teacher = await Teacher.findById(id);
+            if (!teacher) {
+                return res.status(404).json({ message: "Teacher not found." });
+            }
+            // Archive the associated user account
+            const user = await User.findOne({ teacher: id });
+            if (user) {
+                user.isArchived = true;
+                await user.save();
+            }
+
+            return res.status(200).json({
+                message: "Teacher and associated user archived successfully.",
+                archivedTeacher: teacher,
+                archivedUser: user || null,
+            });
+        }
+
+        // Hard delete (completely remove teacher and associated user)
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        // Delete the teacher by ID
-        const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
-        if (!deletedTeacher) {
+        try {
+            // Delete the teacher by ID
+            const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
+            if (!deletedTeacher) {
+                throw new Error("Teacher not found.");
+            }
+
+            // Delete the associated user account
+            const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({
+                message: "Teacher and associated user deleted successfully.",
+                deletedTeacher,
+                deletedUser,
+            });
+        } catch (transactionError) {
             await session.abortTransaction();
             session.endSession();
-            return res.status(404).json({ error: "Teacher not found." });
+            console.error("Transaction failed:", transactionError.message);
+            return res.status(500).json({
+                error: "Error during transaction while deleting teacher.",
+                details: transactionError.message,
+            });
         }
-
-        // Delete the associated user account
-        const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
-
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
-
-        res.status(200).json({
-            message: "Teacher and associated user account deleted successfully.",
-            deletedTeacher,
-            deletedUser,
-        });
     } catch (error) {
-        console.error("Error deleting teacher:", error.message);
-        res.status(500).json({ error: "Error deleting teacher." });
+        console.error("Error processing teacher deletion:", error.message);
+        res.status(500).json({ error: "An error occurred while deleting the teacher.", details: error.message });
     }
 };
 
@@ -259,5 +287,32 @@ export const updateTeacherPassword = async (req, res) => {
 
         // Handle unexpected errors
         res.status(500).json({ error: 'Failed to update student password.', details: error.message });
+    }
+};
+
+
+// Update a teacher
+export const updateTeacherByToken = async (req, res) => {
+    const id = req.user.idRole;
+    const { lastName, firstName, subjectCount } = req.body;
+
+    try {
+        // Fetch the existing teacher by ID
+        const teacher = await Teacher.findById(id);
+        if (!teacher) {
+            return res.status(404).json({ error: 'Teacher not found.' });
+        }
+
+        // Proceed to update the teacher's details
+        teacher.lastName = lastName || teacher.lastName;
+        teacher.firstName = firstName || teacher.firstName;
+        teacher.subjectCount = subjectCount || teacher.subjectCount;
+
+        const updatedTeacher = await teacher.save(); // Save the updated teacher document
+
+        res.status(200).json(updatedTeacher);
+    } catch (error) {
+        console.error('Error updating teacher:', error.message);
+        res.status(400).json({ error: 'Error updating teacher. ' + error.message });
     }
 };

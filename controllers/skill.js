@@ -46,23 +46,23 @@ export const getSkillById = async (req, res) => {
 // Modifier une compétence
 export const updateSkill = async (req, res) => {
     try {
-        const { name, description, force } = req.body;
+        const { name, description, force} = req.body
+        // Check if the skill is linked to any subjects before updating it
         const skill = await Skill.findById(req.params.id);
+        
         if (!skill) {
             return res.status(404).json({ message: "Skill not found" });
         }
-
         // Vérifier les matières associées si assignée à une matière (avertir l'admin)
         if (!force) //force = false
             {
-            const associatedSubjects = await Subject.find({ skill: skill._id });
+            const associatedSubjects = await Subject.find({ skills:{ $in: skill } });
             if (associatedSubjects.length > 0) {
                 return res.status(400).json({
                     message: "Cannot update skill. It's linked to subjects."
                 });
             }
         }
-
         skill.name = name || skill.name;
         skill.description = description || skill.description;
         await skill.save();
@@ -76,23 +76,26 @@ export const updateSkill = async (req, res) => {
 // Supprimer  une compétence
 export const deleteSkill = async (req, res) => {
     try {
+        const { force } = req.body
         const skill = await Skill.findById(req.params.id);
         if (!skill) {
             return res.status(404).json({ message: "Skill not found" });
         }
 
         // Vérifier si des matières sont associées
-        const associatedSubjects = await Subject.find({ skill: skill._id });
-        if (associatedSubjects.length > 0) {
-            // Archiver au lieu de supprimer
-            skill.archived = true;
-            await skill.save();
-            return res.status(200).json({
-                message: "Skill archived successfully because it's linked to subjects",
-                skill
-            });
+        if (!force) //force = false
+            {
+            const associatedSubjects = await Subject.find({ skills: { $in: skill } });
+            if (associatedSubjects.length > 0) {
+                // Archiver au lieu de supprimer
+                skill.archived = true;
+                await skill.save();
+                return res.status(200).json({
+                    message: "Skill archived successfully because it's linked to subjects",
+                    skill
+                });
+            }
         }
-
         await Skill.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: "Skill deleted successfully" });
     } catch (error) {

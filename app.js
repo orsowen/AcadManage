@@ -5,6 +5,7 @@ import dbConnection from "./dbConfig/dbConnection.js";
 import DepositPeriod from "./routes/DepositPeriod.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
+
 import PFE from "./routes/PFE.js";
 import internshipRoutes from './routes/InternshipRoutes.js';
 import UserConnexionRoutes from "./routes/UserConnexionRoutes.js"
@@ -26,6 +27,8 @@ app.use(cors());
 app.use(express.json());
 
 // ROUTES
+
+app.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
 app.use('/test-notifications', testNotificationsRouter);
 app.use("/competences", skillRoutes);
 app.use("/matieres", subjectRoutes);
