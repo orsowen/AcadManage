@@ -4,11 +4,12 @@ import PFE from '../models/PFE.js';
 import { sendMail } from './mailer.js';
 
 // create  PFE
+
 export const createPFE = async (req, res) => {
     const { title, documents, StartDate, EndDate, Nom_societe, teacher, topic } = req.body;
 
     try {
-        // Validate the user role to ensure they are a student
+
         const student = req.user?.idRole;
         if (!student) {
             return res.status(403).json({
