@@ -5,9 +5,8 @@ import Subject_PFA from "../models/Subject_PFA.js";
 // Add a choice for a student
 export const addChoice = async (req, res) => {
   try {
-
     const { subjectId, priority, binomeId } = req.body;
-     
+
     const studentId = req.user.idRole;
 
     // Vérifier que la priorité est valide
@@ -25,26 +24,45 @@ export const addChoice = async (req, res) => {
 
     // Vérifier que l'étudiant n'a pas déjà un sujet affecté
     const assignedSubject = await Subject_PFA.findOne({
-      $or: [{ monome: studentId }, { binome: studentId }]
+      $or: [{ monome: studentId }, { binome: studentId }],
     });
     if (assignedSubject) {
-      return res.status(400).json({ message: "You have already an assigned subject and cannot add more choices" });
+      return res.status(400).json({
+        message:
+          "You have already an assigned subject and cannot add more choices",
+      });
     }
 
     // Vérifier que le sujet est publié
-    const subject = await Subject_PFA.findOne({ _id: subjectId, published: true });
+    const subject = await Subject_PFA.findOne({
+      _id: subjectId,
+      published: true,
+    });
     if (!subject) {
       return res.status(404).json({ message: "Published subject not found" });
     }
 
     // Vérifier que le sujet est un sujet en binôme
-    if (subject.binomeExits && !binomeId) {
+    if (subject.binomeExits && binome) {
       return res
         .status(400)
         .json({ message: "Binome ID is required for binome subjects" });
     }
 
     // Vérifier si le sujet avec la même priorité existe déjà pour cet étudiant
+
+    const Subjects = await Subject_PFA.findOne({
+      _id: subjectId,
+      $or: [
+        { binomeExits: true, binome: { $ne: null }, monome: { $ne: null } },
+        { binomeExits: false, monome: { $ne: null } },
+      ],
+    });
+    if (Subjects) {
+      return res
+        .status(400)
+        .json({ message: "Subject is already assigned to a student" });
+    }
     const existingChoice = student.choices.find(
       (choice) => choice.subject.toString() === subjectId
     );
@@ -53,8 +71,6 @@ export const addChoice = async (req, res) => {
         .status(400)
         .json({ message: "A Subject is already assigned to this student" });
     }
-
-    // Vérifier que la priorité est unique pour l'étudiant
     const existingPriority = student.choices.find(
       (choice) => choice.priority === priority
     );
@@ -235,7 +251,7 @@ export const updateTeacherAcceptance = async (req, res) => {
 // Obtenir les choix de sujets d'un étudiant
 export const getChoices = async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const { studentId } = req.user.idRole;
     const student = await Student.findById(studentId).populate({
       path: "choices",
       populate: [
