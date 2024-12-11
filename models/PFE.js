@@ -43,22 +43,8 @@ const PFESchema = new Schema(
         Nom_societe: { type: String, required: true, trim: true },
         documents: { type: DocsSchema, required: true },
         topic: { type: TopicSchema, required: true },
-        StartDate: {
-            type: Date, required: true, validate: {
-                validator: function (value) {
-                    return value < this.EndDate;
-                },
-                message: 'Start date must be earlier than end date.',
-            },
-        },
-        EndDate: {
-            type: Date, required: true, validate: {
-                validator: function (value) {
-                    return value > this.StartDate; // Ensure EndDate is after StartDate
-                },
-                message: 'EndDate must be after StartDate',
-            },
-        },
+        StartDate: { type: Date, required: true },
+        EndDate: { type: Date, required: true },
         isValid: { type: Boolean, default: false },
         isAssigned: { type: Boolean, default: false },
         Publisher: { type: Boolean, default: false },
