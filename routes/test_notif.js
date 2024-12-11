@@ -1,6 +1,7 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
-import Teacher from '../models/User.js';  
+import Teacher from '../models/Teachers.js';  
+
 import dotenv from 'dotenv';
 
 dotenv.config(); // Charger les variables d'environnement depuis .env
@@ -11,7 +12,9 @@ router.get('/', async (req, res) => {
     try {
         // Récupérer la liste des enseignants uniquement (avec le rôle 'teacher')
         console.log("Fetching teachers...");
-        const teachers = await Teacher.find({ role: 'teacher' });
+
+        const teachers = await Teacher.find().populate('user', 'email');
+
         console.log(`Found ${teachers.length} teachers`);
 
         // Configuration du transporteur pour l'envoi des emails
@@ -25,11 +28,11 @@ router.get('/', async (req, res) => {
 
         // Envoi des emails à chaque enseignant
         for (let teacher of teachers) {
-            console.log(`Sending email to ${teacher.login}...`);
+            console.log(`Sending email to ${teacher.user.email}...`);
             let mailOptions = {
                 from: {name: "acadManager",
                     address: process.env.EMAIL_USER},
-                to: teacher.login,
+                to: teacher.user.email,
                 subject: 'Mise à jour de l\'avancement',
                 text: 'Bonjour, nous vous rappelons de mettre à jour l\'avancement de vos matières ce mois-ci.',
             };
@@ -37,9 +40,9 @@ router.get('/', async (req, res) => {
             // Envoi de l'email
             try {
                 await transporter.sendMail(mailOptions);
-                console.log(`Email sent to ${teacher.login}`);
+                console.log(`Email sent to ${teacher.user.email}`);
             } catch (emailError) {
-                console.error(`Failed to send email to ${teacher.email}: ${emailError.message}`);
+                console.error(`Failed to send email to ${teacher.user.email}: ${emailError.message}`);
             }
         }
 

@@ -23,14 +23,14 @@ export const addSubject = async (req, res) => {
         } = req.body;
 
         // Valider teacher
-        for ( const teacher in teachers) {
+        for ( const teacher of teachers) {
         const teacherUser = await Teachers.findById(teacher); // Vérifier si l'utilisateur est un enseignant
         if (!teacherUser) {
             return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
         }}
 
         // Valider student
-        for ( const student in students) {
+        for ( const student of students) {
         const studentUser = await Student.findById(student); // Vérifier si l'utilisateur est un étudiant
         if (!studentUser) {
             return res.status(404).json({ error: " 'student' n'est pas valide de ID : ", student });
@@ -315,6 +315,25 @@ export const updateAvancement = async (req, res) => {
         res.status(500).json({ error: "Erreur serveur." });
     }
 };
+
+export const getAllSubjectsByTeacher = async (req, res) => {
+    const  idTeacher = req.user.idRole;
+    
+    console.log(idTeacher);
+    try {
+
+        const subjects = await Subject.find({teachers: { $in: idTeacher}})
+            .populate('skills', 'name') // Récupérer les compétences associées
+            .populate('teachers', 'firstName lastName') // Récupérer les infos de l'enseignant
+            .populate('students', 'firstName lastName') // Récupérer les infos de l'étudiant
+
+        res.status(200).json(subjects);
+    } catch (error) {
+        res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
+    }
+};
+
+// export const affectTeacher
 
 
 
