@@ -1,8 +1,9 @@
 import DefensePFE from '../models/DefensePFE.js';
 import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
-import User from '../models/User.js';
 import { sendMail } from './mailer.js';
+
+// create  PFE
 
 export const createPFE = async (req, res) => {
     const {
@@ -11,7 +12,7 @@ export const createPFE = async (req, res) => {
     } = req.body;
 
     try {
-        const student = req.user?.idRole; // Ensure middleware populates `req.user` with decoded token data
+        const student = req.user?.idRole;
         if (!student) {
             return res.status(403).json({
                 error: "Student information is missing from the token."
@@ -201,7 +202,7 @@ export const ListAllPFEInfo = async (req, res) => {
 export const choosePFE = async (req, res) => {
     const { id } = req.params;
 
-    const teacherId = req.user?.idRole; // Ensure middleware populates `req.user` with decoded token data
+    const teacherId = req.user?.idRole;
 
     try {
         const pfe = await PFE.findById(id);
@@ -234,15 +235,14 @@ export const choosePFE = async (req, res) => {
         });
     }
 };
+//valide PFE
 export const validateAssignments = async (req, res) => {
     try {
         const { ids } = req.body;
 
-        // Fetch PFEs by the given IDs
         const pfes = await PFE.find({ _id: { $in: ids } });
         // Check if any PFE is missing
         if (pfes.length !== ids.length) {
-            // Find the missing IDs
             const missingIds = ids.filter(id => !pfes.some(pfe => pfe._id.toString() === id));
             return res.status(400).json({
                 error: 'Some PFEs do not exist',
@@ -271,7 +271,7 @@ export const validateAssignments = async (req, res) => {
     }
 };
 
-
+//Assigne PFE to teacher
 export const assignPFEToTeacher = async (req, res) => {
     const { id } = req.params; // PFE ID
     const { teacherId, force } = req.body;
@@ -318,7 +318,7 @@ export const assignPFEToTeacher = async (req, res) => {
     }
 };
 
-
+//Publish Or Hide PFE
 export const publishOrHidePFE = async (req, res) => {
     const { response } = req.params; // Expected values: "publish" or "hide"
 
@@ -401,7 +401,15 @@ export const sendPlanningEmail = async (req, res) => {
             }
             let subject = '';
             let status = pfe.emailStatus;
-            // Create the email content
+            if (status === 'none') {
+                subject = 'Your Planning Link';
+                status = 'first'; // Update status to "first"
+            } else if (status === 'first') {
+                subject = 'Reminder: Your Planning Link';
+                status = 'second'; // Update status to "second"
+            } else {
+                continue; // Skip sending email if already sent twice
+            }
             const emailContent = `
         <p>Dear ${pfe.student.firstName} ${pfe.student.lastName},</p>
                 <p>Your PFE details:</p>
@@ -412,19 +420,17 @@ export const sendPlanningEmail = async (req, res) => {
                     <li>Technologies: ${pfe.topic.techList.join(', ')}</li>
                     <li>Start Date: ${pfe.StartDate.toDateString()}</li>
                     <li>End Date: ${pfe.EndDate.toDateString()}</li>
-                    <li> Teacher${pfe.teacher.firstName} ${pfe.teacher.lastName}<li>
-                </ul>
-    ${status === 'none'
+                    <li>Teacher: ${pfe.teacher
+                    ? `${pfe.teacher.firstName} ${pfe.teacher.lastName}`
+                    : '<strong>You still have no supervisor assigned.</strong>'
+                }</li>               
+                 </ul>
+                  ${status === 'none'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
                 <p>Best regards,<br>Admin Team</p>
             `;
-            // Determine the email subject and content based on the current email status
-
-
-
-
             // Send email to the teacher
             const teacherEmailContent = `
         <p>Dear ${pfe.teacher.firstName} ${pfe.teacher.lastName},</p>
@@ -434,21 +440,13 @@ export const sendPlanningEmail = async (req, res) => {
                     <li>Company: ${pfe.Nom_societe}</li>
                     <li>Assigned Student: ${pfe.student.firstName} ${pfe.student.lastName}</li>
                 </ul>
-    ${status === 'none'
+    ${status === 'first'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
                 <p>Best regards,<br>Admin Team</p>
             `;
-            if (status === 'none') {
-                subject = 'Your Planning Link';
-                status = 'first'; // Update status to "first"
-            } else if (status === 'first') {
-                subject = 'Reminder: Your Planning Link';
-                status = 'second'; // Update status to "second"
-            } else {
-                continue; // Skip sending email if already sent twice
-            }
+
 
             // Send email to the student
             await sendMail(pfe.student.user.email, subject, emailContent);

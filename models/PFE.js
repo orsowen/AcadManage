@@ -72,5 +72,5 @@ const PFESchema = new Schema(
     { timestamps: true }
 );
 
-const PFE = mongoose.model('PFE', PFESchema, 'pfes'); // Explicit collection name
+const PFE = mongoose.model('PFE', PFESchema, 'PFES'); // Explicit collection name
 export default PFE;
