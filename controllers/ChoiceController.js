@@ -1,12 +1,14 @@
 import Choice from "../models/Choice.js";
 import Student from "../models/Student.js";
 import Subject_PFA from "../models/Subject_PFA.js";
-import mongoose from "mongoose";
 
-// Ajouter un choix de sujet pour un étudiant
+// Add a choice for a student
 export const addChoice = async (req, res) => {
   try {
-    const { studentId, subjectId, priority, binomeId } = req.body;
+
+    const { subjectId, priority, binomeId } = req.body;
+     
+    const studentId = req.user.idRole;
 
     // Vérifier que la priorité est valide
     if (![1, 2, 3].includes(priority)) {
@@ -18,15 +20,25 @@ export const addChoice = async (req, res) => {
     if (student.choices.length >= 3) {
       return res
         .status(400)
-        .json({ message: "Student has already selected three subjects" });
+        .json({ message: "You have already selected three subjects" });
+    }
+
+    // Vérifier que l'étudiant n'a pas déjà un sujet affecté
+    const assignedSubject = await Subject_PFA.findOne({
+      $or: [{ monome: studentId }, { binome: studentId }]
+    });
+    if (assignedSubject) {
+      return res.status(400).json({ message: "You have already an assigned subject and cannot add more choices" });
+    }
+
+    // Vérifier que le sujet est publié
+    const subject = await Subject_PFA.findOne({ _id: subjectId, published: true });
+    if (!subject) {
+      return res.status(404).json({ message: "Published subject not found" });
     }
 
     // Vérifier que le sujet est un sujet en binôme
-    const subject = await Subject_PFA.findById(subjectId);
-    if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
-    }
-    if (subject.binome && !binomeId) {
+    if (subject.binomeExits && !binomeId) {
       return res
         .status(400)
         .json({ message: "Binome ID is required for binome subjects" });
@@ -39,7 +51,7 @@ export const addChoice = async (req, res) => {
     if (existingChoice) {
       return res
         .status(400)
-        .json({ message: "Subject is already assigned to this student" });
+        .json({ message: "A Subject is already assigned to this student" });
     }
 
     // Vérifier que la priorité est unique pour l'étudiant

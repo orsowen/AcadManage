@@ -14,6 +14,7 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
+
   monome: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Student",
@@ -28,6 +29,21 @@ const Subject_PFASchema = new Schema({
   teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Teacher",
+  },
+  binome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: function () {
+      return this.binome;
+    }, // Required if binome is true
+  },
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+  },
+  technologies: {
+    type: [String],
+    required: true,
   },
   status: {
     type: String,
