@@ -1,5 +1,7 @@
 import express from "express";
 
+import DepositPeriod from "./DepositPeriod.js";
+
 import internshipRoutes from "./InternshipRoutes.js";
 import planningStageRoutes from "./PlanningStageRoutes.js";
 import studentRoutes from "./StudentRoutes.js";
@@ -7,10 +9,12 @@ import teacherRoutes from "./TeacherRoutes.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
 import PFE from "./PFE.js";
 
+
+
 const router = express.Router();
 
 // ROUTES --------------------------------
-
+router.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
 router.use("/internships/stage/planning", planningStageRoutes);
 router.use("/internships/stage", internshipRoutes);
 router.use("/users", UserConnexionRoutes);

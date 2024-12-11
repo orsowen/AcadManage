@@ -3,7 +3,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
-import DepositPeriod from "./routes/DepositPeriod.js";
 import router from './routes/index.js';
 import routerPFA from "./routes/PFARoutes.js";
 
@@ -23,7 +22,6 @@ app.use(express.json());
 
 // ROUTES
 
-app.use(["/PFE", "/PFA", "/Internership"], DepositPeriod);
 
 app.use("/", routerPFA);
 // All the endpoints below are in index.js for a better ordering and structure
