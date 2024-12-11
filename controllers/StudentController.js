@@ -117,12 +117,60 @@ export const createStudent = async (req, res) => {
 
 // Fetch all students
 export const getAllStudents = async (req, res) => {
+    const { page = 1, limit = 10, search, isArchived, grade, nationality } = req.query;
+
+    // Validate and parse pagination parameters
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+    // Build the filter object
+    let filter = {};
+    if (isArchived !== undefined) filter.isArchived = isArchived === "true"; // Convert to boolean
+    if (grade) filter.grade = grade; // Filter by grade if provided
+    if (nationality) filter.nationality = nationality; // Filter by nationality if provided
+
     try {
-        const students = await Student.find();
-        res.status(200).json(students);
+        // Handle search specifically for email or student fields
+        let searchFilter = {};
+        if (search) {
+            searchFilter = {
+                $or: [
+                    { firstName: { $regex: search, $options: "i" } }, // Case-insensitive search on firstName
+                    { lastName: { $regex: search, $options: "i" } },  // Case-insensitive search on lastName
+                ],
+            };
+        }
+
+        // Fetch students with filters, pagination, and populate user details
+        const students = await Student.find({ ...filter, ...searchFilter })
+            .populate({
+                path: "user",
+                select: "email phone cin", // Populate specific fields from the User model
+                match: search ? { email: { $regex: search, $options: "i" } } : {}, // Apply search filter on email
+            })
+            .skip((currentPage - 1) * currentLimit) // Skip results for pagination
+            .limit(currentLimit) // Limit the number of results
+            .exec();
+
+        // Fetch the total count of students matching the filter
+        const total = await Student.countDocuments(filter);
+
+        // Respond with paginated and filtered student data
+        res.status(200).json({
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: students,
+        });
     } catch (error) {
-        console.error('Error fetching students:', error.message);
-        res.status(500).json({ error: 'Failed to fetch students.' });
+        console.error("Error fetching students:", error.message);
+
+        // Return a descriptive error response
+        res.status(500).json({
+            error: "An error occurred while fetching students.",
+            details: error.message,
+        });
     }
 };
 
