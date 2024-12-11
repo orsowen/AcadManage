@@ -117,7 +117,7 @@ export const createStudent = async (req, res) => {
 
 // Fetch all students
 export const getAllStudents = async (req, res) => {
-    const { page = 1, limit = 10, search, isArchived, grade, nationality } = req.query;
+    const { page = 1, limit = 10, search, isArchived, grade, nationality, sort = "firstName" } = req.query;
 
     // Validate and parse pagination parameters
     const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
@@ -148,6 +148,7 @@ export const getAllStudents = async (req, res) => {
                 select: "email phone cin", // Populate specific fields from the User model
                 match: search ? { email: { $regex: search, $options: "i" } } : {}, // Apply search filter on email
             })
+            .sort(sort) // Sort results by the specified field
             .skip((currentPage - 1) * currentLimit) // Skip results for pagination
             .limit(currentLimit) // Limit the number of results
             .exec();

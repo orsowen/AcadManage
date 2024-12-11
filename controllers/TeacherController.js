@@ -96,20 +96,61 @@ export const createTeacher = async (req, res) => {
 
 // Get all teachers
 export const getAllTeachers = async (req, res) => {
-    try {
-        // Fetch teachers and populate user-related fields
-        const teachers = await Teacher.find()
-            .populate('user', 'email');
+    const { page = 1, limit = 10, search, sort = "firstName" } = req.query;
 
+    // Validate and parse pagination parameters
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+    // Build the search filter
+    let searchFilter = {};
+    if (search) {
+        searchFilter = {
+            $or: [
+                { firstName: { $regex: search, $options: "i" } }, // Search by firstName
+                { lastName: { $regex: search, $options: "i" } },  // Search by lastName
+            ],
+        };
+    }
+
+    try {
+        // Fetch teachers with filters, pagination, and populate user email
+        const teachers = await Teacher.find(searchFilter)
+            .populate({
+                path: "user",
+                select: "email",
+                match: search ? { email: { $regex: search, $options: "i" } } : {}, // Match email in User
+            })
+            .sort(sort) // Sort results by the specified field
+            .skip((currentPage - 1) * currentLimit) // Pagination: Skip the required documents
+            .limit(currentLimit) // Pagination: Limit the number of documents
+            .exec();
+
+        // Filter out teachers with no matching populated user
+        const filteredTeachers = teachers.filter((teacher) => teacher.user);
+
+        // Fetch total count for pagination
+        const total = await Teacher.countDocuments(searchFilter);
+
+        // Respond with the fetched teacher data
         res.status(200).json({
-            message: "Teachers fetched successfully.",
-            data: teachers,
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: filteredTeachers,
         });
     } catch (error) {
         console.error("Error fetching teachers:", error.message);
-        res.status(500).json({ error: "Error fetching teachers." });
+
+        // Return a descriptive error response
+        res.status(500).json({
+            error: "An error occurred while fetching teachers.",
+            details: error.message,
+        });
     }
 };
+
 // Get a single teacher by ID
 export const getTeacherById = async (req, res) => {
     const { id } = req.params;
