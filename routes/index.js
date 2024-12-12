@@ -1,4 +1,5 @@
 import express from "express";
+import { notifyAboutDepositDeadline } from "../utils/LateNotifReminder.js";
 import choicePFA from "./Choice.js";
 import DepositPeriod from "./DepositPeriod.js";
 import internshipRoutes from "./InternshipRoutes.js";
@@ -28,4 +29,14 @@ router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/", choicePFA);
 
+// TEST MAIL NOTIFICATION
+router.get("/test-notif-late-depot-satge", async (req, res) => {
+    try {
+        await notifyAboutDepositDeadline("STAGE", 1, true);
+        res.status(200).json({ message: "Test notification executed successfully." });
+    } catch (error) {
+        console.error("Error during test notification:", error.message);
+        res.status(500).json({ error: "Failed to execute test notification.", details: error.message });
+    }
+});
 export default router;

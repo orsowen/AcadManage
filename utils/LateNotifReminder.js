@@ -4,53 +4,54 @@ import DepositPeriod from "../models/DepositPeriod.js";
 import Internship from "../models/Internship.js";
 import Student from "../models/Student.js";
 
-const notifyAboutDepositDeadline = async (For = "STAGE", days = 2) => {
+
+export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest = false) => {
     try {
         const today = new Date();
         const thresholdDate = new Date();
-        thresholdDate.setDate(today.getDate() + days); // days days from today
+        thresholdDate.setDate(today.getDate() + days); // days from today
 
-        // Find a single active deposit period ending soon
-        const depositPeriod = await DepositPeriod.findOne({
-            For,
+        // Find active deposit periods ending soon
+        const depositPeriods = await DepositPeriod.findOne({
             End_Deposit: { $lte: thresholdDate, $gte: today },
+            For,
         });
 
-        if (!depositPeriod) {
-            console.log(`No deposit periods ending soon for ${For}.`);
+        if (!depositPeriods) {
+            console.log("No deposit periods ending soon.");
             return;
         }
 
-        console.log(`Processing deposit period for ${depositPeriod.For}, ending on ${depositPeriod.End_Deposit}`);
+        console.log(`Processing deposit period for ${depositPeriods.For}, ending ${depositPeriods.End_Deposit}`);
 
-        // Find students who have already submitted their internship
+        // Find students who haven't submitted their internship
         const internships = await Internship.find({ isArchived: false }).select("student");
         const submittedStudentIds = internships.map((internship) => internship.student.toString());
 
-        // Find students who have not submitted their internship
+        // Get students who have not submitted
         const nonSubmittedStudents = await Student.find({
             _id: { $nin: submittedStudentIds },
         }).populate("user", "email firstName lastName");
 
-        // Notify students who haven't submitted
         for (const student of nonSubmittedStudents) {
             const email = student.user?.email;
             if (!email) continue;
 
-            const subject = `Reminder: Deposit Period Ending Soon for ${depositPeriod.For}`;
+            // Send notification email
+            const subject = `Reminder: Deposit Period Ending Soon for ${depositPeriods.For}`;
             const message = `
                 <p>Dear ${student.user.firstName} ${student.user.lastName},</p>
-                <p>This is a reminder that the deposit period for ${depositPeriod.For} is ending on ${depositPeriod.End_Deposit.toLocaleDateString()}.</p>
+                <p>This is a reminder that the deposit period for ${depositPeriods.For} is ending on ${depositPeriods.End_Deposit.toLocaleDateString()}.</p>
                 <p>Please ensure your documents are submitted before the deadline to avoid any issues.</p>
                 <p>Thank you,</p>
                 <p>The Administration Team</p>
             `;
 
-            try {
+            if (!isTest) {
                 await sendMail(email, subject, message);
                 console.log(`Notification sent to ${email}`);
-            } catch (mailError) {
-                console.error(`Failed to send notification to ${email}:`, mailError.message);
+            } else {
+                console.log(`Test notification (not sent) to ${email}`);
             }
         }
     } catch (error) {
@@ -59,4 +60,4 @@ const notifyAboutDepositDeadline = async (For = "STAGE", days = 2) => {
 };
 
 // Schedule the job to run every day at 8:00 AM
-schedule.scheduleJob("0 8 * * *", () => notifyAboutDepositDeadline("STAGE"));
+schedule.scheduleJob("0 8 * * *", () => notifyAboutDepositDeadline());
