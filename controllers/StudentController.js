@@ -230,6 +230,7 @@ export const getStudentById = async (req, res) => {
     }
 };
 
+
 // Fetch logged in student infos
 export const getStudentProfile = async (req, res) => {
     const studentId = req.user.idRole; // Extract the student ID from the JWT token (assuming it stores the student ID)
@@ -256,7 +257,9 @@ export const getStudentProfile = async (req, res) => {
     }
 };
 
+
 // update student 
+
 export const updateStudent = async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;
@@ -361,6 +364,7 @@ export const deleteStudent = async (req, res) => {
                 user,
             });
         }
+
         // HARD DELETE
         // Permanently delete the student and associated user
         const deletedStudent = await Student.findByIdAndDelete(id, { session });
