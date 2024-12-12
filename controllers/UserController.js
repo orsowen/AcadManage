@@ -1,10 +1,7 @@
-
 import bcrypt from 'bcrypt';
-import dotenv from 'dotenv';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-dotenv.config();
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
@@ -15,6 +12,68 @@ export const generateRandomPassword = (length = 8) => {
     }
     return password;
 };
+
+// Create a new admin
+export const createAdmin = async (req, res) => {
+    const { cin, phone, email, teacher, student } = req.body;
+
+    // Validate required fields
+    if (!cin || !phone || !email) {
+        return res.status(400).json({ message: 'CIN, phone, and email are required.' });
+    }
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format.' });
+    }
+    try {
+        // Check if the user already exists based on CIN, email, or phone
+        const existingUser = await User.findOne({ $or: [{ cin }, { email }, { phone }] });
+        if (existingUser) {
+            const field = existingUser.cin === cin ? 'CIN' : existingUser.email === email ? 'Email' : 'Phone';
+            return res.status(400).json({ message: `${field} is already in use.` });
+        }
+
+        // Generate a random password
+        const password = generateRandomPassword(); // You can specify the password length if needed
+
+        // Hash the password before saving it
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const role = "admin";
+        // Create a new user
+        const newUser = new User({
+            cin,
+            password: hashedPassword,
+            role,
+            phone,
+            email,
+            teacher,
+            student,
+        });
+
+        // Save the user to the database
+        const savedUser = await newUser.save();
+
+        // Don't return the raw password in the response, instead notify the user.
+        res.status(201).json({
+            message: 'Admin created successfully.',
+            savedUser,
+            password: password, // This can be handled securely through email
+            NB: 'A random password has been generated and emailed to the user.', // This can be handled securely through email
+        });
+    } catch (error) {
+        console.error('Error creating user:', error.message);
+
+        // Detailed error handling
+        if (error.code === 11000) {
+            // MongoDB duplicate key error
+            return res.status(400).json({ message: 'Duplicate entry detected, possibly CIN, email, or phone already exists.' });
+        }
+
+        res.status(500).json({ message: 'Server error while creating user.', error: error.message });
+    }
+};
+
 
 // Create a new user
 export const createUser = async (req, res) => {
@@ -165,13 +224,31 @@ export const updateUser = async (req, res) => {
 // Delete a user
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
+    const { force } = req.body; // Determine if should be archived
 
     try {
+        // SOFT DELETE
+        if (!force) {
+            // Archive the associated user account
+            const user = await User.findById(id);
+            if (!user) {
+                return res.status(404).json({ message: "User not found." });
+            }
+            if (user) {
+                user.isArchived = true;
+                await user.save();
+            }
+            return res.status(200).json({
+                message: "User archived successfully.",
+                archivedUser: user || null,
+            });
+        }
+        // HARD DELETE
         const deletedUser = await User.findByIdAndDelete(id);
         if (!deletedUser) {
             return res.status(404).json({ message: 'User not found.' });
         }
-        res.status(200).json({ message: 'User deleted successfully.' });
+        res.status(200).json({ message: 'User deleted successfully.', deletedUser });
     } catch (error) {
         console.error('Error deleting user:', error.message);
         res.status(500).json({ message: 'Server error while deleting user.', error });
@@ -188,6 +265,10 @@ export const loginUser = async (req, res) => {
 
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
+        }
+
+        if (user.isArchived) {
+            return res.status(404).json({ message: 'This account is Archived, please contact Admin' });
         }
 
         // Compare passwords
@@ -217,7 +298,10 @@ export const loginUser = async (req, res) => {
         // Add teacher or student ID to the payload if not admin
         if (user.role !== 'admin') {
             payload.idRole = user.role === 'teacher' ? user.teacher._id : user.student._id;
-            if (user.role === 'student') payload.isStillStudent = user.student.isGraduated === false;
+            if (user.role === 'student') {
+                payload.isStillStudent = user.student.isGraduated === false;
+                payload.grade = user.student.grade;
+            }
         }
         // console.log(payload);
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
@@ -226,5 +310,104 @@ export const loginUser = async (req, res) => {
     } catch (error) {
         console.error('Error logging in user:', error.message);
         res.status(500).json({ message: 'Server error while logging in.', error : error.message });
+    }
+};
+
+// Archive or Unarchive the user account
+export const toggleArchiveUser = (role = "admin") => async (req, res) => {
+    const { id } = req.params; // Extract user ID from request parameters
+    let { isArchived } = req.body; // Determine the desired archive state from the request body
+
+
+    try {
+        // Default isArchived to true if not provided
+        if (isArchived === undefined) {
+            isArchived = true;
+        }
+
+        // Validate the isArchived field
+        if (typeof isArchived !== "boolean") {
+            return res.status(400).json({ message: "'isArchived' must be a boolean value." });
+        }
+
+        // Find the user to update based on the role
+        let user;
+        if (role === "admin") {
+            user = await User.findById(id);
+        } else if (role === "student") {
+            user = await User.findOne({ student: id });
+        } else if (role === "teacher") {
+            user = await User.findOne({ teacher: id });
+        }
+
+        // Handle case where the user is not found
+        if (!user) {
+            return res.status(404).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} not found.` });
+        }
+
+        // Update the archive status
+        user.isArchived = isArchived;
+        const updatedUser = await user.save();
+
+        // Respond with the updated user details
+        res.status(200).json({
+
+            message: `${role.charAt(0).toUpperCase() + role.slice(1)} ${isArchived ? "archived" : "unarchived"} successfully.`,
+            user: updatedUser,
+        });
+
+    } catch (error) {
+        console.error("Error updating user archive status:", error.message);
+        res.status(500).json({
+            message: "Server error while updating user archive status.",
+            error: error.message,
+        });
+    }
+};
+
+// update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
+export const updatePassword = (role = "admin") => async (req, res) => {
+    const { id } = req.params; // ID passed as a parameter
+    const { password } = req.body; // New password from the request body
+
+    try {
+        // Check if the password is provided
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required.' });
+        }
+
+        // Validate password length and complexity
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+        let user;
+        if (role == 'teacher') {
+            user = await User.findOne({ teacher: id });
+        } else if (role == 'student') {
+            user = await User.findOne({ student: id });
+        } else if (role == 'admin') {
+            user = await User.findById(id);
+        }
+        // Update the password in the associated user account
+        if (!user) {
+            return res.status(404).json({ message: 'Account not found.' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        // Respond with success message
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Error updating account password:', error.message);
+
+        // Handle unexpected errors
+        res.status(500).json({ error: 'Failed to update account password.', details: error.message });
     }
 };

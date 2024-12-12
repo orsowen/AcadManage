@@ -9,6 +9,10 @@ const SkillSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    archived: { 
+        type: Boolean,
+        default: false,
+    },
 });
 
 export default mongoose.model("Skill", SkillSchema);

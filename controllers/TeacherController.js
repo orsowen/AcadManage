@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Teacher from '../models/Teachers.js';
 import User from '../models/User.js';
 import { generateRandomPassword } from './UserController.js';
+
 // Create a new teacher
 export const createTeacher = async (req, res) => {
     const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
@@ -93,23 +94,63 @@ export const createTeacher = async (req, res) => {
     }
 };
 
-
 // Get all teachers
 export const getAllTeachers = async (req, res) => {
-    try {
-        // Fetch teachers and populate user-related fields
-        const teachers = await Teacher.find()
-            .populate('user', 'email');
+    const { page = 1, limit = 10, search, sort = "firstName" } = req.query;
 
+    // Validate and parse pagination parameters
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+    // Build the search filter
+    let searchFilter = {};
+    if (search) {
+        searchFilter = {
+            $or: [
+                { firstName: { $regex: search, $options: "i" } }, // Search by firstName
+                { lastName: { $regex: search, $options: "i" } },  // Search by lastName
+            ],
+        };
+    }
+
+    try {
+        // Fetch teachers with filters, pagination, and populate user email
+        const teachers = await Teacher.find(searchFilter)
+            .populate({
+                path: "user",
+                select: "email",
+                match: search ? { email: { $regex: search, $options: "i" } } : {}, // Match email in User
+            })
+            .sort(sort) // Sort results by the specified field
+            .skip((currentPage - 1) * currentLimit) // Pagination: Skip the required documents
+            .limit(currentLimit) // Pagination: Limit the number of documents
+            .exec();
+
+        // Filter out teachers with no matching populated user
+        const filteredTeachers = teachers.filter((teacher) => teacher.user);
+
+        // Fetch total count for pagination
+        const total = await Teacher.countDocuments(searchFilter);
+
+        // Respond with the fetched teacher data
         res.status(200).json({
-            message: "Teachers fetched successfully.",
-            data: teachers,
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
+            data: filteredTeachers,
         });
     } catch (error) {
         console.error("Error fetching teachers:", error.message);
-        res.status(500).json({ error: "Error fetching teachers." });
+
+        // Return a descriptive error response
+        res.status(500).json({
+            error: "An error occurred while fetching teachers.",
+            details: error.message,
+        });
     }
 };
+
 // Get a single teacher by ID
 export const getTeacherById = async (req, res) => {
     const { id } = req.params;
@@ -158,44 +199,70 @@ export const updateTeacher = async (req, res) => {
     }
 };
 
-// Delete a teacher
+// Delete or archive a teacher
 export const deleteTeacher = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params; // Extract teacher ID from the request parameters
+    const { force } = req.body; // Determine if the teacher should be archived
 
     try {
-        // Start a session for transaction
+        if (!force) {
+            // Archive the teacher (soft delete)
+            const teacher = await Teacher.findById(id);
+            if (!teacher) {
+                return res.status(404).json({ message: "Teacher not found." });
+            }
+            // Archive the associated user account
+            const user = await User.findOne({ teacher: id });
+            if (user) {
+                user.isArchived = true;
+                await user.save();
+            }
+
+            return res.status(200).json({
+                message: "Teacher and associated user archived successfully.",
+                archivedTeacher: teacher,
+                archivedUser: user || null,
+            });
+        }
+
+        // Hard delete (completely remove teacher and associated user)
         const session = await mongoose.startSession();
         session.startTransaction();
 
-        // Delete the teacher by ID
-        const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
-        if (!deletedTeacher) {
+        try {
+            // Delete the teacher by ID
+            const deletedTeacher = await Teacher.findByIdAndDelete(id, { session });
+            if (!deletedTeacher) {
+                throw new Error("Teacher not found.");
+            }
+
+            // Delete the associated user account
+            const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return res.status(200).json({
+                message: "Teacher and associated user deleted successfully.",
+                deletedTeacher,
+                deletedUser,
+            });
+        } catch (transactionError) {
             await session.abortTransaction();
             session.endSession();
-            return res.status(404).json({ error: "Teacher not found." });
+            console.error("Transaction failed:", transactionError.message);
+            return res.status(500).json({
+                error: "Error during transaction while deleting teacher.",
+                details: transactionError.message,
+            });
         }
-
-        // Delete the associated user account
-        const deletedUser = await User.findOneAndDelete({ teacher: id }, { session });
-
-        // Commit the transaction
-        await session.commitTransaction();
-        session.endSession();
-
-        res.status(200).json({
-            message: "Teacher and associated user account deleted successfully.",
-            deletedTeacher,
-            deletedUser,
-        });
     } catch (error) {
-        console.error("Error deleting teacher:", error.message);
-        res.status(500).json({ error: "Error deleting teacher." });
+        console.error("Error processing teacher deletion:", error.message);
+        res.status(500).json({ error: "An error occurred while deleting the teacher.", details: error.message });
     }
 };
 
-// 
-
-// Fetch logged in teacher infos (still dont work)
+// Fetch logged in teacher infos
 export const getTeacherProfile = async (req, res) => {
     const id = req.user.idRole; // Extract the  ID from the JWT token (assuming it stores the  ID)
 
@@ -221,43 +288,28 @@ export const getTeacherProfile = async (req, res) => {
     }
 };
 
-export const updateTeacherPassword = async (req, res) => {
-    const { id } = req.params; // Student ID passed as a parameter
-    const { password } = req.body; // New password from the request body
+// Update a teacher (own profile)
+export const updateTeacherByToken = async (req, res) => {
+    const id = req.user.idRole;
+    const { lastName, firstName, subjectCount } = req.body;
 
     try {
-        // Check if the password is provided
-        if (!password) {
-            return res.status(400).json({ message: 'Password is required.' });
+        // Fetch the existing teacher by ID
+        const teacher = await Teacher.findById(id);
+        if (!teacher) {
+            return res.status(404).json({ error: 'Teacher not found.' });
         }
 
-        // Validate password length and complexity (you can adjust the regex as per requirements)
-        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
-        if (!passwordRegex.test(password)) {
-            return res.status(400).json({
-                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
-            });
-        }
+        // Proceed to update the teacher's details
+        teacher.lastName = lastName || teacher.lastName;
+        teacher.firstName = firstName || teacher.firstName;
+        teacher.subjectCount = subjectCount || teacher.subjectCount;
 
+        const updatedTeacher = await teacher.save(); // Save the updated teacher document
 
-        // Update the password in the associated user account
-        const user = await User.findOne({ teacher: id });
-        if (!user) {
-            return res.status(404).json({ message: 'Associated user account not found.' });
-        }
-
-        // Hash the new password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        user.password = hashedPassword;
-        await user.save();
-
-        // Respond with success message
-        res.status(200).json({ message: 'Password updated successfully.' });
+        res.status(200).json(updatedTeacher);
     } catch (error) {
-        console.error('Error updating student password:', error.message);
-
-        // Handle unexpected errors
-        res.status(500).json({ error: 'Failed to update student password.', details: error.message });
+        console.error('Error updating teacher:', error.message);
+        res.status(400).json({ error: 'Error updating teacher. ' + error.message });
     }
 };

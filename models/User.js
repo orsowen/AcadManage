@@ -48,6 +48,10 @@ const UserSchema = new Schema(
       ref: "Student", // Reference to Student model
       default: null,
     },
+    isArchived: {
+      type: Boolean,
+      default: false, // Default value
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields

@@ -1,5 +1,6 @@
 
 import express from 'express';
+import { addDepositPeriod } from "../controllers/DepositPeriod.js";
 import {
     addInternship,
     addTeacherToInternship,
@@ -8,40 +9,54 @@ import {
     getAllInternships,
     getAssignedInternships,
     getInternshipById,
-    getInternshipByStudent,
+    getInternshipByStudentForPV,
+    getInternshipByStudentToken,
     removeAllAssignedInternships,
     updateInternship,
-    validateInternship,
-} from '../controllers/InternshipController.js';
-
+    validateInternship
+} from '../controllers/internshipController.js';
 import {
-    addDepositPeriod
-} from "../controllers/DepositPeriod.js";
-import { isAdmin, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
+    isAdmin,
+    isStillStudent,
+    isStudent,
+    isStudentOrAdmin,
+    isTeacher,
+} from "../middlewares/authentication.js";
+import { isDepotOpen } from '../middlewares/depositPeriodMiddleware.js';
 
 const router = express.Router();
 
+// get assigned internships for the logged in teacher
+router.get('/assigned-to-me', isTeacher, getAssignedInternships);
+
 // get own Internship 
-router.get('/me', isStudent, isStillStudent, getInternshipByStudent);
+router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
 
-// POST /internships - Add a new internship
-router.post('/', isStudent, isStillStudent, addInternship);
+// consult PV
+router.get('/pv', isStudent, getInternshipByStudentForPV);
 
-// GET /internships - Get all internships
+// Add a new internship
+let message = "STAGE can only be added during the deposit period."
+router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", message), addInternship);
+
+// Get all internships
 router.get('/', isAdmin, getAllInternships);
 
-// GET /internships/:id - Get an internship by ID
+// Get an internship by ID
 router.get('/:id', isTeacher, getInternshipById);
 
+// Update an internship by ID
+message = "Stage can only be updated during the deposit period."
+router.patch('/:id', isStudentOrAdmin, isDepotOpen("STAGE", message), updateInternship(false));
 
-// PATCH /internships/:id - Update an internship by ID
-// router.patch('/:id', isStudent, isStillStudent, updateInternship);
-router.patch('/:id', isAdmin, updateInternship);
+// Update an internship documents by ID
+message = "Documents for Stage can only be updated during the deposit period."
+router.patch('/:id/documents', isStudent, isStillStudent, isDepotOpen("STAGE", message), updateInternship(true));
 
-// DELETE /internships/:id - Delete an internship by ID
+// Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);
 
-// automatic assignment of teachers to internships
+// Automatic assignment of teachers to internships
 router.post('/planning/assign', isAdmin, assignTeachersToInternships);
 
 // manual add teacher to internship
@@ -53,12 +68,8 @@ router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternshi
 // open period depot 
 router.post("/open", isAdmin, addDepositPeriod(false));
 
-// get assigned internships for the logged in teacher
-router.post('/assigned-to-me', isTeacher, getAssignedInternships);
-
 // valider stage (teacher)
 router.put('/:id', isTeacher, validateInternship);
 
-// 
 
 export default router;
