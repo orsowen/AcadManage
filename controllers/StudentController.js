@@ -142,7 +142,6 @@ export const getStudentById = async (req, res) => {
     }
 };
 
-
 // Fetch logged in student infos (still dont work)
 export const getStudentProfile = async (req, res) => {
     const studentId = req.user.idRole; // Extract the student ID from the JWT token (assuming it stores the student ID)
@@ -168,7 +167,6 @@ export const getStudentProfile = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch student profile.' });
     }
 };
-
 
 export const updateStudent = async (req, res) => {
     const { id } = req.params;
@@ -299,8 +297,6 @@ export const deleteStudent = async (req, res) => {
         res.status(500).json({ error: "Failed to process student deletion." });
     }
 };
-
-
 
 export const updateStudentPassword = async (req, res) => {
     const { id } = req.params; // Student ID passed as a parameter
