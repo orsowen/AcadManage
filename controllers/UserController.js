@@ -14,24 +14,34 @@ export const generateRandomPassword = (length = 8) => {
     return password;
 };
 
-export async function sendCreds(email, password) {
-    // Optionally send credentials via email
-    if (email) {
-        const subject = "Votre compte a été créé";
-        const message = `
-                <p>Bonjour,</p>
-                <p>Votre compte a été créé avec succès. Voici vos informations de connexion :</p>
-                <ul>
-                    <li><strong>Email:</strong> ${email}</li>
-                    <li><strong>Mot de passe:</strong> ${password}</li>
-                </ul>
-                <b>NB : utiliser votre CIN comme login</b>
-                <p>Veuillez vous connecter dès que possible et changer votre mot de passe pour des raisons de sécurité.</p>
-                <p>Cordialement,</p>
-                <p>L'équipe de gestion.</p>
-            `;
+export async function sendCreds(email, password, isUpdate = false) {
+    if (!email) {
+        console.warn("Email address is required to send credentials.");
+        return;
+    }
+
+    const subject = isUpdate
+        ? "Mise à jour de vos informations de connexion"
+        : "Votre compte a été créé";
+
+    const message = `
+        <p>Bonjour,</p>
+        <p>${isUpdate ? "Vos informations de connexion ont été mises à jour." : "Votre compte a été créé avec succès. Voici vos informations de connexion :"} </p>
+        <ul>
+            <li><strong>Email:</strong> ${email}</li>
+            <li><strong>Mot de passe:</strong> ${password}</li>
+        </ul>
+        <b>NB : utilisez votre CIN comme login</b>
+        <p>Veuillez ${isUpdate ? "vérifier vos nouvelles informations" : "vous connecter dès que possible et changer votre mot de passe"} pour des raisons de sécurité.</p>
+        <p>Cordialement,</p>
+        <p>L'équipe de gestion.</p>
+    `;
+
+    try {
         await sendMail(email, subject, message);
-        console.log(`Credentials sent to ${email}`);
+        console.log(`Credentials ${isUpdate ? "update" : "creation"} email sent to ${email}`);
+    } catch (error) {
+        console.error(`Failed to send credentials email to ${email}:`, error);
     }
 }
 
@@ -77,7 +87,7 @@ export const createAdmin = async (req, res) => {
         const savedUser = await newUser.save();
 
         if (sendCredsInMail) {
-            sendCreds(email, password);
+            sendCreds(email, password, false);
         }
 
         // Don't return the raw password in the response, instead notify the user.
@@ -394,7 +404,7 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 // update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
 export const updatePassword = (role = "admin") => async (req, res) => {
     const { id } = req.params; // ID passed as a parameter
-    const { password } = req.body; // New password from the request body
+    const { password, sendCredsInMail = false } = req.body; // New password from the request body
 
     try {
         // Check if the password is provided
@@ -427,7 +437,10 @@ export const updatePassword = (role = "admin") => async (req, res) => {
 
         user.password = hashedPassword;
         await user.save();
-
+        // send updated creds in mail
+        if (sendCredsInMail) {
+            sendCreds(user.email, password, true);
+        }
         // Respond with success message
         res.status(200).json({ message: 'Password updated successfully.' });
     } catch (error) {

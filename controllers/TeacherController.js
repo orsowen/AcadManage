@@ -67,7 +67,7 @@ export const createTeacher = async (req, res) => {
         await savedTeacher.save();
 
         if (sendCredsInMail) {
-            sendCreds(email, password);
+            sendCreds(email, password, false);
         }
 
         // Return the created teacher and user data

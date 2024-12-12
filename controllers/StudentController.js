@@ -91,7 +91,7 @@ export const createStudent = async (req, res) => {
         await savedStudent.save(); // Update the student with the user ID
 
         if (sendCredsInMail) {
-            sendCreds(email, password);
+            sendCreds(email, password, false);
         }
 
         // Return the success response
