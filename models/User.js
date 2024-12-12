@@ -1,4 +1,5 @@
-import mongoose from 'mongoose';
+
+import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
@@ -29,8 +30,8 @@ const UserSchema = new Schema(
       match: /^\+?[0-9]{7,15}$/, // Optional: Validate phone number
     },
     password: {
-        type: String,
-        required: true,
+      type: String,
+      required: true,
     },
     role: {
       type: String,
@@ -52,9 +53,11 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false, // Default value
     },
-}, {
+  },
+  {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
-});
+  }
+);
 
 const User = mongoose.model("User", UserSchema);
 

@@ -1,6 +1,8 @@
 import express from "express";
+import choicePFA from "./Choice.js";
 import DepositPeriod from "./DepositPeriod.js";
 import internshipRoutes from "./InternshipRoutes.js";
+import routerPFA from "./PFA.js";
 import PFE from "./PFE.js";
 import planningStageRoutes from "./PlanningStageRoutes.js";
 import skillRoutes from "./skill.js";
@@ -9,8 +11,6 @@ import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
-import routerPFA from "./PFA.js";
-import choicePFA from "./Choice.js";
 
 const router = express.Router();
 
