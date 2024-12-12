@@ -1,3 +1,5 @@
+// controllers/internship.controller.js
+
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
@@ -17,6 +19,7 @@ const validateFiles = (documents) => {
     return { isValid: true }; // All files are valid
 };
 
+
 // Add a new internship
 export const addInternship = async (req, res) => {
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
@@ -25,6 +28,11 @@ export const addInternship = async (req, res) => {
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
+    }
+
+    // Validate topicId
+    if (!topicId) {
+        return res.status(400).json({ error: "Le topicId est requis." });
     }
 
     try {

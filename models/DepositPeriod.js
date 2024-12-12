@@ -11,7 +11,6 @@ const DespositPeriodchema = new mongoose.Schema({
   },
   Start_Choice: {
     type: Date,
-
   },
   End_Choice: {
     type: Date,

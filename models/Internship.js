@@ -1,3 +1,4 @@
+// models/internship.model.js
 
 import mongoose from 'mongoose';
 
@@ -60,6 +61,18 @@ const InternshipSchema = new Schema({
     nomSociete: {
         type: String,
     },
+    anneYear: {
+        type: String,
+        default: function () {
+            // Automatically calculate the current academic year
+            const currentYear = new Date().getFullYear();
+            const month = new Date().getMonth();
+            // Academic year typically starts in September
+            return month >= 8
+                ? `${currentYear}-${currentYear + 1}`
+                : `${currentYear - 1}-${currentYear}`;
+        },
+    },
     StartDate: {
         type: Date,
         required: true,
@@ -83,7 +96,6 @@ const InternshipSchema = new Schema({
         type: TopicSchema, // Embedding the TopicSchema
         required: true, // Make this field mandatory
     },
-
     student: {
         type: mongoose.Schema.Types.ObjectId, // Reference to Student model
         ref: 'Student', // Model name to reference
@@ -94,7 +106,6 @@ const InternshipSchema = new Schema({
         ref: 'Teacher', // Model name to reference
         // required: true,
     },
-
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });

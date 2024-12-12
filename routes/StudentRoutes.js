@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+    createCV,
     createStudent,
     deleteStudent,
     getAllStudents,
@@ -10,9 +11,8 @@ import {
 } from '../controllers/StudentController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
-
-
 const router = express.Router();
+
 
 // get Own profile for student
 router.get('/me', isStudent, getStudentProfile);
@@ -39,6 +39,14 @@ router.patch('/:id/password', isAdmin, updatePassword("student"));
 router.delete('/:id', isAdmin, deleteStudent);
 
 // Archive a teacher
-router.put('/:id', isAdmin, toggleArchiveUser("student")); // Route to Archive user
+router.put('/:id', isAdmin, toggleArchiveUser("student")); 
+
+// Route to Archive user
+router.post('/CV/me', isStudent, createCV); 
+// Route to Archive user
+//router.get('/CV/me', isStudent, getCvMe); 
+// get studiant/CV/me - get all professionel information of the studiant
+//router.get('/CV', isStudent, getCvStudent); 
+// get /cv - get student/cv - get all information of the student
 
 export default router;
