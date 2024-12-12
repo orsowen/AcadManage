@@ -6,14 +6,16 @@ import {
     getStudentById,
     getStudentProfile,
     updateStudent,
-    updateStudentPassword,
-    updateStudentProfile,
+    updateStudentProfile
 } from '../controllers/StudentController.js';
-import { toggleArchiveUser } from '../controllers/UserController.js';
+import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
 
 
 const router = express.Router();
+
+// get Own profile for student
+router.get('/me', isStudent, getStudentProfile);
 
 // POST /students - Create a new student
 router.post('/', createStudent);
@@ -24,17 +26,14 @@ router.get('/', isAdminOrTeacher, getAllStudents);
 // GET /students/:id - Get a student by ID
 router.get('/:id', isAdmin, getStudentById);
 
-// ( get dont work thats why post)
-router.post('/profile', isStudent, getStudentProfile);
-
-// PATCH /students/:id - Update a student by ID
+// PATCH / students /: id - Update a student by ID
 router.patch('/:id', isAdmin, updateStudent);
 
 // update own profile
 router.put('/me', isStudent, updateStudentProfile);
 
 // patch update student password
-router.patch('/:id/password', isAdmin, updateStudentPassword);
+router.patch('/:id/password', isAdmin, updatePassword("student"));
 
 // DELETE /students/:id - Delete a student by ID
 router.delete('/:id', isAdmin, deleteStudent);

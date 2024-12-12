@@ -1,40 +1,6 @@
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
-import user from "../models/User.js";
 
-dotenv.config();
-
-
-const JWT_SECRET = process.env.JWT_SECRET_KEY;
-
-export const loggedMiddleware = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization.split(" ")[1];
-    console.log("token: ", token);
-    const decodedToken = jwt.verify(token, JWT_SECRET);
-    const userId = decodedToken.userId;
-    try {
-      const User = await user.findOne({ _id: userId });
-      if (User) {
-        req.auth = {
-          userId: userId,
-          role: user.role,
-        };
-        next();
-      } else {
-        res.status(401).json({ error: "user n'existe pas" });
-      }
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  } catch (error) {
-    res.status(401).json({ error: error.message });
-  }
-};
-
-// #######################################################################################
-
-// 
 // Middleware to verify and decode the JWT token
 export const decodeJWT = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1]; // Assuming token is sent in 'Authorization' header as "Bearer token"
@@ -127,7 +93,7 @@ export const isAdminOrTeacher = (req, res, next) => {
     // Call decodeJWT to decode the token and populate req.user
     decodeJWT(req, res, () => {
       if (req.user.role === 'admin' || req.user.role === 'teacher') {
-        next();  // Proceed to the next middleware if the role is 'admin'
+        next();  // Proceed to the next middleware if the role is 'admin' or 'teacher'
       } else {
         res.status(403).json({ error: "Vous n'avez pas l'autorisation d'accéder à cette route." });
       }
@@ -144,6 +110,22 @@ export const isStudent3rdYear = async (req, res, next) => {
     decodeJWT(req, res, () => {
       if (req.user.grade === 'ING3') {
         next();  // Proceed to the next middleware if the role is 'ING3'
+      } else {
+        res.status(403).json({ error: "Vous n'avez pas l'autorisation d'accéder à cette route." });
+      }
+    });
+  } catch (e) {
+    // Use e.message for the error from catch block
+    res.status(401).json({ error: e.message });
+  }
+};
+
+export const isStudentOrAdmin = async (req, res, next) => {
+  try {
+    // Call decodeJWT to decode the token and populate req.user
+    decodeJWT(req, res, () => {
+      if (req.user.role === 'admin' || req.user.role === 'student') {
+        next();  // Proceed to the next middleware if the role is 'admin' or 'student'
       } else {
         res.status(403).json({ error: "Vous n'avez pas l'autorisation d'accéder à cette route." });
       }

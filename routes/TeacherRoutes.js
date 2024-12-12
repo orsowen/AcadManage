@@ -6,17 +6,16 @@ import {
     getTeacherById,
     getTeacherProfile,
     updateTeacher,
-    updateTeacherByToken,
-    updateTeacherPassword,
+    updateTeacherByToken
 } from '../controllers/TeacherController.js';
-import { toggleArchiveUser } from '../controllers/UserController.js';
+import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 
 const router = express.Router();
 
-// ( get dont work thats why post)
-router.get('/profile', isTeacher, getTeacherProfile);
+// get Own Profile 
+router.get('/me', isTeacher, getTeacherProfile);
 
 // Get all teachers
 router.get('/', isAdmin, getAllTeachers);
@@ -34,7 +33,7 @@ router.patch('/:id', isAdmin, updateTeacher);
 router.put('/me', isTeacher, updateTeacherByToken);
 
 // patch update teacher password
-router.patch('/:id/password', isAdmin, updateTeacherPassword);
+router.patch('/:id/password', isAdmin, updatePassword("teacher"));
 
 // Delete a teacher
 router.delete('/:id', isAdmin, deleteTeacher);

@@ -13,12 +13,13 @@ import {
     getInternshipByStudentToken,
     removeAllAssignedInternships,
     updateInternship,
-    validateInternship,
+    validateInternship
 } from '../controllers/internshipController.js';
 import {
     isAdmin,
     isStillStudent,
     isStudent,
+    isStudentOrAdmin,
     isTeacher,
 } from "../middlewares/authentication.js";
 
@@ -45,8 +46,10 @@ router.get('/:id', isTeacher, getInternshipById);
 
 
 // PATCH /internships/:id - Update an internship by ID
-// router.patch('/:id', isStudent, isStillStudent, updateInternship);
-router.patch('/:id', isAdmin, updateInternship);
+// router.patch('/:id', isStudent, isStillStudent,  updateInternship(false));
+// router.patch('/:id', isAdmin,  updateInternship(false));
+router.patch('/:id', isStudentOrAdmin, updateInternship(false));
+router.patch('/:id/documents', isStudent, isStillStudent, updateInternship(true));
 
 // DELETE /internships/:id - Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);
