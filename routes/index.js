@@ -27,7 +27,7 @@ router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
-router.use("/", choicePFA);
+router.use("/PFAChoices", choicePFA);
 
 // TEST MAIL NOTIFICATION
 router.get("/test-notif-late-depot-satge", async (req, res) => {
