@@ -251,12 +251,26 @@ export const updateTeacherAcceptance = async (req, res) => {
 // Obtenir les choix de sujets d'un étudiant
 export const getChoices = async (req, res) => {
   try {
-    const { studentId } = req.user.idRole;
+    const studentId = req.user.idRole;
+    console.log(studentId);
     const student = await Student.findById(studentId).populate({
       path: "choices",
       populate: [
-        { path: "subject", model: "Subject_PFA" },
-        { path: "binome", model: "Student" },
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+          },
+        },
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        }, // Sélectionner les champs spécifiques du binome
       ],
     });
 
@@ -264,64 +278,82 @@ export const getChoices = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json(student.choices);
+    // Préparer les choix pour la réponse
+    const choices = student.choices.map((choice) => {
+      const { title, description, technologies, teacher } = choice.subject;
+      const result = {
+        title,
+        description,
+        technologies,
+        teacher,
+        teacherAcceptance: choice.teacherAcceptance,
+      };
+      if (choice.binome) {
+        result.binome = choice.binome;
+      }
+      return result;
+    });
+
+    res.status(200).json(choices);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-//4.1 (2eme)
 
-// export const getStudentSubjects = async (req, res) => {
-//   try {
-//     // Récupérer l'ID de l'utilisateur authentifié
-//     const studentId = req.user.idRole;
+// Obtenir les détails d'un choix spécifique d'un étudiant
+export const getChoiceById = async (req, res) => {
+  try {
+    const studentId = req.user.idRole;
+    const { choiceId } = req.params; // Extraire l'ID du choix des paramètres de la requête
 
-//     // Trouver l'étudiant lié à cet utilisateur avec les choix et sujets peuplés
-//     const studentChoices = await Student.find({ _id: studentId }, "choices")
-//     .populate({
-//       path: "choices",
-//       populate: {
-//         path: "subject",
-//         select: "titre description technologie type enseignant",
-//       },
-//     });
-//        console.log(studentChoices);
+    console.log(studentId);
+    const student = await Student.findById(studentId).populate({
+      path: "choices",
+      match: { _id: choiceId }, // Filtrer les choix par ID de choix
+      populate: [
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+          },
+        },
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        }, // Sélectionner les champs spécifiques du binome
+      ],
+    });
 
-//     // if (!student) {
-//     //   return res.status(404).json({ message: "Étudiant non trouvé" });
-//     // }
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
-//     // Vérifier si des choix existent
-//     if (studentChoices.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ message: "Aucun choix trouvé pour cet étudiant" });
-//     }
+    const choice = student.choices[0]; // Il ne devrait y avoir qu'un seul choix correspondant à l'ID
 
-//     // Retourner les choix avec les sujets
-//     res.status(200).json({
-//       message: "Sujets récupérés avec succès",
-//       subjects: student.choices.map((choice) => ({
-//         priority: choice.priority,
-//         subject: {
-//           titre: choice.subject?.titre,
-//           description: choice.subject?.description,
-//           technologie: choice.subject?.technologie,
-//           type: choice.subject?.type, // Monome ou Binome
-//           enseignant: choice.subject?.enseignant,
-//         },
-//         binome: choice.binome
-//           ? `${choice.binome.firstName} ${choice.binome.lastName}`
-//           : null,
-//         teacherAcceptance: choice.teacherAcceptance,
-//       })),
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res
-//       .status(500)
-//       .json({
-//         message: "Une erreur s'est produite lors de la récupération des sujets",
-//       });
-//   }
-// };
+    if (!choice) {
+      return res.status(404).json({ message: "Choice not found" });
+    }
+
+    // Préparer le choix pour la réponse
+    const { title, description, technologies, teacher } = choice.subject;
+    const result = {
+      title,
+      description,
+      technologies,
+      teacher,
+      teacherAcceptance: choice.teacherAcceptance,
+    };
+    if (choice.binome) {
+      result.binome = choice.binome;
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
