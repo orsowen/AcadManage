@@ -16,9 +16,6 @@ const router = express.Router();
 
 // get Own Profile 
 router.get('/me', isTeacher, getTeacherProfile);
-
-
-
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
 

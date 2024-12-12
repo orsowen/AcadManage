@@ -1,9 +1,6 @@
 import DepositPeriod from "../models/DepositPeriod.js";
 
-// For can be STAGE or PFE or PFA
-// middleware can be used like this : 
-// router.patch('/:id', isStudent, isDepotOpen("STAGE", "message d'erreur"), updateInternship(true));
-// NB ; lazem ykoun ba3d isStudent walla isAdmin 
+
 export const isDepotOpen = (For = "STAGE", message = undefined) => async (req, res, next) => {
     try {
         if (req.user.role !== 'admin') {
