@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { sendMail } from './mailer.js';
 
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
@@ -13,9 +14,30 @@ export const generateRandomPassword = (length = 8) => {
     return password;
 };
 
+export async function sendCreds(email, password) {
+    // Optionally send credentials via email
+    if (email) {
+        const subject = "Votre compte a été créé";
+        const message = `
+                <p>Bonjour,</p>
+                <p>Votre compte a été créé avec succès. Voici vos informations de connexion :</p>
+                <ul>
+                    <li><strong>Email:</strong> ${email}</li>
+                    <li><strong>Mot de passe:</strong> ${password}</li>
+                </ul>
+                <b>NB : utiliser votre CIN comme login</b>
+                <p>Veuillez vous connecter dès que possible et changer votre mot de passe pour des raisons de sécurité.</p>
+                <p>Cordialement,</p>
+                <p>L'équipe de gestion.</p>
+            `;
+        await sendMail(email, subject, message);
+        console.log(`Credentials sent to ${email}`);
+    }
+}
+
 // Create a new admin
 export const createAdmin = async (req, res) => {
-    const { cin, phone, email, teacher, student } = req.body;
+    const { cin, phone, email, teacher = null, student = null, sendCredsInMail = false } = req.body;
 
     // Validate required fields
     if (!cin || !phone || !email) {
@@ -53,6 +75,10 @@ export const createAdmin = async (req, res) => {
 
         // Save the user to the database
         const savedUser = await newUser.save();
+
+        if (sendCredsInMail) {
+            sendCreds(email, password);
+        }
 
         // Don't return the raw password in the response, instead notify the user.
         res.status(201).json({
@@ -292,7 +318,7 @@ export const loginUser = async (req, res) => {
             cin: user.cin,
             role: user.role,
             email: user.email,
-        
+
         };
 
         // Add teacher or student ID to the payload if not admin
@@ -309,7 +335,7 @@ export const loginUser = async (req, res) => {
         res.status(200).json({ message: 'Login successful.', token, user });
     } catch (error) {
         console.error('Error logging in user:', error.message);
-        res.status(500).json({ message: 'Server error while logging in.', error : error.message });
+        res.status(500).json({ message: 'Server error while logging in.', error: error.message });
     }
 };
 

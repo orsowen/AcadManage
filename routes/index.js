@@ -29,9 +29,6 @@ router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/PFAChoices", choicePFA);
 
-// Hot l route mta3ek lenna fi 3oudh fi App.js
-// esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
-
 // TEST MAIL NOTIFICATION
 router.get("/test-notif-late-depot-satge", async (req, res) => {
     try {
