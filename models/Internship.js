@@ -84,7 +84,16 @@ const InternshipSchema = new Schema({
         type: TopicSchema, // Embedding the TopicSchema
         required: true, // Make this field mandatory
     },
-
+    student: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Student model
+        ref: 'Student', // Model name to reference
+        // required: true,
+    },
+    teacher: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to Teacher model
+        ref: 'Teacher', // Model name to reference
+        // required: true,
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
