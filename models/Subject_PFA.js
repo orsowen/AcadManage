@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const Subject_PFASchema = new Schema({
-  binome: {
+  binomeExits: {
     type: Boolean,
     required: true,
   },
@@ -14,21 +14,27 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
-  lastnameBinome: {
-    type: String,
-    required: false,
+
+  monome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
   },
-  firstnameBinome: {
-    type: String,
-    required: false,
+  binome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
+    required: function () {
+      return this.binome;
+    }, // Required if binome is true
   },
-  lastnameMonome: {
-    type: String,
-    required: false,
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
   },
-  firstnameMonome: {
-    type: String,
-    required: false,
+  technologies: {
+    type: [String],
+    required: true,
   },
   status: {
     type: String,
@@ -43,11 +49,6 @@ const Subject_PFASchema = new Schema({
     type: Boolean,
     default: false,
   }, // Indique si le sujet est publié
-  sendStatus: {
-    type: String,
-    enum: ["First Sent", "Modified Sent", "Not Sent"],
-    default: "Not Sent",
-  }, // Indique l'état de l'envoi
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

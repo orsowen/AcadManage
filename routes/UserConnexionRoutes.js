@@ -1,5 +1,6 @@
-import express from 'express';
+import express from "express";
 import {
+
     // createUser,
     createAdmin,
     deleteUser,
@@ -15,7 +16,7 @@ import { isAdmin } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
-// User Routes
+
 // get user by ID
 router.get('/:id', isAdmin, getUserById);
 

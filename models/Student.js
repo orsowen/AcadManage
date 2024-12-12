@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { Schema } from 'mongoose';
 
 const StudentSchema = new mongoose.Schema({
     lastName: {
@@ -106,6 +107,10 @@ const StudentSchema = new mongoose.Schema({
         ref: "User", // Reference to User model
         // default: null,
     },
+    choices: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Choice',
+    }],
 });
 
 export default mongoose.model('Student', StudentSchema);

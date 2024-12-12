@@ -292,6 +292,7 @@ export const loginUser = async (req, res) => {
             cin: user.cin,
             role: user.role,
             email: user.email,
+        
         };
 
         // Add teacher or student ID to the payload if not admin
@@ -308,7 +309,7 @@ export const loginUser = async (req, res) => {
         res.status(200).json({ message: 'Login successful.', token, user });
     } catch (error) {
         console.error('Error logging in user:', error.message);
-        res.status(500).json({ message: 'Server error while logging in.', error });
+        res.status(500).json({ message: 'Server error while logging in.', error : error.message });
     }
 };
 

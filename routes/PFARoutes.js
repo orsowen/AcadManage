@@ -8,39 +8,58 @@ import {
   publishSubjects,
   approveSubject,
   firstSend,
-  modifiedSend
+  modifiedSend,
+  PFASubjectsByTeacher,
+  getSubjectById,
+  getSubjectsByTeacher,
+  getSubjectByIdForTeacher,
 } from "../controllers/PFAController.js";
 import express from "express";
+import {
+  isAdmin,
+  isStudent,
+  isTeacher,
+} from "../middlewares/authentication.js";
 
 const router = express.Router();
 
 // Route to create multiple subjects
-router.post("/PFA/post", createSubjects);
+router.post("/post", isTeacher, createSubjects);
 
-// Route to get all subjects
-router.get("/PFA/mine", getSubjects);
+// // Route to get all subjects Admin
+router.get("", isAdmin, getSubjects);
 
-// Route to update a subject
-router.patch("/PFA/:id", updateSubject);
+// Route to get all subjects teacher
+router.get("/mine", isTeacher, getSubjectsByTeacher);
 
-// Route to delete a subject
-router.delete("/PFA/:id", deleteSubject);
+// // route to get a subject by id Admin
+router.get("/:id", isAdmin, getSubjectById);
 
-// Route to publish subjects and open choice period
-router.post("/PFA/publish", publishSubjects);
+// route to get a subject by id teacher
+router.get("/:id/mine", isTeacher, getSubjectByIdForTeacher);
 
-// Route to reject a subject 
-router.patch("/PFA/reject/:id", rejectSubject);
+// Route to delete a subject  by teacher
+router.delete("/:id/mine", isTeacher, deleteSubject);
 
-// Route to approve a subject
-router.patch('/PFA/approve/:id', approveSubject);
+// Route to update a subject by teacher 
+router.patch("/:id/mine", isTeacher, updateSubject);
 
-// Route to handle first send option
-router.get('/PFA/first-send', firstSend);
+// Route to publish subjects and open choice period for students admin
+router.post("/publish", isAdmin, publishSubjects);
+
+// Route to reject a subject  admin
+router.patch("/reject/:id", isAdmin, rejectSubject);
+
+// Route to approve a subject admin
+router.patch("/approve/:id", isAdmin, approveSubject);
+
+// Route to handle first send option  admin
+router.get("/first-send", firstSend);
 
 // Route to handle modified send option
-router.get('/PFA/modified-send', modifiedSend);
+router.get("/modified-send", modifiedSend);
 
-
+//Route to list subjects by teachers student 4.1 (selon userstory)
+router.get("/teacher/:teacherId", isStudent, PFASubjectsByTeacher);
 
 export default router;

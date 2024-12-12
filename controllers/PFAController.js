@@ -1,15 +1,18 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import { sendMail } from "./mailer.js";
-import dotenv from 'dotenv';
-
+import Student from "../models/Student.js";
+import User from "../models/User.js";
+import Teacher from "../models/Teachers.js";
+import Choice from "../models/Choice.js";
+import dotenv from "dotenv";
 dotenv.config();
-
 
 // Create multiple subjects
 export const createSubjects = async (req, res) => {
   try {
     const { subjects } = req.body; // Expecting an array of subjects
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     if (!Array.isArray(subjects)) {
       return res
@@ -24,72 +27,143 @@ export const createSubjects = async (req, res) => {
     }
 
     const currentDate = new Date();
-    console.log("Current Date:", currentDate);
-    console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
-    console.log("Received subjects:", subjects);
+    // Vérifier que les étudiants existent et qu'ils ne sont pas déjà affectés à un autre sujet publié
+    for (const subject of subjects) {
+      const { binomeExits, binome, monome } = subject;
+
+      if (monome && binomeExits == false) {
+        const monomeExists = await Student.exists({ _id: monome });
+        if (!monomeExists) {
+          return res.status(400).json({
+            message: `Monome student with ID ${monome} does not exist`,
+          });
+        }
+
+        const monomeAssigned = await Subject_PFA.exists({
+          $or: [{ monome }, { binome: monome }],
+        });
+        if (monomeAssigned) {
+          return res.status(400).json({
+            message: `Monome student with ID ${monome} is already assigned to another published subject`,
+          });
+        }
+      }
+      if (binomeExits && binome == undefined && monome !== undefined) {
+        return res.status(400).json({
+          message: `Binome obligatoire`,
+        });
+      }
+
+      if (binomeExits && binome !== undefined) {
+        const binomeExists = await Student.exists({ _id: binome });
+
+        if (!binomeExists) {
+          return res.status(400).json({
+            message: `Binome student with ID ${binome} does not exist`,
+          });
+        }
+        const binomeAssigned = await Subject_PFA.exists({
+          $or: [{ binome }, { monome: binome }],
+        });
+
+        if (binomeAssigned) {
+          return res.status(400).json({
+            message: `Binome student with ID ${binome} is already assigned to another published subject`,
+          });
+        }
+      }
+    }
 
     const newSubjects = subjects.map((subject) => {
-      const {
-        binome,
-        title,
-        description,
-        lastnameBinome,
-        firstnameBinome,
-        lastnameMonome,
-        firstnameMonome,
-      } = subject;
+      const { binomeExits, title, description, binome, monome, technologies } =
+        subject;
       let addedSubject;
 
-      if (binome) {
-        if (!lastnameBinome || !firstnameBinome) {
-          throw new Error(
-            "lastnameBinome and firstnameBinome are required when binome is true"
-          );
-        }
+      if (binomeExits) {
         addedSubject = {
-          binome,
+          binomeExits,
           title,
           description,
-          lastnameBinome,
-          firstnameBinome,
-          lastnameMonome,
-          firstnameMonome,
+          binome,
+          monome,
+          teacher: teacherId, // Use the teacher ID from the authenticated user
+          technologies,
         };
       } else {
         addedSubject = {
-          binome,
+          binomeExits,
           title,
           description,
-          lastnameMonome,
-          firstnameMonome,
+          monome,
+          teacher: teacherId, // Use the teacher ID from the authenticated user
+          technologies,
         };
       }
 
-      console.log("Processed subject:", addedSubject);
       return new Subject_PFA(addedSubject);
     });
 
-    await Subject_PFA.insertMany(newSubjects);
-    console.log("Subjects inserted successfully");
+    // Insérer les nouveaux sujets dans la base de données
+    const insertedSubjects = await Subject_PFA.insertMany(newSubjects);
+
+    // Mettre à jour les étudiants pour les affecter aux nouveaux sujets et créer des choix
+    for (const subject of insertedSubjects) {
+      const { binome, monome } = subject;
+
+      // Créer un choix pour le monome
+      const monomeChoice = new Choice({
+        student: monome,
+        subject: subject._id,
+        priority: 1,
+        binome: binome || null,
+        teacherAcceptance: true,
+      });
+      if (monome) {
+        await Choice.deleteMany({ student: monome });
+        await monomeChoice.save();
+
+        // Mettre à jour le monome avec l'ID du choix
+        await Student.findByIdAndUpdate(monome, {
+          choices: monomeChoice._id,
+        });
+      }
+      if (binome) {
+        // Créer un choix pour le binome
+        const binomeChoice = new Choice({
+          student: binome,
+          subject: subject._id,
+          priority: 1,
+          binome: monome,
+          teacherAcceptance: true,
+        });
+        await Choice.deleteMany({ student: binome });
+        await Choice.deleteMany({ student: monome });
+
+        await binomeChoice.save();
+
+        // Mettre à jour le binome avec l'ID du choix
+        await Student.findByIdAndUpdate(binome, {
+          choices: binomeChoice._id,
+        });
+      }
+    }
 
     res.status(201).json({ message: "Sujets créés avec succès" });
   } catch (error) {
     console.error("Error inserting subjects:", error);
-    if (
-      error.message.includes("lastnameBinome and firstnameBinome are required")
-    ) {
+    if (error.message.includes("binome is required when binomeExits is true")) {
       return res.status(400).json({
-        message:
-          "lastnameBinome and firstnameBinome are required when binome is true",
+        message: "binome is required when binomeExits is true",
       });
     }
     res.status(500).json({ message: error.message });
@@ -99,21 +173,25 @@ export const createSubjects = async (req, res) => {
 // Publish approved subjects and manage statuses
 export const publishSubjects = async (req, res) => {
   try {
+    // Vérifier si des sujets ont déjà été publiés
+    const previouslyPublishedSubjects = await Subject_PFA.find({
+      published: true,
+    });
+    console.log("Previously published subjects:", previouslyPublishedSubjects);
     // Publier les sujets approuvés
     const publishedSubjects = await Subject_PFA.updateMany(
       { status: "Approved" },
       { $set: { published: true, hidden: false } } // Publier et rendre visible
     );
+    // Cacher les sujets rejeter
+    const hiddenRejectedSubjects = await Subject_PFA.updateMany(
+      { status: "Rejected" },
+      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
+    );
 
     // Cacher les sujets en attente
     const hiddenPendingSubjects = await Subject_PFA.updateMany(
       { status: "Pending" },
-      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
-    );
-
-    // Cacher les sujets rejetés
-    const hiddenRejectedSubjects = await Subject_PFA.updateMany(
-      { status: "Rejected" },
       { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
     );
 
@@ -131,77 +209,147 @@ export const publishSubjects = async (req, res) => {
       return res.status(400).json({ message: "Choice period not found" });
     }
 
-    const adminEmail = process.env.Email_user;
-    const subject = "Publication des sujets et ouverture de la période de choix";
-    const html = `
-       <p>Les sujets ont été publiés et la période de choix a été ouverte.</p>
-       <p>Veuillez choisir une option :</p>
-       <a href="http://localhost:8800/PFA/first-send">Premier envoi</a>
-       <br>
-       <a href="http://localhost:8800/PFA/modified-send">Envoi modifié</a>
-     `;
-
-    await sendMail(adminEmail, subject, html);
-
     res.status(200).json({
       message: "Subjects published and choice period opened successfully",
     });
+
+    // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    if (previouslyPublishedSubjects.length === 0) {
+      await firstSend();
+    } else {
+      await modifiedSend();
+    }
   } catch (error) {
     console.error("Error publishing subjects:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Handle first send option
-export const firstSend = async (req, res) => {
+export const firstSend = async () => {
   try {
-    // Logique pour le premier envoi
-    await Subject_PFA.updateMany({ status: "Approved" }, { sendStatus: "First Sent" });
+    // Récupérer les emails des étudiants et des enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-    const subject = "Premier envoi effectué";
+    const subject =
+      "Publication des sujets et ouverture de la période de choix";
     const html = `
-        <p>Le premier envoi des sujets a été effectué avec succès.</p>
-        <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
-        <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
-      `;
+      <p>Les sujets ont été publiés.</p>
+      <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
+    `;
 
-    await sendMail(adminEmail, subject, html);
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
 
-    res.status(200).json({ message: "Premier envoi effectué avec succès." });
+    console.log("Premier envoi effectué avec succès.");
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error during first send:", error);
   }
 };
+
 // Handle modified send option
-export const modifiedSend = async (req, res) => {
+export const modifiedSend = async () => {
   try {
-    // Logique pour l'envoi modifié
-    await Subject_PFA.updateMany({ status: "Approved" }, { sendStatus: "Modified Sent" });
+    // Récupérer les emails des étudiants et des enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const adminEmail = process.env.Email_user; // Remplacez par l'email de l'administrateur
-    const subject = "Envoi modifié effectué";
+    const subject = "Modification des sujets";
     const html = `
-        <p>L'envoi modifié des sujets a été effectué avec succès.</p>
-        <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
-        <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
-      `;
+      <p>Les sujets ont été modifiés.</p>
+      <p>Vous pouvez consulter la liste des sujets en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/mine">Voir la liste des sujets</a>
+    `;
 
-    await sendMail(adminEmail, subject, html);
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
 
-    res.status(200).json({ message: "Envoi modifié effectué avec succès." });
+    console.log("Envoi modifié effectué avec succès.");
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error during modified send:", error);
   }
 };
 
-// Get all subjects
+// Get all subjects for Admin
 export const getSubjects = async (req, res) => {
   try {
-    const subjects = await Subject_PFA.find();
+    const subjects = await Subject_PFA.find()
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email") // Populate monome with specific fields
+      .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
+
     res.status(200).json(subjects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get all subjects by the authenticated teacher
+export const getSubjectsByTeacher = async (req, res) => {
+  try {
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+
+    const subjects = await Subject_PFA.find({ teacher: teacherId })
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
+    if (!subjects || subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No subjects found for this teacher" });
+    }
+
+    // Remove the teacher field from the results
+    const subjectsWithoutTeacher = subjects.map((subject) => {
+      const { teacher, ...subjectWithoutTeacher } = subject.toObject();
+      return subjectWithoutTeacher;
+    });
+
+    res.status(200).json(subjectsWithoutTeacher);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get a subject by ID for the authenticated teacher
+export const getSubjectByIdForTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+
+    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId })
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
+    if (!subject) {
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to view this subject",
+      });
+    }
+
+    res.status(200).json(subject);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -211,19 +359,21 @@ export const getSubjects = async (req, res) => {
 export const getSubjectById = async (req, res) => {
   try {
     const { id } = req.params;
-    const subject = await Subject_PFA.findById(id);
+    const subject = await Subject_PFA.findById(id)
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email") // Populate monome with specific fields
+      .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
 
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
     }
-
     res.status(200).json(subject);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update a subject
+// Update a subject for a specific teacher
 export const updateSubject = async (req, res) => {
   try {
     // Check if we are in the deposit period
@@ -233,56 +383,58 @@ export const updateSubject = async (req, res) => {
     }
 
     const currentDate = new Date();
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    console.log("End Deposit:", endDepositDate);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
     const { id } = req.params;
-    const {
-      binome,
-      title,
-      description,
-      lastnameBinome,
-      firstnameBinome,
-      lastnameMonome,
-      firstnameMonome,
-    } = req.body;
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const { binomeExits, title, description, binome, monome, technologies } =
+      req.body;
 
     let updatedSubject = {
-      binome,
+      binomeExits,
       title,
       description,
-      lastnameMonome,
-      firstnameMonome,
+      binome,
+      monome,
+      teacher: teacherId,
+      technologies,
     };
 
-    if (binome) {
-      updatedSubject.lastnameBinome = lastnameBinome;
-      updatedSubject.firstnameBinome = firstnameBinome;
-    }
-
-    const subject = await Subject_PFA.findByIdAndUpdate(id, updatedSubject, {
-      new: true,
-    });
+    const subject = await Subject_PFA.findOneAndUpdate(
+      { _id: id, teacher: teacherId }, // Ensure the subject belongs to the authenticated teacher
+      updatedSubject,
+      { new: true }
+    );
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to update this subject",
+      });
     }
 
-    res.status(200).json(subject);
+    // Remove the teacher field from the results
+    const { teacher, ...subjectWithoutTeacher } = subject.toObject();
+
+    res.status(200).json(subjectWithoutTeacher);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete a subject
+// Delete a subject for a specific teacher
 export const deleteSubject = async (req, res) => {
   try {
     // Check if we are in the deposit period
@@ -290,25 +442,34 @@ export const deleteSubject = async (req, res) => {
     if (!depositPeriod) {
       return res.status(400).json({ message: "Deposit period not found" });
     }
-
     const currentDate = new Date();
+    const endDepositDate = new Date(depositPeriod.End_Deposit);
+    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
-    console.log("End Deposit:", depositPeriod.End_Deposit);
+    console.log("End Deposit:", endDepositDate);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
-      currentDate > depositPeriod.End_Deposit
+      currentDate > endDepositDate
     ) {
       return res.status(400).json({ message: "Not in the deposit period" });
     }
 
     const { id } = req.params;
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
-    const subject = await Subject_PFA.findByIdAndDelete(id);
+    const subject = await Subject_PFA.findOneAndDelete({
+      _id: id,
+      teacher: teacherId,
+    }); // Ensure the subject belongs to the authenticated teacher
 
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to delete this subject",
+      });
     }
 
     res.status(200).json({ message: "Subject deleted successfully" });
@@ -316,6 +477,7 @@ export const deleteSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // Rejeter un sujet
 export const rejectSubject = async (req, res) => {
   try {
@@ -337,6 +499,7 @@ export const rejectSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // Approuver un sujet
 export const approveSubject = async (req, res) => {
   try {
@@ -355,6 +518,37 @@ export const approveSubject = async (req, res) => {
 
     res.status(200).json({ message: "Subject approved successfully", subject });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lister les sujets triés par enseignant avec pagination
+export const PFASubjectsByTeacher = async (req, res) => {
+  try {
+    // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
+    const { teacherId } = req.params;
+
+    // Vérifier que l'ID est fourni
+    if (!teacherId) {
+      return res.status(400).json({ message: "Teacher ID is required." });
+    }
+
+    // Rechercher les sujets proposés par cet enseignant, triés par title
+    const subjects = await Subject_PFA.find({ teacher: teacherId })
+      .select("title description technologies") // Sélectionner uniquement les champs spécifiés
+      .sort({ title: 1 }); // Trier par `title` (ordre croissant)// Trier par `title` (ordre croissant)
+
+    // Vérifier si des sujets ont été trouvés
+    if (subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No subjects found for this teacher." });
+    }
+
+    // Retourner les sujets trouvés
+    res.status(200).json(subjects);
+  } catch (error) {
+    console.error("Error fetching subjects for teacher:", error);
     res.status(500).json({ message: error.message });
   }
 };
