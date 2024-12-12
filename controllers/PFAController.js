@@ -50,7 +50,7 @@ export const createSubjects = async (req, res) => {
         }
 
         const monomeAssigned = await Subject_PFA.exists({
-          monome,
+          $or: [{ monome }, { binome: monome }],
         });
         if (monomeAssigned) {
           return res.status(400).json({
@@ -63,17 +63,19 @@ export const createSubjects = async (req, res) => {
           message: `Binome obligatoire`,
         });
       }
+
       if (binomeExits && binome !== undefined) {
         const binomeExists = await Student.exists({ _id: binome });
+
         if (!binomeExists) {
           return res.status(400).json({
             message: `Binome student with ID ${binome} does not exist`,
           });
         }
-
         const binomeAssigned = await Subject_PFA.exists({
-          binome,
+          $or: [{ binome }, { monome: binome }],
         });
+
         if (binomeAssigned) {
           return res.status(400).json({
             message: `Binome student with ID ${binome} is already assigned to another published subject`,
@@ -180,6 +182,11 @@ export const publishSubjects = async (req, res) => {
     const publishedSubjects = await Subject_PFA.updateMany(
       { status: "Approved" },
       { $set: { published: true, hidden: false } } // Publier et rendre visible
+    );
+    // Cacher les sujets rejeter
+    const hiddenRejectedSubjects = await Subject_PFA.updateMany(
+      { status: "Rejected" },
+      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
     );
 
     // Cacher les sujets en attente

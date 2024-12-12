@@ -59,7 +59,7 @@ router.get("/first-send", firstSend);
 // Route to handle modified send option
 router.get("/modified-send", modifiedSend);
 
-//Route to list subjects by teachers student
+//Route to list subjects by teachers student 4.1 (selon userstory)
 router.get("/teacher/:teacherId", isStudent, PFASubjectsByTeacher);
 
 export default router;

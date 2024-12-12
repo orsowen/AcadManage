@@ -251,12 +251,22 @@ export const updateTeacherAcceptance = async (req, res) => {
 // Obtenir les choix de sujets d'un étudiant
 export const getChoices = async (req, res) => {
   try {
-    const { studentId } = req.user.idRole;
+    const studentId = req.user.idRole;
+    console.log(studentId);
     const student = await Student.findById(studentId).populate({
       path: "choices",
       populate: [
-        { path: "subject", model: "Subject_PFA" },
-        { path: "binome", model: "Student" },
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+          },
+        },
+        { path: "binome", model: "Student", select: "firstName lastName email" }, // Sélectionner les champs spécifiques du binome
       ],
     });
 
@@ -264,7 +274,77 @@ export const getChoices = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json(student.choices);
+    // Préparer les choix pour la réponse
+    const choices = student.choices.map((choice) => {
+      const { title, description, technologies, teacher } = choice.subject;
+      const result = {
+        title,
+        description,
+        technologies,
+        teacher,
+        teacherAcceptance: choice.teacherAcceptance,
+      };
+      if (choice.binome) {
+        result.binome = choice.binome;
+      }
+      return result;
+    });
+
+    res.status(200).json(choices);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir les détails d'un choix spécifique d'un étudiant
+export const getChoiceById = async (req, res) => {
+  try {
+    const studentId = req.user.idRole;
+    const { choiceId } = req.params; // Extraire l'ID du choix des paramètres de la requête
+
+    console.log(studentId);
+    const student = await Student.findById(studentId).populate({
+      path: "choices",
+      match: { _id: choiceId }, // Filtrer les choix par ID de choix
+      populate: [
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+          },
+        },
+        { path: "binome", model: "Student", select: "firstName lastName email" }, // Sélectionner les champs spécifiques du binome
+      ],
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const choice = student.choices[0]; // Il ne devrait y avoir qu'un seul choix correspondant à l'ID
+
+    if (!choice) {
+      return res.status(404).json({ message: "Choice not found" });
+    }
+
+    // Préparer le choix pour la réponse
+    const { title, description, technologies, teacher } = choice.subject;
+    const result = {
+      title,
+      description,
+      technologies,
+      teacher,
+      teacherAcceptance: choice.teacherAcceptance,
+    };
+    if (choice.binome) {
+      result.binome = choice.binome;
+    }
+
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
