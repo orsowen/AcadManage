@@ -4,8 +4,7 @@ import { Schema } from 'mongoose';
 const StudentSchema = new mongoose.Schema({
     lastName: {
         type: String,
-        required: true,
-        trim: true,
+        required: true
     },
     firstName: {
         type: String,
@@ -15,11 +14,15 @@ const StudentSchema = new mongoose.Schema({
 
     arabicLastName: {
         type: String,
-        // required: true
+        required: true
     },
     arabicFirstName: {
         type: String,
-        // required: true
+        required: true
+    },
+    cin: {
+        type: Number,
+        required: true
     },
     birthDate: {
         type: Date,
@@ -31,7 +34,6 @@ const StudentSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        enum: ["Male", "Female", "Homme", "Femme"],
         required: true
     },
     city: {
@@ -55,7 +57,7 @@ const StudentSchema = new mongoose.Schema({
         enum: ["ING1", "ING2", "ING3"],
         default: "ING1",
     },
-    isGraduated: {
+    isprepa: {
         type: Boolean,
         default: false
     },
@@ -89,7 +91,7 @@ const StudentSchema = new mongoose.Schema({
     M1Type: {
         type: String,
     },
-    cFil: {
+    cfil: {
         type: String,
     },
     scoreG: {

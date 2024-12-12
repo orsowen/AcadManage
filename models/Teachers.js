@@ -35,5 +35,4 @@ const TeacherSchema = new mongoose.Schema(
   }
 );
 
-// Export the Teacher model
 export default mongoose.model("Teacher", TeacherSchema);

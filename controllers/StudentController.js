@@ -1,9 +1,9 @@
-import bcrypt from 'bcrypt';
-import mongoose from 'mongoose';
-import Student from '../models/Student.js';
-import User from '../models/User.js';
-import { generateRandomPassword } from './UserController.js';
-
+import bcrypt from 'bcrypt'
+import mongoose from 'mongoose'
+import CV from "../models/CV.js"
+import Student from '../models/Student.js'
+import User from '../models/User.js'
+import { generateRandomPassword } from './UserController.js'
 // Create a new student
 export const createStudent = async (req, res) => {
     const {
@@ -12,10 +12,10 @@ export const createStudent = async (req, res) => {
         grade, isPrepa, university, etablissement, speciality, licenseYear,
         M1university, M1Etablissement, M1speciality, M1Year, M1Type, cFil, scoreG,
         bacYear, address
-    } = req.body;
+    } = req.body
 
     const session = await mongoose.startSession();
-    session.startTransaction();
+    session.startTransaction()
 
     try {
         // Check for duplicate CIN, email, or phone in the User collection
@@ -23,7 +23,7 @@ export const createStudent = async (req, res) => {
             { $or: [{ cin }, { email }, { phone }] },
             null,
             { session }
-        );
+        )
 
         if (existingUser) {
             const field = existingUser.phone === phone
@@ -31,7 +31,7 @@ export const createStudent = async (req, res) => {
                 : existingUser.email === email
                     ? 'Email'
                     : 'CIN';
-            return res.status(400).json({ error: `${field} is already in use.` });
+            return res.status(400).json({ error: `${field} is already in use.` })
         }
 
         // Create a new student
@@ -116,6 +116,20 @@ export const createStudent = async (req, res) => {
     }
 };
 
+export const createCV = async (req, res) => {
+    try {
+        const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio, user } = req.body;
+
+        const newCV = new mongoose.model('Student')({lastName,firstName,Title,phoneNum,adress,socialMediaLinks,competence,languages,skills,hobbies,WorkExperience,education,objective,Bio});
+
+        const savedCV = await newCV.save();
+        res.status(201).json({ model: savedCV, message: "CV created successfully" });
+    } catch (error) {
+        console.error('Error creating CV:', error.message);
+        res.status(500).json({ error: 'Failed to create CV.' });
+    }
+};
+
 // Fetch all students
 export const getAllStudents = async (req, res) => {
     const { page = 1, limit = 10, search, isArchived, grade, nationality, sort = "firstName" } = req.query;
@@ -173,6 +187,30 @@ export const getAllStudents = async (req, res) => {
             error: "An error occurred while fetching students.",
             details: error.message,
         });
+    }
+};
+
+// Fetch students cv parcours académique + certifications, autres diplômes,langues,...
+
+export const getCv = async (req, res) => {
+
+    const studentId = req.user.idRole;
+    try {
+        const result = {
+            academicDetails: student.education,
+            academicProjects: student.academicprojects,
+            additionalDetails: {
+                languages: student.languages,
+                certifications: student.skills,
+                hobbies: student.hobbies,
+                workExperience: student.WorkExperience
+            }
+        };
+
+        res.status(200).json({ model: result, message: "success" });
+    } catch (error) {
+        console.error('Error fetching students:', error.message);
+        res.status(500).json({ error: 'Failed to fetch student details.' });
     }
 };
 

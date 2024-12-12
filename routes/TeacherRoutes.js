@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import dbConnection from "./dbConfig/dbConnection.js";
+import router from './routes/index.js';
+import routerPFA from "./routes/PFARoutes.js";
+=======
 import express from 'express';
 import {
     createTeacher,
@@ -10,22 +18,38 @@ import {
 } from '../controllers/TeacherController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
+>>>>>>> origin/main
 
+// ENVIRONMENT variables configuration
+dotenv.config();
 
-const router = express.Router();
+// MongoDB Connection
+dbConnection();
 
+<<<<<<< HEAD
+const app = express();
+const PORT = process.env.PORT || 8800;
+=======
 // get Own Profile 
 router.get('/me', isTeacher, getTeacherProfile);
+>>>>>>> origin/main
 
-// Get all teachers
-router.get('/', isAdmin, getAllTeachers);
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-// Get a single teacher by ID
-router.get('/:id', isAdmin, getTeacherById);
+// ROUTES
+app.use("/", routerPFA);
+app.use(router); // Place router in index.js fi 3oudh lenna for better organization
 
-// Create a new teacher
-router.post('/', isAdmin, createTeacher);
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server is listening on port ${PORT}`);
+});
 
+<<<<<<< HEAD
+export default app;
+=======
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
 
@@ -42,3 +66,4 @@ router.delete('/:id', isAdmin, deleteTeacher);
 router.put('/:id', isAdmin, toggleArchiveUser("teacher")); // Route to Archive user
 
 export default router;
+>>>>>>> origin/main
