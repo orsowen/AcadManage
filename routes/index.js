@@ -7,9 +7,10 @@ import skillRoutes from "./skill.js";
 import studentRoutes from "./StudentRoutes.js";
 import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
-import testNotificationsRouter from './test_notif.js';
+import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
-
+import routerPFA from "./routes/PFARoutes.js";
+import choicePFA from "./routes/ChoiceRoutes.js";
 
 const router = express.Router();
 
@@ -21,11 +22,12 @@ router.use("/users", UserConnexionRoutes);
 router.use("/teachers", teacherRoutes);
 router.use("/students", studentRoutes);
 router.use("/PFE", PFE);
-router.use('/test-notifications', testNotificationsRouter);
+router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
+router.use("/PFA", routerPFA);
+router.use("/", choicePFA);
 // Hot l route mta3ek lenna fi 3oudh fi App.js
 // esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
-
 
 export default router;
