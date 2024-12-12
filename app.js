@@ -16,6 +16,7 @@ dbConnection();
 app.use(cors());
 app.use(express.json());
 
+
 // All the endpoints below are in index.js for a better ordering and structure
 app.use(router);
 
