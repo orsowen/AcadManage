@@ -1,7 +1,10 @@
 import DepositPeriod from "../models/DepositPeriod.js";
 
 // For can be STAGE or PFE or PFA
-export const isDepotOpen = (For = "STAGE", operation = "create") => async (req, res, next) => {
+// middleware can be used like this : 
+// router.patch('/:id', isStudent, isDepotOpen("STAGE", "message d'erreur"), updateInternship(true));
+// NB ; lazem ykoun ba3d isStudent walla isAdmin 
+export const isDepotOpen = (For = "STAGE", message = undefined) => async (req, res, next) => {
     try {
         if (req.user.role !== 'admin') {
             // Check if the current period allows STAGE deposits
@@ -12,7 +15,7 @@ export const isDepotOpen = (For = "STAGE", operation = "create") => async (req, 
             });
             if (!currentPeriod) {
                 return res.status(403).json({
-                    error: `${For} can only be ${operation}d during the deposit period.`
+                    error: message === undefined ? `Operation for ${For} can only be done during the deposit period.` : message,
                 });
             }
         }

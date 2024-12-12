@@ -36,7 +36,8 @@ router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
 router.get('/pv', isStudent, getInternshipByStudentForPV);
 
 // Add a new internship
-router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", "create"), addInternship);
+let message = "STAGE can only be added during the deposit period."
+router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", message), addInternship);
 
 // Get all internships
 router.get('/', isAdmin, getAllInternships);
@@ -45,10 +46,12 @@ router.get('/', isAdmin, getAllInternships);
 router.get('/:id', isTeacher, getInternshipById);
 
 // Update an internship by ID
-router.patch('/:id', isStudentOrAdmin, isDepotOpen("STAGE", "update"), updateInternship(false));
+message = "Stage can only be updated during the deposit period."
+router.patch('/:id', isStudentOrAdmin, isDepotOpen("STAGE", message), updateInternship(false));
 
 // Update an internship documents by ID
-router.patch('/:id/documents', isStudent, isStillStudent, isDepotOpen("STAGE", "update"), updateInternship(true));
+message = "Documents for Stage can only be updated during the deposit period."
+router.patch('/:id/documents', isStudent, isStillStudent, isDepotOpen("STAGE", message), updateInternship(true));
 
 // Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);
