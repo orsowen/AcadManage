@@ -281,10 +281,8 @@ export const updateAvancement = async (req, res) => {
         }
 
      
-        // Envoi d'un email aux étudiants concernés
-
-        const students = await User.find({ role:
-            "student" });
+        // Envoi d'un email aux étudiants concernés 
+        const students = await User.find({ student: { $in: subject.students } });
         console.log(students);
 
         for (const student of students) {
