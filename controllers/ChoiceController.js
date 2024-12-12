@@ -43,13 +43,26 @@ export const addChoice = async (req, res) => {
     }
 
     // Vérifier que le sujet est un sujet en binôme
-    if (subject.binomeExits && !binomeId) {
+    if (subject.binomeExits && binome) {
       return res
         .status(400)
         .json({ message: "Binome ID is required for binome subjects" });
     }
 
     // Vérifier si le sujet avec la même priorité existe déjà pour cet étudiant
+
+    const Subjects = await Subject_PFA.findOne({
+      _id: subjectId,
+      $or: [
+        { binomeExits: true, binome: { $ne: null }, monome: { $ne: null } },
+        { binomeExits: false, monome: { $ne: null } },
+      ],
+    });
+    if (Subjects) {
+      return res
+        .status(400)
+        .json({ message: "Subject is already assigned to a student" });
+    }
     const existingChoice = student.choices.find(
       (choice) => choice.subject.toString() === subjectId
     );
@@ -58,8 +71,6 @@ export const addChoice = async (req, res) => {
         .status(400)
         .json({ message: "A Subject is already assigned to this student" });
     }
-
-    // Vérifier que la priorité est unique pour l'étudiant
     const existingPriority = student.choices.find(
       (choice) => choice.priority === priority
     );
@@ -240,7 +251,7 @@ export const updateTeacherAcceptance = async (req, res) => {
 // Obtenir les choix de sujets d'un étudiant
 export const getChoices = async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const { studentId } = req.user.idRole;
     const student = await Student.findById(studentId).populate({
       path: "choices",
       populate: [
