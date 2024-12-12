@@ -1,4 +1,3 @@
-import DepositPeriod from '../models/DepositPeriod.js';
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
@@ -23,27 +22,12 @@ export const addInternship = async (req, res) => {
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
     const { title, documents, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
-
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        if (studentId || req.user.role == "student") {
-            // Check if the current period allows STAGE deposits
-            const currentPeriod = await DepositPeriod.findOne({
-                For: "STAGE",
-                Start_Deposit: { $lte: new Date() },
-                End_Deposit: { $gte: new Date() }
-            });
-            if (!currentPeriod) {
-                return res.status(403).json({
-                    error: "Internships can only be created during the deposit period."
-                });
-            }
-        }
-        // CREATE 
         // Validate topicDetails input
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
@@ -230,19 +214,6 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
     }
 
     try {
-        // Ensure it's within the allowed period for internship updates (if student)
-        if (role === "student") {
-            const currentPeriod = await DepositPeriod.findOne({
-                For: "STAGE",
-                Start_Deposit: { $lte: new Date() },
-                End_Deposit: { $gte: new Date() }
-            });
-            if (!currentPeriod) {
-                return res.status(403).json({
-                    error: "Les stages peuvent uniquement être mis à jour pendant la période de dépôt."
-                });
-            }
-        }
 
         // Fetch the internship for updating
         const internship = await Internship.findById(id);
