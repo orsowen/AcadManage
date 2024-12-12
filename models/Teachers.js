@@ -1,19 +1,22 @@
 import mongoose from "mongoose";
 
-const TeacherSchema = new mongoose.Schema({
-    lastName: { 
-        type: String,
-        required: true
+const TeacherSchema = new mongoose.Schema(
+  {
+    lastName: {
+      type: String,
+      required: true,
+      trim: true,
     },
-    firstName: { 
-        type: String,
-        required: true
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
     },
 
     subjectCount: {
-        type: Number,
-        required: true,
-        default: 0, // Default number of subjects is 0
+      type: Number,
+      required: true,
+      default: 0, // Default number of subjects is 0
     },
     assignedInternships: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -29,6 +32,7 @@ const TeacherSchema = new mongoose.Schema({
 
 }, {
     timestamps: true, // Automatically add createdAt and updatedAt fields
-});
+  }
+);
 
 export default mongoose.model("Teacher", TeacherSchema);

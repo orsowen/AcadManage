@@ -1,10 +1,7 @@
-
 import bcrypt from 'bcrypt';
-import dotenv from 'dotenv';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-dotenv.config();
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
@@ -295,6 +292,7 @@ export const loginUser = async (req, res) => {
             cin: user.cin,
             role: user.role,
             email: user.email,
+        
         };
 
         // Add teacher or student ID to the payload if not admin
@@ -311,12 +309,11 @@ export const loginUser = async (req, res) => {
         res.status(200).json({ message: 'Login successful.', token, user });
     } catch (error) {
         console.error('Error logging in user:', error.message);
-        res.status(500).json({ message: 'Server error while logging in.', error });
+        res.status(500).json({ message: 'Server error while logging in.', error : error.message });
     }
 };
 
 // Archive or Unarchive the user account
-
 export const toggleArchiveUser = (role = "admin") => async (req, res) => {
     const { id } = req.params; // Extract user ID from request parameters
     let { isArchived } = req.body; // Determine the desired archive state from the request body
@@ -365,5 +362,52 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
             message: "Server error while updating user archive status.",
             error: error.message,
         });
+    }
+};
+
+// update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
+export const updatePassword = (role = "admin") => async (req, res) => {
+    const { id } = req.params; // ID passed as a parameter
+    const { password } = req.body; // New password from the request body
+
+    try {
+        // Check if the password is provided
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required.' });
+        }
+
+        // Validate password length and complexity
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+        let user;
+        if (role == 'teacher') {
+            user = await User.findOne({ teacher: id });
+        } else if (role == 'student') {
+            user = await User.findOne({ student: id });
+        } else if (role == 'admin') {
+            user = await User.findById(id);
+        }
+        // Update the password in the associated user account
+        if (!user) {
+            return res.status(404).json({ message: 'Account not found.' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        // Respond with success message
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Error updating account password:', error.message);
+
+        // Handle unexpected errors
+        res.status(500).json({ error: 'Failed to update account password.', details: error.message });
     }
 };
