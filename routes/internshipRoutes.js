@@ -22,6 +22,7 @@ import {
     isStudentOrAdmin,
     isTeacher,
 } from "../middlewares/authentication.js";
+import { isDepotOpen } from '../middlewares/depositPeriodMiddleware.js';
 
 const router = express.Router();
 
@@ -34,27 +35,25 @@ router.get('/me', isStudent, isStillStudent, getInternshipByStudentToken);
 // consult PV
 router.get('/pv', isStudent, getInternshipByStudentForPV);
 
+// Add a new internship
+router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", "create"), addInternship);
 
-// POST /internships - Add a new internship
-router.post('/', isStudent, isStillStudent, addInternship);
-
-// GET /internships - Get all internships
+// Get all internships
 router.get('/', isAdmin, getAllInternships);
 
-// GET /internships/:id - Get an internship by ID
+// Get an internship by ID
 router.get('/:id', isTeacher, getInternshipById);
 
+// Update an internship by ID
+router.patch('/:id', isStudentOrAdmin, isDepotOpen("STAGE", "update"), updateInternship(false));
 
-// PATCH /internships/:id - Update an internship by ID
-// router.patch('/:id', isStudent, isStillStudent,  updateInternship(false));
-// router.patch('/:id', isAdmin,  updateInternship(false));
-router.patch('/:id', isStudentOrAdmin, updateInternship(false));
-router.patch('/:id/documents', isStudent, isStillStudent, updateInternship(true));
+// Update an internship documents by ID
+router.patch('/:id/documents', isStudent, isStillStudent, isDepotOpen("STAGE", "update"), updateInternship(true));
 
-// DELETE /internships/:id - Delete an internship by ID
+// Delete an internship by ID
 router.delete('/:id', isAdmin, deleteInternship);
 
-// automatic assignment of teachers to internships
+// Automatic assignment of teachers to internships
 router.post('/planning/assign', isAdmin, assignTeachersToInternships);
 
 // manual add teacher to internship

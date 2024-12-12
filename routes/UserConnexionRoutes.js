@@ -16,15 +16,32 @@ import { isAdmin } from "../middlewares/authentication.js";
 const router = express.Router();
 
 // User Routes
-router.get('/:id', isAdmin, getUserById); // Route to get user by ID
-router.get('/cin/:cin', isAdmin, getUserByCin); // Route to get user by Cin
-// router.post('/register', isAdmin, createUser); // Route to create a new user
-router.post('/register', isAdmin, createAdmin); // Route to create a new user
-router.patch('/:id', isAdmin, updateUser); // Route to update user details
-router.delete('/:id', isAdmin, deleteUser); // Route to delete user
-router.post('/login', loginUser); // Route to log in a user
-router.put('/:id', isAdmin, toggleArchiveUser("admin")); // Route to Archive user
-router.patch('/:id/password', isAdmin, updatePassword("admin")); // Route to update password for admin
+// get user by ID
+router.get('/:id', isAdmin, getUserById);
+
+// get user by Cin
+router.get('/cin/:cin', isAdmin, getUserByCin);
+
+// create a new user
+// router.post('/register', isAdmin, createUser); 
+
+// create a new ADmin
+router.post('/register', isAdmin, createAdmin);
+
+// Update user details
+router.patch('/:id', isAdmin, updateUser);
+
+// Delete user
+router.delete('/:id', isAdmin, deleteUser);
+
+// Log in a user
+router.post('/login', loginUser);
+
+// Archive/UnArchive user
+router.put('/:id', isAdmin, toggleArchiveUser("admin"));
+
+// Update password for admin
+router.patch('/:id/password', isAdmin, updatePassword("admin"));
 
 
 export default router;
