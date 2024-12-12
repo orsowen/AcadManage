@@ -1,5 +1,5 @@
 import express from 'express';
-import { addChoice, getChoices , updatePriority , updateTeacherAcceptance , getChoiceById} from '../controllers/ChoiceController.js';
+import { addChoice, getChoices , updatePriority , updateTeacherAcceptance , getChoiceById} from '../controllers/Choice.js';
 
 import { isStudent  } from '../middlewares/authentication.js';
 

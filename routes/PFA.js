@@ -13,7 +13,7 @@ import {
   getSubjectById,
   getSubjectsByTeacher,
   getSubjectByIdForTeacher,
-} from "../controllers/PFAController.js";
+} from "../controllers/PFA.js";
 import express from "express";
 import {
   isAdmin,
