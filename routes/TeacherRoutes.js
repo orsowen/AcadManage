@@ -1,18 +1,18 @@
 import express from 'express';
 import {
-    createTeacher,
-    deleteTeacher,
-    getAllTeachers,
-    getTeacherById,
-    getTeacherProfile,
-    updateTeacher,
-    updateTeacherByToken
+  createTeacher,
+  deleteTeacher,
+  getAllTeachers,
+  getTeacherById,
+  getTeacherProfile,
+  updateTeacher,
+  updateTeacherByToken
 } from '../controllers/TeacherController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
-
 const router = express.Router();
+
 
 // get Own Profile 
 router.get('/me', isTeacher, getTeacherProfile);
@@ -24,7 +24,7 @@ router.get('/', isAdmin, getAllTeachers);
 router.get('/:id', isAdmin, getTeacherById);
 
 // Create a new teacher
-router.post('/', isAdmin, createTeacher);
+router.post('/', createTeacher);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);

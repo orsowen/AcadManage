@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { Schema } from 'mongoose';
 
 const StudentSchema = new mongoose.Schema({
     lastName: {
@@ -28,6 +27,23 @@ const StudentSchema = new mongoose.Schema({
     governorate: {
         type: String,
         required: true
+    },
+    academicHistory: {
+        type: [
+            {
+                year: {
+                    type: String,
+                    required: true,
+                },
+                status: {
+                    type: String,
+                    required: true,
+                    enum: ['Success', 'Failure', 'Pending'],
+                    default: 'Pending',
+                },
+            },
+        ],
+        default: [], // Default to an empty array initially
     },
     gender: {
         type: String,
@@ -108,9 +124,27 @@ const StudentSchema = new mongoose.Schema({
         // default: null,
     },
     choices: [{
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Choice',
     }],
+});
+
+// Pre-save middleware to populate `academicHistory` with a default value if empty
+StudentSchema.pre('save', function (next) {
+    if (this.academicHistory.length === 0) {
+        const currentYear = new Date().getFullYear();
+        const month = new Date().getMonth();
+        const academicYear =
+            month >= 8
+                ? `${currentYear}-${currentYear + 1}`
+                : `${currentYear - 1}-${currentYear}`;
+
+        this.academicHistory.push({
+            year: academicYear,
+            status: 'Pending',
+        });
+    }
+    next();
 });
 
 export default mongoose.model('Student', StudentSchema);

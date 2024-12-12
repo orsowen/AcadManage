@@ -7,14 +7,16 @@ import router from "./routes/index.js";
 // ENVIRONMENT variables configuration
 dotenv.config();
 
+// MongoDB Connection
+dbConnection();
+
 const app = express();
 const PORT = process.env.PORT || 8800;
 
-// MongoDB Connection
-dbConnection();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
 
 // All the endpoints below are in index.js for a better ordering and structure
 app.use(router);

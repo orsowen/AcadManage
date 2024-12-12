@@ -105,6 +105,7 @@ export const updateDepositPeriod = async (req, res) => {
       { Start_Deposit, End_Deposit, Start_Choice, End_Choice },
       { new: true }
     );
+    console.log(choix);
     if (!updatedPeriod) {
       return res
         .status(404)
