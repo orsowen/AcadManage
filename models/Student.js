@@ -124,7 +124,7 @@ const StudentSchema = new mongoose.Schema({
         // default: null,
     },
     choices: [{
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Choice',
     }],
 });

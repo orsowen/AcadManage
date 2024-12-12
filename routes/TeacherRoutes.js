@@ -1,3 +1,4 @@
+import express from 'express';
 import {
   createTeacher,
   deleteTeacher,
@@ -9,13 +10,22 @@ import {
 } from '../controllers/TeacherController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
-import express from 'express';
 
 const router = express.Router();
 
 
 // get Own Profile 
 router.get('/me', isTeacher, getTeacherProfile);
+
+// Get all teachers
+router.get('/', isAdmin, getAllTeachers);
+
+// Get a single teacher by ID
+router.get('/:id', isAdmin, getTeacherById);
+
+// Create a new teacher
+router.post('/', createTeacher);
+
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
 
