@@ -172,7 +172,6 @@ export const publishSubjects = async (req, res) => {
     const previouslyPublishedSubjects = await Subject_PFA.find({
       published: true,
     });
-    console.log("Previously published subjects:", previouslyPublishedSubjects);
 
     const publishedSubjects = await Subject_PFA.updateMany(
       { status: "Approved" },
@@ -221,16 +220,22 @@ export const publishSubjects = async (req, res) => {
 export const firstSend = async () => {
   try {
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
+      .populate("student", "grade")
       .exec();
 
-    const emails = users.map((user) => user.email);
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.student.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email);  // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
-
     const subject =
       "Publication des sujets et ouverture de la période de choix";
     const html = `
@@ -253,16 +258,21 @@ export const firstSend = async () => {
 export const modifiedSend = async () => {
   try {
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
+      .populate("student", "grade")
       .exec();
-
-    const emails = users.map((user) => user.email);
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.student.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email);  // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
-
     const subject = "Modification des sujets";
     const html = `
       <p>Les sujets ont été modifiés.</p>
