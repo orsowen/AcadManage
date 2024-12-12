@@ -35,7 +35,7 @@ const PlanningStageSchema = new Schema({
         default: "Not Sent",
     },
 }, {
-    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    timestamps: true,
 });
 
 // Create and export the PlanningStage model

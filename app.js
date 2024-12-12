@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import express from "express";
 import dbConnection from "./dbConfig/dbConnection.js";
 import router from './routes/index.js';
-import routerPFA from "./routes/PFARoutes.js";
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -19,7 +18,6 @@ app.use(cors());
 app.use(express.json());
 
 // ROUTES
-app.use("/", routerPFA);
 app.use(router); // Place router in index.js fi 3oudh lenna for better organization
 
 // Start server

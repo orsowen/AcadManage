@@ -1,12 +1,12 @@
 import express from 'express';
 import {
-    createTeacher,
-    deleteTeacher,
-    getAllTeachers,
-    getTeacherById,
-    getTeacherProfile,
-    updateTeacher,
-    updateTeacherByToken
+  createTeacher,
+  deleteTeacher,
+  getAllTeachers,
+  getTeacherById,
+  getTeacherProfile,
+  updateTeacher,
+  updateTeacherByToken
 } from '../controllers/TeacherController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
