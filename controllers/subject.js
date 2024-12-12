@@ -1,4 +1,5 @@
 import Subject from '../models/Subject.js';
+import User from '../models/User.js'
 import Skill from '../models/Skill.js';
 import nodemailer from 'nodemailer';
 import Teacher from '../models/Teachers.js';
@@ -227,7 +228,7 @@ export const updateAvancement = async (req, res) => {
     }
 
     try {
-        const subject = await Subject.findById(id).populate("teacher");
+        const subject = await Subject.findById(id)
         if (!subject) {
             return res.status(404).json({ error: "Matière non trouvée." });
         }
@@ -279,42 +280,43 @@ export const updateAvancement = async (req, res) => {
             console.log("Aucun administrateur trouvé.");
         }
 
-        // Test de l'envoi de l'email aux étudiants
-        for (const studentId of subject.students) {
+     
+        // Envoi d'un email aux étudiants concernés
+
+        const students = await User.find({ role:
+            "student" });
+        console.log(students);
+
+        for (const student of students) {
             try {
-                const student = await User.find({student : studentId});
-                
-                if (!student) {
-                    console.log(`Étudiant avec ID ${studentId} non trouvé.`);
-                    continue;
-                }
-
-                console.log(`Tentative d'envoi d'email à l'étudiant ${student.email}...`);
-
-                if (student.email) {  // Vérifiez le champ 'email' au lieu de 'email'
+                if (student.email) {
+                    console.log(`Tentative d'envoi d'email à l'étudiant ${student.email}...`);
                     await transporter.sendMail({
-                        from: { 
-                            name: "acadManager", 
-                            address: process.env.EMAIL_USER },
-                        to: student.email, // Utilisez l'email de l'étudiant
-                        subject: `Mise à jour de "${subject.title}"`,
-                        text: `Le chapitre "${chapterName}" a été mis à jour à "${status}".`,
+                        from: { name: "acadManager", address: process.env.EMAIL_USER },
+                        to: student.email,
+                        subject: `Mise à jour de l'avancement dans "${subject.title}"`,
+                        text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
                     });
-                    console.log(`Email envoyé à ${student.email}.`);
+                    console.log(`Email envoyé à l'étudiant ${student.email}`);
                 } else {
-                    console.log(`Adresse email invalide ou absente pour l'étudiant ${studentId}.`);
+                    console.warn(`L'étudiant avec l'ID ${student._id} n'a pas d'email.`);
                 }
             } catch (error) {
-                console.error(`Erreur lors de l'envoi de l'email à l'étudiant ${studentId} :`, error);
+                console.error(`Erreur lors de l'envoi d'un email à ${student.email}:`, error);
             }
         }
 
-        res.status(200).json({ message: "Avancement mis à jour et notifications envoyées." });
+        res.status(200).json({
+            message: "Avancement mis à jour avec succès et emails envoyés.",
+        });
     } catch (error) {
-        console.error("Erreur lors de la mise à jour de l'avancement :", error);
-        res.status(500).json({ error: "Erreur serveur." });
+        res.status(500).json({
+            error: "Erreur lors de la mise à jour de l'avancement.",
+            details: error.message,
+        });
     }
 };
+
 
 export const getAllSubjectsByTeacher = async (req, res) => {
     const  idTeacher = req.user.idRole;
@@ -383,7 +385,7 @@ export const assignTeacherToSubject = async (req, res) => {
         res.status(500).json({ error: "Erreur serveur." });
         }
     
-    }
+};
 
 
 
