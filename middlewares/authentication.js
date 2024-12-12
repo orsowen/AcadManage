@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 
 // Middleware to verify and decode the JWT token
