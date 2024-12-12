@@ -45,7 +45,6 @@ export const addDepositPeriod =
         });
       }
 
-      // Création d'une nouvelle période de dépôt
       const newDepositPeriod = new DepositPeriod({
         Start_Deposit,
         End_Deposit,
@@ -54,7 +53,6 @@ export const addDepositPeriod =
         For: choix,
       });
 
-      // Sauvegarde dans la base de données
       await newDepositPeriod.save();
 
       res.status(201).json({
@@ -90,14 +88,11 @@ export const updateDepositPeriod = async (req, res) => {
     req.body.For = choix;
     const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
 
-    // Validate the input data
-
     const { error } = depositValidationSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    // Check if 'For' is one of the accepted values
     const validForValues = ["PFE", "PFA", "STAGE"];
     if (!validForValues.includes(choix)) {
       return res
@@ -105,7 +100,6 @@ export const updateDepositPeriod = async (req, res) => {
         .json({ message: "Type 'For' invalide. Utilisez PFE, PFA ou STAGE." });
     }
 
-    // Update deposit period based on 'For'
     const updatedPeriod = await DepositPeriod.findOneAndUpdate(
       { For: choix },
       { Start_Deposit, End_Deposit, Start_Choice, End_Choice },

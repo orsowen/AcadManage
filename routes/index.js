@@ -26,7 +26,8 @@ router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
-router.use("/", choicePFA);
+router.use("/PFAChoices", choicePFA);
+
 // Hot l route mta3ek lenna fi 3oudh fi App.js
 // esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
 

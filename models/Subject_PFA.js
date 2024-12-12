@@ -14,7 +14,6 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
-
   monome: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Student",
@@ -26,7 +25,7 @@ const Subject_PFASchema = new Schema({
     default: null,
     required: function () {
       return this.binome;
-    }, // Required if binome is true
+    }, 
   },
   teacher: {
     type: mongoose.Schema.Types.ObjectId,
@@ -38,8 +37,8 @@ const Subject_PFASchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
-    default: "Pending", // Par défaut, le statut est "Pending"
+    enum: ["Pending", "Approved", "Rejected"], 
+    default: "Pending", 
   },
   hidden: {
     type: Boolean,
@@ -48,7 +47,7 @@ const Subject_PFASchema = new Schema({
   published: {
     type: Boolean,
     default: false,
-  }, // Indique si le sujet est publié
+  }, 
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);
