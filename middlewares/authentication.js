@@ -1,7 +1,6 @@
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import user from "../models/User.js";
-import dotenv from "dotenv";
-import Student from "../models/Student.js";
 
 dotenv.config();
 
@@ -138,23 +137,15 @@ export const isAdminOrTeacher = (req, res, next) => {
     res.status(401).json({ error: e.message });
   }
 };
-export const iSStudent3rdYear = async (req, res, next) => {
+
+export const isStudent3rdYear = async (req, res, next) => {
   try {
     // Call decodeJWT to decode the token and populate req.user
-    decodeJWT(req, res, async () => {
-      const userId = req.user.idRole; // Extract the user ID from the token
-      const student = await Student.findOne({ user: userId });
-      if (student) {
-        // Check if the student's grade is "ING3"
-        if (student.grade === 'ING3') {
-          next(); // Proceed if the user is a third-year student
-        } else {
-          res.status(403).json({
-            error: "Vous devez être un étudiant de troisième année pour accéder à cette route.",
-          });
-        }
+    decodeJWT(req, res, () => {
+      if (req.user.grade === 'ING3') {
+        next();  // Proceed to the next middleware if the role is 'ING3'
       } else {
-        res.status(404).json({ error: "There s no student" });
+        res.status(403).json({ error: "Vous n'avez pas l'autorisation d'accéder à cette route." });
       }
     });
   } catch (e) {

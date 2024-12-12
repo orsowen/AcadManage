@@ -112,17 +112,31 @@ export const addInternship = async (req, res) => {
     }
 };
 
+// get all Internships
 export const getAllInternships = async (req, res) => {
-    const { page = 1, limit = 5, isValid, Type, studentId, teacherId, day, nomSociete } = req.query;
+    const {
+        page = 1,
+        limit = 5,
+        isValid,
+        Type,
+        studentId,
+        teacherId,
+        day,
+        nomSociete
+    } = req.query;
 
-    // Build the filter object
+    // Convert page and limit to integers and ensure valid values
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 5;
+
+    // Build the filter object dynamically
     let filter = {};
-    if (isValid !== undefined) filter.isValid = isValid === 'true';
+    if (isValid !== undefined) filter.isValid = isValid === 'true'; // Ensure 'isValid' is a boolean
     if (Type) filter.Type = Type;
     if (studentId) filter.student = studentId;
     if (teacherId) filter.teacher = teacherId;
-    if (day) filter.day = new Date(day);
-    if (nomSociete) filter.nomSociete = nomSociete;
+    if (day) filter.day = new Date(day); // Ensure 'day' is a valid date
+    if (nomSociete) filter.nomSociete = new RegExp(nomSociete, 'i'); // Case-insensitive search for 'nomSociete'
 
     try {
         // Fetch internships with filters, pagination, and population
@@ -143,8 +157,8 @@ export const getAllInternships = async (req, res) => {
                     select: 'email', // Populate the user's email linked to the teacher
                 },
             })
-            .skip((page - 1) * limit)
-            .limit(Number(limit))
+            .skip((currentPage - 1) * currentLimit) // Skip results based on the page number
+            .limit(currentLimit) // Limit the results to the specified number
             .exec();
 
         // Fetch total count of internships
@@ -152,13 +166,14 @@ export const getAllInternships = async (req, res) => {
 
         res.status(200).json({
             total,
-            page: Number(page),
-            limit: Number(limit),
-            totalPages: Math.ceil(total / limit),
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
             data: internships,
         });
     } catch (error) {
-        res.status(500).json({ error: "Erreur lors de la récupération des stages." });
+        console.error("Error fetching internships:", error.message);
+        res.status(500).json({ error: "Failed to fetch internships." });
     }
 };
 
@@ -202,8 +217,6 @@ export const updateInternship = async (req, res) => {
     const studentId = req.user.idRole; // Extract student ID from JWT token
     const role = req.user.role; // Extract student ID from JWT token
     const { id } = req.params;
-    // const { title, documents, StartDate, EndDate, isValid, topicDetails, studentId, teacherId } = req.body;
-    // const { title, documents, StartDate, EndDate, topicDetails, studentId, teacherId } = req.body;
     const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
     // Validate dates
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -215,8 +228,6 @@ export const updateInternship = async (req, res) => {
         if (!internship) {
             return res.status(404).json({ message: "Stage introuvable pour la mise à jour." });
         }
-        console.log(internship.student._id);
-        console.log(studentId);
 
         if (internship.student._id.toString() !== studentId && role !== "admin") {
             return res.status(403).json({ message: "Unauthorized" });
@@ -268,12 +279,23 @@ export const updateInternship = async (req, res) => {
     }
 };
 
-
 // Delete an internship by ID
 export const deleteInternship = async (req, res) => {
     const { id } = req.params;
+    const { force } = req.body;
 
     try {
+        // SOFT DELETE
+        if (!force) {
+            const internship = await Internship.findById(id);
+            if (!internship) {
+                return res.status(404).json({ message: "Stage introuvable." });
+            }
+            internship.isArchived = true;
+            await internship.save();
+            return res.status(200).json({ message: 'Internship archived successfully.' });
+        }
+        // HARD DELETE
         const deletedInternship = await Internship.findByIdAndDelete(id);
 
         if (!deletedInternship) {
@@ -287,9 +309,7 @@ export const deleteInternship = async (req, res) => {
     }
 };
 
-
-
-// MANUAL ADDING
+// MANUAL ADDING TEACHER TO INTERNSHIPS
 export const addTeacherToInternship = async (req, res) => {
     try {
         const { internshipId, teacherId } = req.body;
@@ -459,46 +479,63 @@ export const removeAllAssignedInternships = async (req, res) => {
     }
 };
 
+// FOR TEACHER : get internships assigned to a specific teacher
 export const getAssignedInternships = async (req, res) => {
-    try {
-        const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
-        // Validate teacher existence using the teacherId from the decoded token
-        const teacher = await Teacher.findById(teacherId);
-        if (!teacher) {
-            return res.status(404).json({ message: 'Teacher not found.' });
-        }
+    const { page = 1, limit = 5, isValid, day, nomSociete } = req.query;
+    const teacherId = req.user.idRole;  // Extract teacherId from the JWT token
 
-        // Fetch internships assigned to this teacher
-        const internships = await Internship.find({ teacher: teacherId, isArchived: false })
+    // Convert page and limit to integers and ensure valid values
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 5;
+
+    // Build the filter object dynamically
+    let filter = { teacher: teacherId, isArchived: false }; // Default filter for the teacher and non-archived internships
+    if (isValid !== undefined) filter.isValid = isValid === 'true'; // Convert isValid to boolean
+    if (day) filter.day = new Date(day); // Filter by day, assuming day is a valid date string
+    if (nomSociete) filter.nomSociete = new RegExp(nomSociete, 'i'); // Case-insensitive search for nomSociete
+
+    try {
+        // Fetch internships assigned to the teacher with filters, pagination, and population
+        const internships = await Internship.find(filter)
             .populate({
-                path: 'student', // Populate internship field
-                select: 'firstName lastName user', // Select specific fields from internship
+                path: 'student', // Populate student details
+                select: 'firstName lastName user', // Select student name and user details
                 populate: {
                     path: 'user', // Populate user to fetch email
                     select: 'email', // Select only email from user
                 },
             })
-            .select("-teacher")
-            .exec(); // Populate internship, student, and teacher details
+            .select("-teacher")  // Exclude the teacher field from the result
+            .skip((currentPage - 1) * currentLimit) // Skip results for pagination
+            .limit(currentLimit) // Limit the results per page
+            .exec();
+
+        // Fetch the total count of internships
+        const total = await Internship.countDocuments(filter);
 
         // If no internships are found for the teacher
         if (internships.length === 0) {
             return res.status(404).json({ message: 'No internships assigned to this teacher.' });
         }
 
-        // Return the internships
+        // Return the internships with pagination data
         res.status(200).json({
-            message: 'Internships fetched successfully.',
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
             data: internships,
         });
     } catch (error) {
         console.error('Error fetching assigned internships:', error.message);
 
+        // Handle specific errors such as invalid or expired token
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({ message: 'Invalid or expired token.' });
         }
 
-        res.status(500).json({ message: 'Error fetching assigned internships.', error });
+        // General server error response
+        res.status(500).json({ message: 'Error fetching assigned internships.', error: error.message });
     }
 };
 
@@ -506,7 +543,6 @@ export const getAssignedInternships = async (req, res) => {
 export const validateInternship = async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user.idRole;  // Assuming the teacherId is decoded from the JWT token
-
     const { isValid, reasonIfNotValid } = req.body;
 
     try {

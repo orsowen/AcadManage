@@ -10,15 +10,15 @@ import {
     updateStudentProfile,
     createCV,
 } from '../controllers/StudentController.js';
-
 import { toggleArchiveUser } from '../controllers/UserController.js';
-
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
+
 
 const router = express.Router();
 
 // POST /students - Create a new student
-router.post('/', isAdmin, createStudent);
+router.post('/', createStudent);
+
 // GET /students - Get all students
 router.get('/', isAdminOrTeacher, getAllStudents);
 // GET /students/:id - Get a student by ID
@@ -29,15 +29,17 @@ router.post('/profile', isStudent, getStudentProfile);
 router.patch('/:id', isAdmin, updateStudent);
 // update own profile
 router.put('/me', isStudent, updateStudentProfile);
+
 // patch update student password
 router.patch('/:id/password', isAdmin, updateStudentPassword);
 // DELETE /students/:id - Delete a student by ID
 router.delete('/:id', isAdmin, deleteStudent);
+
 // Archive a teacher
 router.put('/:id', isAdmin, toggleArchiveUser("student")); 
 
 // Route to Archive user
-router.get('/CV/me', isStudent, createCV); 
+router.post('/CV/me', isStudent, createCV); 
 // Route to Archive user
 //router.get('/CV/me', isStudent, getCvMe); 
 // get studiant/CV/me - get all professionel information of the studiant
