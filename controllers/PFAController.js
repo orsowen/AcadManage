@@ -59,11 +59,9 @@ export const createSubjects = async (req, res) => {
         published: true,
       });
       if (monomeAssigned) {
-        return res
-          .status(400)
-          .json({
-            message: `Monome student with ID ${monome} is already assigned to another published subject`,
-          });
+        return res.status(400).json({
+          message: `Monome student with ID ${monome} is already assigned to another published subject`,
+        });
       }
 
       if (binomeExits) {
@@ -79,11 +77,9 @@ export const createSubjects = async (req, res) => {
           published: true,
         });
         if (binomeAssigned) {
-          return res
-            .status(400)
-            .json({
-              message: `Binome student with ID ${binome} is already assigned to another published subject`,
-            });
+          return res.status(400).json({
+            message: `Binome student with ID ${binome} is already assigned to another published subject`,
+          });
         }
       }
     }
@@ -519,36 +515,7 @@ export const approveSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-// Lister les sujets triés par enseignant
-// Obtenir tous les sujets avec des champs spécifiques triés par titre
-export const getAllSubjectsForStudent = async (req, res) => {
-  try {
-    // Récupérer tous les sujets depuis la base de données, triés par titre
-    const subjects = await Subject_PFA.find()
-      .populate("monome", "firstName lastName email") // Récupérer les détails du monome
-      .populate("binome", "firstName lastName email") // Récupérer les détails du binome
-      .populate("teacher", "firstName lastName email") // Récupérer les détails de l'enseignant
-      .select("title description monome binome teacher") // Sélectionner uniquement les champs nécessaires
-      .sort({ title: -1 }); // Trier par `title` (1 pour ordre croissant, -1 pour ordre décroissant)
-
-    // Transformer les données pour ajouter le champ "assigned"
-    const formattedSubjects = subjects.map((subject) => ({
-      title: subject.title,
-      description: subject.description,
-      teacher: subject.teacher, // Informations sur l'enseignant
-      monome: subject.monome || null, // Monome s'il existe
-      binome: subject.binome || null, // Binome s'il existe
-      assigned: !!subject.monome || !!subject.binome, // Déterminer si le sujet est affecté
-    }));
-
-    // Retourner les sujets formatés
-    res.status(200).json(formattedSubjects);
-  } catch (error) {
-    console.error("Error fetching subjects:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
+//4.1
 export const PFASubjectsByTeacher = async (req, res) => {
   try {
     // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
@@ -560,7 +527,10 @@ export const PFASubjectsByTeacher = async (req, res) => {
     }
 
     // Rechercher les sujets proposés par cet enseignant, triés par title
-    const subjects = await Subject_PFA.find({ teacher: teacherId })
+    const subjects = await Subject_PFA.find({
+      teacher: teacherId,
+      published: true,
+    })
       .select("title description technologies") // Sélectionner uniquement les champs spécifiés
       .sort({ title: 1 }); // Trier par `title` (ordre croissant)// Trier par `title` (ordre croissant)
 

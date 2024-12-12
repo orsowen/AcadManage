@@ -9,7 +9,6 @@ import {
   approveSubject,
   firstSend,
   modifiedSend,
-  getAllSubjectsForStudent,
   getSubjectById,
   getSubjectsByTeacher,
   PFASubjectsByTeacher,
@@ -23,9 +22,6 @@ import {
 } from "../middlewares/authentication.js";
 
 const router = express.Router();
-
-//Route to list subjects by teachers student
-router.get("/PFASubjects", isStudent, getAllSubjectsForStudent);
 
 // Route to create multiple subjects
 router.post("/post", isTeacher, createSubjects);

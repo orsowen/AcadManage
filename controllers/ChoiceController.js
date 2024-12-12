@@ -5,9 +5,8 @@ import Subject_PFA from "../models/Subject_PFA.js";
 // Add a choice for a student
 export const addChoice = async (req, res) => {
   try {
-
     const { subjectId, priority, binomeId } = req.body;
-     
+
     const studentId = req.user.idRole;
 
     // Vérifier que la priorité est valide
@@ -25,14 +24,20 @@ export const addChoice = async (req, res) => {
 
     // Vérifier que l'étudiant n'a pas déjà un sujet affecté
     const assignedSubject = await Subject_PFA.findOne({
-      $or: [{ monome: studentId }, { binome: studentId }]
+      $or: [{ monome: studentId }, { binome: studentId }],
     });
     if (assignedSubject) {
-      return res.status(400).json({ message: "You have already an assigned subject and cannot add more choices" });
+      return res.status(400).json({
+        message:
+          "You have already an assigned subject and cannot add more choices",
+      });
     }
 
     // Vérifier que le sujet est publié
-    const subject = await Subject_PFA.findOne({ _id: subjectId, published: true });
+    const subject = await Subject_PFA.findOne({
+      _id: subjectId,
+      published: true,
+    });
     if (!subject) {
       return res.status(404).json({ message: "Published subject not found" });
     }
@@ -253,3 +258,59 @@ export const getChoices = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+//4.1 (2eme)
+
+// export const getStudentSubjects = async (req, res) => {
+//   try {
+//     // Récupérer l'ID de l'utilisateur authentifié
+//     const studentId = req.user.idRole;
+
+//     // Trouver l'étudiant lié à cet utilisateur avec les choix et sujets peuplés
+//     const studentChoices = await Student.find({ _id: studentId }, "choices")
+//     .populate({
+//       path: "choices",
+//       populate: {
+//         path: "subject",
+//         select: "titre description technologie type enseignant",
+//       },
+//     });
+//        console.log(studentChoices);
+
+//     // if (!student) {
+//     //   return res.status(404).json({ message: "Étudiant non trouvé" });
+//     // }
+
+//     // Vérifier si des choix existent
+//     if (studentChoices.length === 0) {
+//       return res
+//         .status(404)
+//         .json({ message: "Aucun choix trouvé pour cet étudiant" });
+//     }
+
+//     // Retourner les choix avec les sujets
+//     res.status(200).json({
+//       message: "Sujets récupérés avec succès",
+//       subjects: student.choices.map((choice) => ({
+//         priority: choice.priority,
+//         subject: {
+//           titre: choice.subject?.titre,
+//           description: choice.subject?.description,
+//           technologie: choice.subject?.technologie,
+//           type: choice.subject?.type, // Monome ou Binome
+//           enseignant: choice.subject?.enseignant,
+//         },
+//         binome: choice.binome
+//           ? `${choice.binome.firstName} ${choice.binome.lastName}`
+//           : null,
+//         teacherAcceptance: choice.teacherAcceptance,
+//       })),
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res
+//       .status(500)
+//       .json({
+//         message: "Une erreur s'est produite lors de la récupération des sujets",
+//       });
+//   }
+// };
