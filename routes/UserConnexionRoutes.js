@@ -7,6 +7,7 @@ import {
     getUserById,
     loginUser,
     toggleArchiveUser,
+    updatePassword,
     updateUser,
 } from '../controllers/UserController.js';
 import { isAdmin } from "../middlewares/authentication.js";
@@ -23,6 +24,7 @@ router.patch('/:id', isAdmin, updateUser); // Route to update user details
 router.delete('/:id', isAdmin, deleteUser); // Route to delete user
 router.post('/login', loginUser); // Route to log in a user
 router.put('/:id', isAdmin, toggleArchiveUser("admin")); // Route to Archive user
+router.patch('/:id/password', isAdmin, updatePassword("admin")); // Route to update password for admin
 
 
 export default router;

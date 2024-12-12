@@ -558,6 +558,7 @@ export const getAssignedInternships = async (req, res) => {
 
         // Return the internships with pagination data
         res.status(200).json({
+            message: 'Internships assigned to You :',
             total,
             page: currentPage,
             limit: currentLimit,
@@ -684,6 +685,7 @@ export const getInternshipByStudentToken = async (req, res) => {
 
         // Respond with the fetched internships and pagination data
         res.status(200).json({
+            message: 'List of your Internships',
             total,
             page: currentPage,
             limit: currentLimit,
@@ -707,8 +709,8 @@ export const getInternshipByStudentForPV = async (req, res) => {
     const studentId = req.user.idRole; // Extract student ID from JWT token
 
     // Parse and validate pagination values
-    const currentPage = Math.max(parseInt(page, 10), 1);
-    const currentLimit = Math.max(parseInt(limit, 10), 5);
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 5;
 
     // Build the filter object dynamically
     const filter = { student: studentId, isArchived: false };
@@ -745,6 +747,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
 
         // Return the internships and pagination data
         res.status(200).json({
+            message: 'PV of Internships',
             total,
             page: currentPage,
             limit: currentLimit,
