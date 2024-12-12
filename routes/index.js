@@ -1,6 +1,9 @@
 import express from "express";
+import { notifyAboutDepositDeadline } from "../utils/LateNotifReminder.js";
+import choicePFA from "./Choice.js";
 import DepositPeriod from "./DepositPeriod.js";
 import internshipRoutes from "./InternshipRoutes.js";
+import routerPFA from "./PFA.js";
 import PFE from "./PFE.js";
 import planningStageRoutes from "./PlanningStageRoutes.js";
 import skillRoutes from "./skill.js";
@@ -9,8 +12,6 @@ import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
-import routerPFA from "./PFA.js";
-import choicePFA from "./Choice.js";
 
 const router = express.Router();
 
@@ -27,7 +28,15 @@ router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/", choicePFA);
-// Hot l route mta3ek lenna fi 3oudh fi App.js
-// esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
 
+// TEST MAIL NOTIFICATION
+router.get("/test-notif-late-depot-satge", async (req, res) => {
+    try {
+        await notifyAboutDepositDeadline("STAGE", 1, true);
+        res.status(200).json({ message: "Test notification executed successfully." });
+    } catch (error) {
+        console.error("Error during test notification:", error.message);
+        res.status(500).json({ error: "Failed to execute test notification.", details: error.message });
+    }
+});
 export default router;

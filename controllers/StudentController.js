@@ -191,7 +191,6 @@ export const getAllStudents = async (req, res) => {
 };
 
 // Fetch students cv parcours académique + certifications, autres diplômes,langues,...
-
 export const getCv = async (req, res) => {
 
     const studentId = req.user.idRole;
@@ -361,6 +360,7 @@ export const deleteStudent = async (req, res) => {
                 user,
             });
         }
+
         // HARD DELETE
         // Permanently delete the student and associated user
         const deletedStudent = await Student.findByIdAndDelete(id, { session });

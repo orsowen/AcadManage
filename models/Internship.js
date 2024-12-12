@@ -1,5 +1,3 @@
-// models/internship.model.js
-
 import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
@@ -60,6 +58,18 @@ const InternshipSchema = new Schema({
     },
     nomSociete: {
         type: String,
+    },
+    anneYear: {
+        type: String,
+        default: function () {
+            // Automatically calculate the current academic year
+            const currentYear = new Date().getFullYear();
+            const month = new Date().getMonth();
+            // Academic year typically starts in September
+            return month >= 8
+                ? `${currentYear}-${currentYear + 1}`
+                : `${currentYear - 1}-${currentYear}`;
+        },
     },
     StartDate: {
         type: Date,
