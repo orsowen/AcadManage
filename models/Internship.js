@@ -1,5 +1,3 @@
-// models/internship.model.js
-
 import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
@@ -96,6 +94,7 @@ const InternshipSchema = new Schema({
         type: TopicSchema, // Embedding the TopicSchema
         required: true, // Make this field mandatory
     },
+
     student: {
         type: mongoose.Schema.Types.ObjectId, // Reference to Student model
         ref: 'Student', // Model name to reference
@@ -106,6 +105,7 @@ const InternshipSchema = new Schema({
         ref: 'Teacher', // Model name to reference
         // required: true,
     },
+
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
