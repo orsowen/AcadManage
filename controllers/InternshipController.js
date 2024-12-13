@@ -526,7 +526,7 @@ export const removeAllAssignedInternships = async (req, res) => {
         }
 
         // Step 3: Fetch all internships and set their teacher field to null
-        const internships = await Internship.find();
+        const internships = await Internship.find({ isArchived: false });
 
         for (const internship of internships) {
             internship.teacher = null; // Remove the teacher reference
