@@ -1,5 +1,6 @@
 // controllers/internship.controller.js
 
+import DepositPeriod from '../models/DepositPeriod.js';
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
@@ -28,11 +29,6 @@ export const addInternship = async (req, res) => {
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
-    }
-
-    // Validate topicId
-    if (!topicId) {
-        return res.status(400).json({ error: "Le topicId est requis." });
     }
 
     try {
@@ -73,6 +69,14 @@ export const addInternship = async (req, res) => {
                 return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
             }
         }
+
+        // Fetch the deposit period for "STAGE" and calculate the depotStatus
+        const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 }); // Get the latest period
+        let depotStatus = "in time";  // Default to "in time"
+
+        if (depositPeriod && new Date(depositPeriod.End_Deposit) < new Date()) {
+            depotStatus = "late";  // If the deposit period has ended, set status to "late"
+        }
         // Create the internship object with the provided topic and student/teacher if available
         const newInternship = new Internship({
             title,
@@ -88,6 +92,7 @@ export const addInternship = async (req, res) => {
             },
             student: studentId || null,
             teacher: teacherId || null,
+            depotStatus,
         });
 
         // Save the internship
@@ -153,6 +158,10 @@ export const getAllInternships = async (req, res) => {
                     path: 'user',
                     select: 'email', // Populate the user's email linked to the teacher
                 },
+            })
+            .populate({
+                path: 'planning', // Populate the planningStage details (assuming a reference exists in the Internship model)
+                select: 'horaire day meet_link isPublished sendStatus', // Select the relevant fields from the planning stage
             })
             .skip((currentPage - 1) * currentLimit) // Skip results based on the page number
             .limit(currentLimit) // Limit the results to the specified number

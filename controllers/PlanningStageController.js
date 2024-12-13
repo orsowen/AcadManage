@@ -43,7 +43,7 @@ export const createPlanningStage = async (req, res) => {
         }
 
         // Ensure the user is authorized to plan this stage (teacher or admin)
-        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher.toString() && role !== "admin")) {
+        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher._id.toString() && role !== "admin")) {
             return res.status(403).json({ error: internshipDoc.teacher ? "Unauthorized to plan this stage." : "No teacher assigned to the internship." });
         }
 
@@ -58,7 +58,9 @@ export const createPlanningStage = async (req, res) => {
 
         // Save the new planning stage to the database
         const savedPlanningStage = await newPlanningStage.save();
-
+        // Update the internship with the planning stage reference
+        internshipDoc.planning = savedPlanningStage._id;
+        await internshipDoc.save();
         // Optionally send an email to the student with planning details
         if (shouldSendMail) {
             const studentEmail = internshipDoc.student?.user?.email;
@@ -314,6 +316,7 @@ export const getPlanningStageByStudent = async (req, res) => {
 // Update a Planning Stage
 export const updatePlanningStage = async (req, res) => {
     const teacherId = req.user.idRole; // Extract teacher ID from JWT token
+    const role = req.user.role; // Extract teacher ID from JWT token
     const { id } = req.params;
     const { horaire, day, meet_link, internship } = req.body;
 
@@ -329,7 +332,7 @@ export const updatePlanningStage = async (req, res) => {
         }
 
         // Check if the logged-in teacher is authorized to update this planning stage
-        if (planningStage.internship.teacher._id.toString() !== teacherId) {
+        if (planningStage.internship.teacher._id.toString() !== teacherId && role !== "admin") {
             return res.status(403).json({ message: 'Not authorized to update this planning stage.' });
         }
 
