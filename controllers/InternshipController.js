@@ -338,43 +338,66 @@ export const deleteInternship = async (req, res) => {
 // MANUAL ADDING TEACHER TO INTERNSHIPS
 export const addTeacherToInternship = async (req, res) => {
     try {
-        const { internshipId, teacherId } = req.body;
+        const { internshipIds, teacherId } = req.body;
 
-        // Fetch the internship and teacher
-        const internship = await Internship.findById(internshipId);
-        if (!internship) {
-            return res.status(404).json({ message: 'Internship not found.' });
+        // Check if internshipIds is an array and not empty
+        if (!Array.isArray(internshipIds) || internshipIds.length === 0) {
+            return res.status(400).json({ message: 'Please provide a valid list of internship IDs.' });
         }
 
-        // Check if the internship already has an assigned teacher
-        if (internship.teacher) {
-            return res.status(400).json({ message: 'This internship already has an assigned teacher.' });
-        }
-
-        // const teacher = await Teacher.findOne({
-        //     _id: teacherId,
-        //     // $expr: { $gt: [{ $size: "$assignedInternships" }, "$subjectCount"] },
-        // })
+        // Fetch the teacher
         const teacher = await Teacher.findById(teacherId);
         if (!teacher) {
             return res.status(404).json({ message: 'Teacher not found.' });
         }
+
+        // Check if the teacher has space to take more internships
         if (teacher.subjectCount <= teacher.assignedInternships.length) {
             return res.status(400).json({ message: 'Teacher assignment is full.' });
         }
 
-        // Assign the teacher to the internship
-        internship.teacher = teacherId;
-        await internship.save();
+        // Initialize arrays to keep track of success and failure
+        const success = [];
+        const failures = [];
 
-        // Add the internship to the teacher's assignedInternships array
-        teacher.assignedInternships.push(internshipId);
-        await teacher.save();
+        // Loop through each internship ID in the provided list
+        for (let internshipId of internshipIds) {
+            try {
+                const internship = await Internship.findById(internshipId);
+                if (!internship) {
+                    failures.push({ internshipId, message: 'Internship not found.' });
+                    continue;
+                }
 
-        res.status(200).json({ message: 'Teacher successfully assigned to internship.', teacher, internship });
+                // Check if the internship already has an assigned teacher
+                if (internship.teacher) {
+                    failures.push({ internshipId, message: 'This internship already has an assigned teacher.' });
+                    continue;
+                }
+
+                // Assign the teacher to the internship
+                internship.teacher = teacherId;
+                await internship.save();
+
+                // Add the internship to the teacher's assignedInternships array
+                teacher.assignedInternships.push(internshipId);
+                await teacher.save();
+
+                success.push({ internshipId, message: 'Teacher successfully assigned to internship.' });
+            } catch (error) {
+                failures.push({ internshipId, message: `Error assigning teacher to internship: ${error.message}` });
+            }
+        }
+
+        // Respond with a summary of the operation
+        res.status(200).json({
+            message: 'Teacher assignment completed.',
+            success,
+            failures,
+        });
     } catch (error) {
-        console.error('Error assigning teacher to internship:', error.message);
-        res.status(500).json({ error: 'Failed to assign teacher to internship.' });
+        console.error('Error assigning teacher to internships:', error.message);
+        res.status(500).json({ error: 'Failed to assign teacher to internships.' });
     }
 };
 
@@ -383,46 +406,52 @@ export const assignTeachersToInternships = async (req, res) => {
     const { teacherIds } = req.body; // Optional list of teacher IDs from the request body
 
     try {
-        // Step 1: Fetch the teachers - filter based on provided IDs or all eligible teachers
-        let teachers;
+        // Step 1: Fetch eligible teachers based on provided teacher IDs or all teachers with available slots
+        let teachersQuery = [
+            { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
+            { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with space left
+        ];
+
         if (teacherIds && teacherIds.length > 0) {
-            teachers = await Teacher.find({
-                _id: { $in: teacherIds },
-                $or: [
-                    { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
-                    { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with fewer assignments than their subject count
-                ],
-            });
-        } else {
-            teachers = await Teacher.find({
-                $or: [
-                    { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
-                    { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with fewer assignments than their subject count
-                ],
-            });
+            // Filter out any empty strings from the teacherIds list
+            const validTeacherIds = teacherIds.filter(id => id.trim() !== "");
+            // Only push the teacher query if there are valid IDs
+            if (validTeacherIds.length > 0) {
+                teachersQuery.push({ _id: { $in: validTeacherIds } });
+            }
+        }
+
+        const teachers = await Teacher.find({ $and: teachersQuery });
+
+        if (teachers.length === 0) {
+            return res.status(400).json({ message: 'No eligible teachers available for assignment.' });
         }
 
         // Step 2: Fetch all internships with no assigned teacher
-        const internships = await Internship.find({ teacher: null });
+        const internships = await Internship.find({ teacher: null, isArchived: false });
 
-        // If there are no teachers or internships to assign, respond with an error
-        if (teachers.length === 0 || internships.length === 0) {
-            return res.status(400).json({ message: 'No teachers or unassigned internships available.' });
+        if (internships.length === 0) {
+            return res.status(400).json({ message: 'No unassigned internships available.' });
         }
 
-        // Step 3: Calculate total available subjects and internships
+        // Step 3: Ensure internships have topics
+        const internshipsWithTopics = internships.filter(internship => internship.topic?.title);
+
+        if (internshipsWithTopics.length === 0) {
+            return res.status(400).json({ message: 'No internships with topics available for assignment.' });
+        }
+
+        // Step 4: Calculate the number of internships per teacher
         const totalSubjects = teachers.reduce((sum, teacher) => sum + teacher.subjectCount, 0);
-        const totalInternships = internships.length;
+        const totalInternships = internshipsWithTopics.length;
 
         if (totalSubjects === 0 || totalInternships === 0) {
-            return res.status(400).json({ message: 'No available subjects or internships to assign.' });
+            return res.status(400).json({ message: 'No available internships or teachers with available capacity.' });
         }
 
-        // Step 4: Calculate internships per subject ratio
-        const internshipsPerSubject = totalInternships / totalSubjects;
-        console.log("internshipsPerSubject :", internshipsPerSubject);
+        const internshipsPerSubject = Math.max(1, totalInternships / totalSubjects); // Ensure a minimum of 1 internship per teacher
 
-        // Step 5: Assign internships to teachers and collect results
+        // Step 5: Assign internships to teachers
         let internshipIndex = 0;
         const results = []; // To store assignment details
 
@@ -433,16 +462,14 @@ export const assignTeachersToInternships = async (req, res) => {
 
             const assignedInternships = [];
             for (let i = 0; i < assignableCount && internshipIndex < totalInternships; i++) {
-                const internship = internships[internshipIndex];
+                const internship = internshipsWithTopics[internshipIndex];
 
                 // Assign the teacher to the internship
                 internship.teacher = teacher._id;
                 await internship.save();
 
-                // Add the internship to the teacher's assignedInternships array
+                // Add the internship to the teacher's list
                 teacher.assignedInternships.push(internship._id);
-
-                // Collect assigned internship details
                 assignedInternships.push({
                     id: internship._id,
                     title: internship.title,
@@ -451,32 +478,40 @@ export const assignTeachersToInternships = async (req, res) => {
                 });
 
                 internshipIndex++;
+                if (internshipIndex >= teacher.subjectCount) break;
             }
 
-            // Save teacher with updated assignedInternships
-            await teacher.save();
-
-            // Add assignment details to the results array
-            results.push({
-                teacher: {
-                    id: teacher._id,
-                    name: `${teacher.firstName} ${teacher.lastName}`,
-                    subjectCount: teacher.subjectCount,
-                },
-                assignedInternships,
-            });
-
-            // Stop assigning if all internships are assigned
-            if (internshipIndex >= totalInternships) break;
+            // Save the teacher with updated internships
+            if (assignedInternships.length > 0) {
+                await teacher.save();
+                results.push({
+                    teacher: {
+                        id: teacher._id,
+                        name: `${teacher.firstName} ${teacher.lastName}`,
+                        subjectCount: teacher.subjectCount,
+                    },
+                    assignedInternships,
+                });
+            }
         }
 
-        // Return the results in JSON format
-        res.status(200).json({ message: 'Internships successfully assigned to teachers.', results });
+        // Step 6: Return the results with a meaningful message
+        if (results.length === 0) {
+            return res.status(200).json({ message: 'No internships were assigned due to teacher availability.' });
+        }
+
+        const totalAssigned = results.reduce((acc, curr) => acc + curr.assignedInternships.length, 0);
+        res.status(200).json({
+            message: `${results.length} teachers successfully assigned a total of ${totalAssigned} internships.`,
+            results,
+        });
+
     } catch (error) {
         console.error('Error assigning internships to teachers:', error.message);
-        res.status(500).json({ error: 'Failed to assign internships to teachers.' });
+        res.status(500).json({ error: 'Failed to assign internships to teachers.', details: error.message });
     }
 };
+
 
 // JUST FOR DEVELOPMENT USE ONLY
 export const removeAllAssignedInternships = async (req, res) => {
