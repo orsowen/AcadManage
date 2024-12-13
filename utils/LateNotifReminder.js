@@ -1,4 +1,3 @@
-import schedule from "node-schedule";
 import { sendMail } from "../controllers/mailer.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import Internship from "../models/Internship.js";
@@ -12,11 +11,12 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
         const thresholdDate = new Date();
         thresholdDate.setDate(today.getDate() + days); // days from today
 
-        // Find active deposit periods ending soon
+        // Find active deposit periods ending today or within the next 'days'
         const depositPeriods = await DepositPeriod.findOne({
-            End_Deposit: { $lte: thresholdDate, $gte: today },
+            End_Deposit: { $in: [today.toISOString().split('T')[0], thresholdDate.toISOString().split('T')[0]] },
             For,
         });
+        console.log(depositPeriods);
 
         if (!depositPeriods) {
             console.log("No deposit periods ending soon.");
@@ -29,11 +29,11 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
         let internships;
 
         if (For == "STAGE") {
-            internships = await Internship.find({ isArchived: false }).select("student");
+            internships = await Internship.find({ isArchived: false, student: { $ne: null } }).select("student");
 
         }
         else if (For == "PFE") {
-            internships = await PFE.find({ isArchived: false }).select("student");
+            internships = await PFE.find({ isArchived: false, student: { $ne: null } }).select("student");
         }
         const submittedStudentIds = internships.map((internship) => internship.student.toString());
 
@@ -60,7 +60,7 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
                 await sendMail(email, subject, message);
                 console.log(`Notification sent to ${email}`);
             } else {
-                console.log(`Test notification (not sent) to ${email}`);
+                console.log(`Test notification (not sent) to ${email} (TESING)`);
             }
         }
     } catch (error) {
@@ -69,4 +69,4 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
 };
 
 // Schedule the job to run every day at 8:00 AM
-schedule.scheduleJob("0 8 * * *", () => notifyAboutDepositDeadline());
+// schedule.scheduleJob("0 8 * * *", () => notifyAboutDepositDeadline());
