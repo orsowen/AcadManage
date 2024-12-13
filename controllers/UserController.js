@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { sendMail } from './mailer.js';
+import XLSX from "xlsx";
 
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
@@ -13,9 +15,40 @@ export const generateRandomPassword = (length = 8) => {
     return password;
 };
 
+export async function sendCreds(email, password, isUpdate = false) {
+    if (!email) {
+        console.warn("Email address is required to send credentials.");
+        return;
+    }
+
+    const subject = isUpdate
+        ? "Mise à jour de vos informations de connexion"
+        : "Votre compte a été créé";
+
+    const message = `
+        <p>Bonjour,</p>
+        <p>${isUpdate ? "Vos informations de connexion ont été mises à jour." : "Votre compte a été créé avec succès. Voici vos informations de connexion :"} </p>
+        <ul>
+            <li><strong>Email:</strong> ${email}</li>
+            <li><strong>Mot de passe:</strong> ${password}</li>
+        </ul>
+        <b>NB : utilisez votre CIN comme login</b>
+        <p>Veuillez ${isUpdate ? "vérifier vos nouvelles informations" : "vous connecter dès que possible et changer votre mot de passe"} pour des raisons de sécurité.</p>
+        <p>Cordialement,</p>
+        <p>L'équipe de gestion.</p>
+    `;
+
+    try {
+        await sendMail(email, subject, message);
+        console.log(`Credentials ${isUpdate ? "update" : "creation"} email sent to ${email}`);
+    } catch (error) {
+        console.error(`Failed to send credentials email to ${email}:`, error);
+    }
+}
+
 // Create a new admin
 export const createAdmin = async (req, res) => {
-    const { cin, phone, email, teacher, student } = req.body;
+    const { cin, phone, email, teacher = null, student = null, sendCredsInMail = false } = req.body;
 
     // Validate required fields
     if (!cin || !phone || !email) {
@@ -53,6 +86,10 @@ export const createAdmin = async (req, res) => {
 
         // Save the user to the database
         const savedUser = await newUser.save();
+
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
 
         // Don't return the raw password in the response, instead notify the user.
         res.status(201).json({
@@ -138,6 +175,102 @@ export const createUser = async (req, res) => {
         }
 
         res.status(500).json({ message: 'Server error while creating user.', error: error.message });
+    }
+};
+
+export const createUserFromFile = async (req, res) => {
+    try {
+        // Check if a file was uploaded
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded. Please provide a file.' });
+        }
+
+        let filePath  = req.file.path;
+        console.log('File uploaded successfully:', filePath);
+        //console.log('Uploaded file:', req.file);
+        
+        // Read the Excel file
+        const workbook = XLSX.readFile(filePath);
+
+        // Get the first worksheet
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Convert the worksheet to JSON
+        const data = XLSX.utils.sheet_to_json(worksheet).slice(1);
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'The uploaded file is empty.' });
+        }
+
+        // Respond with the extracted data
+        res.status(200).json({ message: 'Data extracted successfully', data });
+
+    for (const item of data) {
+            let cin = item.cin
+            let role = item.role
+            let phone = item.phone
+            let email = item.email
+            let teacher = item.teacher
+            let student = item.student
+    
+            if (!cin || !role || !phone || !email) {
+                console.warn(`Skipping row ${index}: Missing required fields.`);
+                return res.status(400).json({ message: 'CIN, role, phone, and email are required.' });
+            }
+
+            // Email validation regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                console.warn(`Skipping row ${index}: Invalid email format.`);
+                return res.status(400).json({ message: 'Invalid email format.' });
+            }
+
+            // Validate role
+            const validRoles = ['admin', 'student', 'teacher'];
+            if (!validRoles.includes(role)) {
+                console.warn(`Skipping row ${index}: Invalid role.`);
+                return res.status(400).json({ message: 'Invalid role provided. Allowed roles: admin, student, teacher.' });
+            }
+
+            // Check if the user already exists
+            const existingUser = await User.findOne({ $or: [{ cin }, { email }, { phone }] });
+            if (existingUser) {
+                console.warn(`Skipping row ${index}: User already exists.`);
+                return res.status(400).json({ message: `${field} is already in use.` });
+            }
+
+            // Generate a random password
+            const password = generateRandomPassword();
+
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Create a new user object
+            const newUser = new User({
+                cin,
+                role,
+                phone,
+                email,
+                password: hashedPassword,
+                teacher,
+                student,
+            });
+
+            // Save the user to the database
+            const savedUser = await newUser.save();
+            users.push({ ...savedUser.toObject(), rawPassword: password });
+
+            // Send the password via email
+            await sendEmail(email, 'Your Account Credentials', `Your account has been created.\n\nCIN: ${cin}\nRole: ${role}\nPhone: ${phone}\nEmail: ${email}\nPassword: ${password}`);
+        //}
+        res.status(201).json({
+            message: 'Users created successfully.',
+            users,
+        });
+    }
+    } catch (error) {
+        console.error('Error processing Excel file:', error.message);
+        res.status(500).json({ message: 'Server error while processing Excel file.', error: error.message });
     }
 };
 
@@ -291,7 +424,7 @@ export const loginUser = async (req, res) => {
             cin: user.cin,
             role: user.role,
             email: user.email,
-        
+
         };
 
         // Add teacher or student ID to the payload if not admin
@@ -308,7 +441,7 @@ export const loginUser = async (req, res) => {
         res.status(200).json({ message: 'Login successful.', token, user });
     } catch (error) {
         console.error('Error logging in user:', error.message);
-        res.status(500).json({ message: 'Server error while logging in.', error : error.message });
+        res.status(500).json({ message: 'Server error while logging in.', error: error.message });
     }
 };
 
@@ -367,7 +500,7 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 // update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
 export const updatePassword = (role = "admin") => async (req, res) => {
     const { id } = req.params; // ID passed as a parameter
-    const { newpassword,passwordConfirmation } = req.body; // New password from the request body
+    const { newpassword,passwordConfirmation, sendCredsInMail = false} = req.body; // New password from the request body
 
     try {
         // Check if the password is provided
@@ -411,7 +544,10 @@ export const updatePassword = (role = "admin") => async (req, res) => {
 
         user.password = hashedPassword;
         await user.save();
-
+        // send updated creds in mail
+        if (sendCredsInMail) {
+            sendCreds(user.email, newpassword, true);
+        }
         // Respond with success message
         res.status(200).json({ message: 'Password updated successfully.' });
     } catch (error) {

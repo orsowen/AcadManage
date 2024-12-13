@@ -2,6 +2,7 @@ import schedule from "node-schedule";
 import { sendMail } from "../controllers/mailer.js";
 import DepositPeriod from "../models/DepositPeriod.js";
 import Internship from "../models/Internship.js";
+import PFE from "../models/PFE.js";
 import Student from "../models/Student.js";
 
 
@@ -25,7 +26,15 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
         console.log(`Processing deposit period for ${depositPeriods.For}, ending ${depositPeriods.End_Deposit}`);
 
         // Find students who haven't submitted their internship
-        const internships = await Internship.find({ isArchived: false }).select("student");
+        let internships;
+
+        if (For == "STAGE") {
+            internships = await Internship.find({ isArchived: false }).select("student");
+
+        }
+        else if (For == "PFE") {
+            internships = await PFE.find({ isArchived: false }).select("student");
+        }
         const submittedStudentIds = internships.map((internship) => internship.student.toString());
 
         // Get students who have not submitted

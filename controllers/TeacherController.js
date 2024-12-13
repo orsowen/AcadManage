@@ -2,11 +2,11 @@ import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import Teacher from '../models/Teachers.js';
 import User from '../models/User.js';
-import { generateRandomPassword } from './UserController.js';
+import { generateRandomPassword, sendCreds } from './UserController.js';
 
 // Create a new teacher
 export const createTeacher = async (req, res) => {
-    const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
+    const { lastName, firstName, cin, phone, email, subjectCount, sendCredsInMail = false } = req.body;
 
     // Initialize session for transactions
     const session = await mongoose.startSession();
@@ -65,6 +65,10 @@ export const createTeacher = async (req, res) => {
         // Associate the teacher with the created user
         savedTeacher.user = savedUser._id;
         await savedTeacher.save();
+
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
 
         // Return the created teacher and user data
         res.status(201).json({

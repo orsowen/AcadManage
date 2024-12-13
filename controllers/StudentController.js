@@ -1,9 +1,8 @@
 import bcrypt from 'bcrypt'
 import mongoose from 'mongoose'
-import CV from "../models/CV.js"
 import Student from '../models/Student.js'
 import User from '../models/User.js'
-import { generateRandomPassword } from './UserController.js'
+import { generateRandomPassword, sendCreds } from './UserController.js'
 // Create a new student
 export const createStudent = async (req, res) => {
     const {
@@ -11,7 +10,7 @@ export const createStudent = async (req, res) => {
         birthDate, governorate, gender, city, postalCode, nationality, bac,
         grade, isPrepa, university, etablissement, speciality, licenseYear,
         M1university, M1Etablissement, M1speciality, M1Year, M1Type, cFil, scoreG,
-        bacYear, address
+        bacYear, address, sendCredsInMail = false,
     } = req.body
 
     const session = await mongoose.startSession();
@@ -91,6 +90,10 @@ export const createStudent = async (req, res) => {
         savedStudent.user = savedUser._id;
         await savedStudent.save(); // Update the student with the user ID
 
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
+
         // Return the success response
         res.status(201).json({
             message: "Student and user created successfully.",
@@ -120,7 +123,7 @@ export const createCV = async (req, res) => {
     try {
         const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio, user } = req.body;
 
-        const newCV = new mongoose.model('Student')({lastName,firstName,Title,phoneNum,adress,socialMediaLinks,competence,languages,skills,hobbies,WorkExperience,education,objective,Bio});
+        const newCV = new mongoose.model('Student')({ lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, objective, Bio });
 
         const savedCV = await newCV.save();
         res.status(201).json({ model: savedCV, message: "CV created successfully" });

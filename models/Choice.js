@@ -15,11 +15,11 @@ const ChoiceSchema = new Schema({
   priority: {
     type: Number,
     required: true,
-    enum: [1, 2, 3], // Priorité 1, 2 ou 3
+    enum: [1, 2, 3], 
   },
   binome: {
     type: Schema.Types.ObjectId,
-    ref: "Student", // Référence à l'étudiant binôme
+    ref: "Student", 
     required: false,
   },
   teacherAcceptance: {
