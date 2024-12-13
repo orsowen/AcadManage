@@ -17,14 +17,17 @@ import {
     isStudent3rdYear,
     isTeacher
 } from '../middlewares/authentication.js';
+import { isDepotOpen } from '../middlewares/depositPeriodMiddleware.js';
 
 const router = express.Router();
 
 // Route for students to create a new PFE (Project)
-router.post('/post', isStudent3rdYear, isStudent, createPFE);
+let message = "PFE can only be added only during the deposit period."
+router.post('/post', isStudent3rdYear, isStudent, isDepotOpen("PFE", message), createPFE);
 
 // Route for students to update their PFE
-router.patch('/:id', isStudent3rdYear, isStudent, updatePFE);
+message = "PFE can only be modified only during the deposit period."
+router.patch('/:id', isStudent3rdYear, isStudent, isDepotOpen("PFE", message), updatePFE);
 
 // Route for admins or teachers to list all PFE information
 router.get('/', isAdminOrTeacher, ListAllPFEInfo);
