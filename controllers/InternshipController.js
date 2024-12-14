@@ -215,7 +215,10 @@ export const getInternshipById = async (req, res) => {
             return res.status(404).json({ message: "Stage introuvable." });
         }
 
-        res.status(200).json(internship);
+        res.status(200).json({
+            message: "Internship fetched successfully.",
+            data: internship,
+        });
     } catch (error) {
         console.error("Error fetching internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la récupération du stage." });

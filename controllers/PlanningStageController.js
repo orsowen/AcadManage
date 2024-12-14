@@ -291,7 +291,10 @@ export const getPlanningStageById = async (req, res) => {
         if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }
-        res.status(200).json(planningStage);
+        res.status(200).json({
+            message: "planning Stage fetched successfully.",
+            data: planningStage,
+        });
     } catch (error) {
         console.error('Error fetching planning stage:', error.message);
         res.status(500).json({ error: 'Failed to fetch planning stage.' });
