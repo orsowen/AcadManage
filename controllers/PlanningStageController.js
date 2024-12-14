@@ -2,7 +2,7 @@ import Internship from '../models/Internship.js';
 import PlanningStage from '../models/PlanningStage.js';
 import { sendMail } from './mailer.js';
 
-export const sendPlanningNotification = async (internshipDoc, planningDetails, isUpdate = false) => {
+export const sendPlanningNotification = async (internshipDoc, planningDetails, isUpdate = false, sendTo = "student") => {
     const studentEmail = internshipDoc.student?.user?.email;
     const studentName = `${internshipDoc.student?.firstName} ${internshipDoc.student?.lastName}`;
     const teacherName = `${internshipDoc.teacher?.firstName} ${internshipDoc.teacher?.lastName}`;
@@ -13,28 +13,72 @@ export const sendPlanningNotification = async (internshipDoc, planningDetails, i
 
     const { horaire, day, meet_link } = planningDetails;
 
-    if (studentEmail) {
-        const subject = isUpdate
-            ? "Mise à jour des détails de votre planning de stage"
-            : "Détails de votre planning de stage";
-        const message = `
-            <p>Bonjour ${studentName},</p>
-            <p>${isUpdate ? "Les détails de votre planning ont été mis à jour :" : "Voici les détails de votre planning :"}</p>
-            <ul>
-                <li><strong>Horaire :</strong> ${horaire}</li>
-                <li><strong>Jour :</strong> ${day}</li>
-                <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                <li><strong>Enseignant :</strong> ${teacherName}</li>
-                <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
-                <li><strong>Sujet :</strong> ${topicTitle}</li>
-                <li><strong>Description :</strong> ${topicDescription}</li>
-                <li><strong>Technologies :</strong> ${techList}</li>
-            </ul>
-            <p>Cordialement,</p>
-            <p>L'équipe de gestion de stages</p>
-        `;
+    const subjectPrefix = isUpdate
+        ? "Mise à jour des détails de votre planning de stage"
+        : "Détails de votre planning de stage";
 
-        await sendMail(studentEmail, subject, message);
+    const emailTemplates = {
+        student: {
+            recipientEmail: studentEmail,
+            recipientName: studentName,
+            subject: `${subjectPrefix} - Étudiant`,
+            message: `
+                <p>Bonjour ${studentName},</p>
+                <p>${isUpdate ? "Les détails de votre planning ont été mis à jour :" : "Voici les détails de votre planning :"}</p>
+                <ul>
+                    <li><strong>Horaire :</strong> ${horaire}</li>
+                    <li><strong>Jour :</strong> ${day}</li>
+                    <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                    <li><strong>Enseignant :</strong> ${teacherName}</li>
+                    <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
+                    <li><strong>Sujet :</strong> ${topicTitle}</li>
+                    <li><strong>Description :</strong> ${topicDescription}</li>
+                    <li><strong>Technologies :</strong> ${techList}</li>
+                </ul>
+                <p>Cordialement,</p>
+                <p>L'équipe de gestion de stages</p>
+            `,
+        },
+        teacher: {
+            recipientEmail: teacherEmail,
+            recipientName: teacherName,
+            subject: `${subjectPrefix} - Enseignant`,
+            message: `
+                <p>Bonjour ${teacherName},</p>
+                <p>${isUpdate ? "Les détails du planning de stage ont été mis à jour :" : "Voici les détails du planning de stage :"}</p>
+                <ul>
+                    <li><strong>Horaire :</strong> ${horaire}</li>
+                    <li><strong>Jour :</strong> ${day}</li>
+                    <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                    <li><strong>Étudiant :</strong> ${studentName}</li>
+                    <li><strong>Email étudiant :</strong> ${studentEmail || "Non disponible"}</li>
+                    <li><strong>Sujet :</strong> ${topicTitle}</li>
+                    <li><strong>Description :</strong> ${topicDescription}</li>
+                    <li><strong>Technologies :</strong> ${techList}</li>
+                </ul>
+                <p>Cordialement,</p>
+                <p>L'équipe de gestion de stages</p>
+            `,
+        },
+    };
+
+    if (sendTo === "student" && studentEmail) {
+        const { recipientEmail, subject, message } = emailTemplates.student;
+        await sendMail(recipientEmail, subject, message);
+    } else if (sendTo === "teacher" && teacherEmail) {
+        const { recipientEmail, subject, message } = emailTemplates.teacher;
+        await sendMail(recipientEmail, subject, message);
+    } else if (sendTo === "both") {
+        const emailPromises = [];
+        if (studentEmail) {
+            const { recipientEmail, subject, message } = emailTemplates.student;
+            emailPromises.push(sendMail(recipientEmail, subject, message));
+        }
+        if (teacherEmail) {
+            const { recipientEmail, subject, message } = emailTemplates.teacher;
+            emailPromises.push(sendMail(recipientEmail, subject, message));
+        }
+        await Promise.all(emailPromises);
     }
 };
 
@@ -358,7 +402,11 @@ export const updatePlanningStage = async (req, res) => {
         // Handle optional email notification
         if (shouldSendMail && planningStage.internship?.student?.user?.email) {
             const planningDetails = { horaire, day, meet_link };
-            await sendPlanningNotification(planningStage.internship, planningDetails, true);
+            if (role === "admin")
+                await sendPlanningNotification(planningStage.internship, planningDetails, true, "both");
+            else
+                await sendPlanningNotification(planningStage.internship, planningDetails, true, "student");
+
             // Update sendStatus
             planningStage.sendStatus = "Modified Sent";
             console.log("Notification email sent to:", planningStage.internship.student.user.email);
