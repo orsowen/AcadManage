@@ -39,10 +39,10 @@ router.patch('/:id/password', isAdmin, updatePassword("student"));
 router.delete('/:id', isAdmin, deleteStudent);
 
 // Archive a teacher
-router.put('/:id', isAdmin, toggleArchiveUser("student")); 
+router.put('/:id', isAdmin, toggleArchiveUser("student"));
 
 // Route to Archive user
-router.post('/CV/me', isStudent, createCV); 
+router.post('/CV/me', isStudent, createCV);
 // Route to Archive user
 //router.get('/CV/me', isStudent, getCvMe); 
 // get studiant/CV/me - get all professionel information of the studiant
