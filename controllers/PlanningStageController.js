@@ -2,105 +2,99 @@ import Internship from '../models/Internship.js';
 import PlanningStage from '../models/PlanningStage.js';
 import { sendMail } from './mailer.js';
 
+export const sendPlanningNotification = async (internshipDoc, planningDetails, isUpdate = false) => {
+    const studentEmail = internshipDoc.student?.user?.email;
+    const studentName = `${internshipDoc.student?.firstName} ${internshipDoc.student?.lastName}`;
+    const teacherName = `${internshipDoc.teacher?.firstName} ${internshipDoc.teacher?.lastName}`;
+    const teacherEmail = internshipDoc.teacher?.user?.email;
+    const topicTitle = internshipDoc.topic?.title || "Non spécifié";
+    const topicDescription = internshipDoc.topic?.description || "Non spécifié";
+    const techList = internshipDoc.topic?.techList?.join(", ") || "Non spécifiées";
+
+    const { horaire, day, meet_link } = planningDetails;
+
+    if (studentEmail) {
+        const subject = isUpdate
+            ? "Mise à jour des détails de votre planning de stage"
+            : "Détails de votre planning de stage";
+        const message = `
+            <p>Bonjour ${studentName},</p>
+            <p>${isUpdate ? "Les détails de votre planning ont été mis à jour :" : "Voici les détails de votre planning :"}</p>
+            <ul>
+                <li><strong>Horaire :</strong> ${horaire}</li>
+                <li><strong>Jour :</strong> ${day}</li>
+                <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                <li><strong>Enseignant :</strong> ${teacherName}</li>
+                <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
+                <li><strong>Sujet :</strong> ${topicTitle}</li>
+                <li><strong>Description :</strong> ${topicDescription}</li>
+                <li><strong>Technologies :</strong> ${techList}</li>
+            </ul>
+            <p>Cordialement,</p>
+            <p>L'équipe de gestion de stages</p>
+        `;
+
+        await sendMail(studentEmail, subject, message);
+    }
+};
+
 // Create a new Planning Stage
 export const createPlanningStage = async (req, res) => {
-    const teacherId = req.user.idRole; // Extract teacher ID from JWT token
-    const role = req.user.role; // Extract role from JWT token
-    const { horaire, day, meet_link, internship, sendMail: shouldSendMail } = req.body;
+    const { idRole: teacherId, role } = req.user; // Extract teacher ID and role from JWT token
+    const { horaire, day, meet_link, internship, shouldSendMail = false } = req.body;
 
     try {
-        // Check if internship exists and populate necessary details
-        const internshipDoc = await Internship.findById(internship)
-            .populate({
+        // Fetch the internship and populate necessary details
+        const internshipDoc = await Internship.findById(internship).populate([
+            {
                 path: "student",
                 select: "firstName lastName user",
-                populate: {
-                    path: "user",
-                    select: "email",
-                },
-            })
-            .populate({
+                populate: { path: "user", select: "email" },
+            },
+            {
                 path: "teacher",
                 select: "firstName lastName user",
-                populate: {
-                    path: "user",
-                    select: "email",
-                },
-            })
-            .populate({
+                populate: { path: "user", select: "email" },
+            },
+            {
                 path: "topic",
                 select: "title description techList",
-            });
+            },
+        ]);
 
         if (!internshipDoc) {
             return res.status(404).json({ error: "Internship not found." });
         }
 
-        // Check if a planning stage already exists for this internship
-        const existingPlanningStage = await PlanningStage.findOne({ internship });
-        if (existingPlanningStage) {
+        // Check if a planning stage already exists
+        if (await PlanningStage.exists({ internship })) {
             return res.status(400).json({ error: "Planning for this internship already exists." });
         }
 
-        // Ensure the user is authorized to plan this stage (teacher or admin)
-        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher.toString() && role !== "admin")) {
-            return res.status(403).json({ error: internshipDoc.teacher ? "Unauthorized to plan this stage." : "No teacher assigned to the internship." });
+        // Authorization check
+        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher._id.toString() && role !== "admin")) {
+            return res.status(403).json({
+                error: internshipDoc.teacher ? "Unauthorized to plan this stage." : "No teacher assigned to the internship.",
+            });
         }
 
-        // Create the new planning stage
-        const newPlanningStage = new PlanningStage({
-            horaire,
-            day,
-            meet_link,
-            internship,
-            sendStatus: "Not Sent", // Default status
-        });
-
-        // Save the new planning stage to the database
+        // Prepare and save the new planning stage
+        const newPlanningStage = new PlanningStage({ horaire, day, meet_link, internship, sendStatus: "Not Sent" });
         const savedPlanningStage = await newPlanningStage.save();
 
-        // Optionally send an email to the student with planning details
-        if (shouldSendMail) {
-            const studentEmail = internshipDoc.student?.user?.email;
-            const studentName = `${internshipDoc.student?.firstName} ${internshipDoc.student?.lastName}`;
-            const teacherName = `${internshipDoc.teacher?.firstName} ${internshipDoc.teacher?.lastName}`;
-            const teacherEmail = internshipDoc.teacher?.user?.email;
-            const topicTitle = internshipDoc.topic?.title || "Non spécifié";
-            const topicDescription = internshipDoc.topic?.description || "Non spécifié";
-            const techList = internshipDoc.topic?.techList?.join(", ") || "Non spécifiées";
+        // Update the internship with the planning stage reference
+        internshipDoc.planning = savedPlanningStage._id;
+        await internshipDoc.save();
 
-            if (studentEmail) {
-                const subject = "Détails de votre planning de stage";
-                const message = `
-                    <p>Bonjour ${studentName},</p>
-                    <p>Voici les détails de votre planning :</p>
-                    <ul>
-                        <li><strong>Horaire :</strong> ${horaire}</li>
-                        <li><strong>Jour :</strong> ${day}</li>
-                        <li><strong>Lien de réunion :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                        <li><strong>Enseignant :</strong> ${teacherName}</li>
-                        <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
-                        <li><strong>Sujet :</strong> ${topicTitle}</li>
-                        <li><strong>Description :</strong> ${topicDescription}</li>
-                        <li><strong>Technologies :</strong> ${techList}</li>
-                    </ul>
-                    <p>Cordialement,</p>
-                    <p>L'équipe de gestion de stages</p>
-                `;
-
-                await sendMail(studentEmail, subject, message);
-
-                // Update sendStatus to "First Sent"
-                savedPlanningStage.sendStatus = "First Sent";
-                await savedPlanningStage.save();
-
-                console.log("Email sent to student and status updated.");
-            } else {
-                console.warn("Student email not found, skipping email sending.");
-            }
+        // Send notification email if needed
+        if (shouldSendMail && internshipDoc.student?.user?.email) {
+            const planningDetails = { horaire, day, meet_link };
+            await sendPlanningNotification(internshipDoc, planningDetails, false);
+            savedPlanningStage.sendStatus = "First Sent"; // Update status after sending email
+            await savedPlanningStage.save();
         }
 
-        // Respond with the created planning stage
+        // Respond with success and the created planning stage
         res.status(201).json({
             message: "Planning stage created successfully.",
             savedPlanningStage,
@@ -110,6 +104,7 @@ export const createPlanningStage = async (req, res) => {
         res.status(500).json({ error: "Failed to create planning stage." });
     }
 };
+
 
 // get all the planning stages
 export const getAllPlanningStages = async (req, res) => {
@@ -313,48 +308,78 @@ export const getPlanningStageByStudent = async (req, res) => {
 
 // Update a Planning Stage
 export const updatePlanningStage = async (req, res) => {
-    const teacherId = req.user.idRole; // Extract teacher ID from JWT token
+    const { idRole: teacherId, role } = req.user; // Extract teacher ID and role from JWT token
     const { id } = req.params;
-    const { horaire, day, meet_link, internship } = req.body;
+    // const { horaire, day, meet_link, internship, shouldSendMail = false } = req.body;
+    const { horaire, day, meet_link, shouldSendMail = false } = req.body;
 
     try {
-        // Fetch the planning stage and populate the internship's teacher details
-        const planningStage = await PlanningStage.findById(id).populate({
-            path: 'internship',
-            populate: { path: 'teacher', select: '_id' },
+        // Fetch the planning stage and populate necessary details
+        const planningStage = await PlanningStage.findById(id)
+            .populate({
+                path: 'internship', // Populate internship field
+                select: 'title topic student teacher', // Select specific fields from internship
+                populate: [
+                    {
+                        path: 'student', // Populate student inside internship
+                        select: 'firstName lastName', // Fetch these fields from student
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
+                    },
+                    {
+                        path: 'teacher', // Populate teacher inside internship
+                        select: 'firstName lastName', // Fetch these fields from teacher
+                        populate: {
+                            path: 'user', // Populate user to fetch email
+                            select: 'email', // Select only email from user
+                        },
+                    },
+                ],
+            }) // Populate internship, student, and teacher details
+
+
+        if (!planningStage) return res.status(404).json({ message: "Planning Stage not found." });
+
+        // Authorization check: Only the assigned teacher or admin can update the planning stage
+        const isAuthorized = role === "admin" || planningStage.internship.teacher?._id.toString() === teacherId;
+        if (!isAuthorized) {
+            return res.status(403).json({ message: "Not authorized to update this planning stage." });
+        }
+
+        // Update fields if provided
+        Object.assign(planningStage, {
+            ...(horaire && { horaire }),
+            ...(day && { day }),
+            ...(meet_link && { meet_link }),
         });
 
-        if (!planningStage) {
-            return res.status(404).json({ message: 'Planning Stage not found.' });
+        // Handle optional email notification
+        if (shouldSendMail && planningStage.internship?.student?.user?.email) {
+            const planningDetails = { horaire, day, meet_link };
+            await sendPlanningNotification(planningStage.internship, planningDetails, true);
+            // Update sendStatus
+            planningStage.sendStatus = "Modified Sent";
+            console.log("Notification email sent to:", planningStage.internship.student.user.email);
         }
 
-        // Check if the logged-in teacher is authorized to update this planning stage
-        if (planningStage.internship.teacher._id.toString() !== teacherId) {
-            return res.status(403).json({ message: 'Not authorized to update this planning stage.' });
-        }
-
-        // Validate and update fields
-        if (horaire) planningStage.horaire = horaire;
-        if (day) planningStage.day = day;
-        if (meet_link) planningStage.meet_link = meet_link;
-        if (internship) planningStage.internship = internship;
-
-        // Save the updated planning stage
+        // Save the updated planning stage, including sendStatus
         const updatedPlanningStage = await planningStage.save();
 
-        // Respond with the updated planning stage
         res.status(200).json({
-            message: 'Planning Stage updated successfully.',
+            message: `Planning Stage updated successfully${shouldSendMail ? " and notification sent." : "."}`,
             data: updatedPlanningStage,
         });
     } catch (error) {
-        console.error('Error updating planning stage:', error.message);
+        console.error("Error updating planning stage:", error.message);
         res.status(500).json({
-            message: 'An error occurred while updating the planning stage.',
+            message: "An error occurred while updating the planning stage.",
             error: error.message,
         });
     }
 };
+
 
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
@@ -395,7 +420,7 @@ export const updatePublicationStatus = async (req, res) => {
     try {
         // Update all non-archived PlanningStage objects
         const result = await PlanningStage.updateMany(
-            { isArchived: false }, // Condition: not archived
+            { isArchived: false, isPublished: !isPublish }, // Condition: not archived
             { isPublished: isPublish } // Update: set isPublished to true/false based on the response
         );
 
@@ -421,18 +446,12 @@ export const sendMailPlanning = async (req, res) => {
                     {
                         path: "student",
                         select: "firstName lastName user",
-                        populate: {
-                            path: "user",
-                            select: "email",
-                        },
+                        populate: { path: "user", select: "email" },
                     },
                     {
                         path: "teacher",
                         select: "firstName lastName user",
-                        populate: {
-                            path: "user",
-                            select: "email",
-                        },
+                        populate: { path: "user", select: "email" },
                     },
                     {
                         path: "topic",
@@ -445,90 +464,73 @@ export const sendMailPlanning = async (req, res) => {
             return res.status(404).json({ message: "Aucun planning trouvé à envoyer." });
         }
 
-        const emailsToSend = [];
-
-        // Build email content dynamically
-        for (const stage of planningStages) {
+        const emailsToSend = planningStages.flatMap(stage => {
             const { horaire, day, meet_link, sendStatus } = stage;
             const { internship } = stage;
             const { topic, student, teacher } = internship || {};
-
             const studentEmail = student?.user?.email;
             const teacherEmail = teacher?.user?.email;
 
-            if (!topic) continue;
+            if (!topic || !studentEmail || !teacherEmail) return [];
 
-            // Determine email subject and message based on `sendStatus`
-            const isFirstSend = sendStatus === "First Sent";
             const isModifiedSend = sendStatus === "Modified Sent";
+            const emailSubject = isModifiedSend ? "Détails modifiés de votre planning de stage" : "Détails de votre planning de stage";
 
-            const emailSubject = isModifiedSend
-                ? "Détails modifiés de votre planning de stage"
-                : "Détails de votre planning de stage";
+            const emailMessage = `
+                <p>Bonjour ${student.firstName} ${student.lastName},</p>
+                <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"} du planning pour le stage :</p>
+                <ul>
+                    <li><strong>Horaire :</strong> ${horaire}</li>
+                    <li><strong>Jour :</strong> ${day}</li>
+                    <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
+                    <li><strong>Enseignant :</strong> ${teacher.firstName} ${teacher.lastName}</li>
+                    <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
+                    <li><strong>Sujet :</strong> ${topic.title}</li>
+                    <li><strong>Description :</strong> ${topic.description}</li>
+                    <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
+                </ul>
+            `;
 
-            // Prepare email message for teacher
-            if (teacherEmail) {
-                emailsToSend.push({
+            return [
+                {
                     email: teacherEmail,
                     subject: emailSubject,
                     message: `
-                        <p>Cher ${teacher.firstName} ${teacher.lastName},</p>
-                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"
-                        } du planning pour le stage :</p>
+                        <p>Bonjour ${teacher.firstName} ${teacher.lastName},</p>
+                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"} du planning pour le stage :</p>
                         <ul>
                             <li><strong>Horaire :</strong> ${horaire}</li>
                             <li><strong>Jour :</strong> ${day}</li>
                             <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                            <li><strong>Étudiant :</strong> ${student?.firstName} ${student?.lastName}</li>
+                            <li><strong>Étudiant :</strong> ${student.firstName} ${student.lastName}</li>
                             <li><strong>Email étudiant :</strong> ${studentEmail || "Non disponible"}</li>
                             <li><strong>Sujet :</strong> ${topic.title}</li>
                             <li><strong>Description :</strong> ${topic.description}</li>
                             <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
                         </ul>
                     `,
-                });
-            }
-
-            // Prepare email message for student
-            if (studentEmail) {
-                emailsToSend.push({
+                },
+                {
                     email: studentEmail,
                     subject: emailSubject,
-                    message: `
-                        <p>Cher ${student.firstName} ${student.lastName},</p>
-                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"
-                        } du planning pour le stage :</p>
-                        <ul>
-                            <li><strong>Horaire :</strong> ${horaire}</li>
-                            <li><strong>Jour :</strong> ${day}</li>
-                            <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                            <li><strong>Enseignant :</strong> ${teacher?.firstName} ${teacher?.lastName}</li>
-                            <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
-                            <li><strong>Sujet :</strong> ${topic.title}</li>
-                            <li><strong>Description :</strong> ${topic.description}</li>
-                            <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
-                        </ul>
-                    `,
-                });
-            }
-        }
+                    message: emailMessage,
+                },
+            ];
+        });
 
         if (emailsToSend.length === 0) {
             return res.status(400).json({ message: "Aucune adresse email trouvée à envoyer." });
         }
 
-        // Send emails
-        const emailPromises = emailsToSend.map(({ email, subject, message }) =>
-            sendMail(email, subject, message)
+        // Send emails using sendMail utility
+        await Promise.all(
+            emailsToSend.map(({ email, subject, message }) => sendMail(email, subject, message))
         );
-        await Promise.all(emailPromises);
 
-        // Update the send status for all planning stages
+        // Update sendStatus after sending emails
         await PlanningStage.updateMany(
             { isPublished: true, isArchived: false },
-            {
-                sendStatus: "Modified Sent", // Set to "Modified Sent" after emails are successfully sent
-            }
+            { sendStatus: "Modified Sent" }
         );
 
         res.status(200).json({ message: "Emails envoyés avec succès." });

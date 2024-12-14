@@ -296,7 +296,7 @@ export const loginUser = async (req, res) => {
     const { cin, password } = req.body;
 
     try {
-        // Find the user by cin
+        // Find the user by CIN
         const user = await User.findOne({ cin });
 
         if (!user) {
@@ -304,42 +304,36 @@ export const loginUser = async (req, res) => {
         }
 
         if (user.isArchived) {
-            return res.status(404).json({ message: 'This account is Archived, please contact Admin' });
+            return res.status(403).json({ message: 'This account is archived. Please contact admin.' });
         }
 
-        // Compare passwords
+        // Compare password with the stored hash
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
-        // Conditionally populate fields based on role
-        if (user.role === 'teacher') {
-            await user.populate('teacher', '-__v'); // Populate teacher
-            user.student = undefined; // Remove student field
-        } else if (user.role === 'student') {
-            await user.populate('student', '-__v'); // Populate student
-            user.teacher = undefined; // Remove teacher field
-        }
-
-        // Generate JWT token with teacherId or studentId depending on the role
+        // Prepare payload
         const payload = {
             userId: user._id,
             cin: user.cin,
             role: user.role,
             email: user.email,
-
         };
 
-        // Add teacher or student ID to the payload if not admin
+        // Add additional data to the payload based on user role
         if (user.role !== 'admin') {
-            payload.idRole = user.role === 'teacher' ? user.teacher._id : user.student._id;
+            const roleSpecificData = user.role === 'teacher' ? user.teacher : user.student;
+
+            payload.idRole = roleSpecificData._id;
+
             if (user.role === 'student') {
                 payload.isStillStudent = user.student.isGraduated === false;
                 payload.grade = user.student.grade;
             }
         }
-        // console.log(payload);
+
+        // Generate JWT token with 24 hours expiration
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
 
         res.status(200).json({ message: 'Login successful.', token, user });

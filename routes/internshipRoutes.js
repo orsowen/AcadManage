@@ -16,6 +16,7 @@ import {
 } from '../controllers/internshipController.js';
 import {
     isAdmin,
+    isAdminOrTeacher,
     isStillStudent,
     isStudent,
     isStudentOrAdmin,
@@ -39,7 +40,7 @@ let message = "STAGE can only be added during the deposit period."
 router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", message), addInternship);
 
 // Get all internships
-router.get('/', isAdmin, getAllInternships);
+router.get('/', isAdminOrTeacher, getAllInternships);
 
 // Get an internship by ID
 router.get('/:id', isTeacher, getInternshipById);
@@ -59,7 +60,7 @@ router.delete('/:id', isAdmin, deleteInternship);
 router.post('/planning/assign', isAdmin, assignTeachersToInternships);
 
 // manual add teacher to internship
-router.post('/planning/update', isAdmin, addTeacherToInternship);
+router.put('/planning/update', isAdmin, addTeacherToInternship);
 
 // FOR DEVELOPMENT USE ONLY
 router.post('/planning/remove-all-assigned', isAdmin, removeAllAssignedInternships);
