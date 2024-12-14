@@ -7,7 +7,14 @@ import { generateRandomPassword, sendCreds } from './UserController.js';
 // Create a new teacher
 export const createTeacher = async (req, res) => {
     const { lastName, firstName, cin, phone, email, subjectCount, sendCredsInMail = false } = req.body;
-
+    if (!(/^[0-9]+$/.test(cin)) || cin.length < 8) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
+    // Email validation regex
+    const emailRegex = /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format.' });
+    }
     // Initialize session for transactions
     const session = await mongoose.startSession();
     session.startTransaction();

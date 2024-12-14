@@ -23,7 +23,7 @@ const UserSchema = new Schema(
       type: String,
       required: true,
       unique: true, // Email should be unique
-      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Validate email format
+      match: /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/, // Validate email format
     },
 
     phone: {
