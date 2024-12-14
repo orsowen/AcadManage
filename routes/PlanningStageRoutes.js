@@ -9,7 +9,7 @@ import {
     updatePlanningStage,
     updatePublicationStatus,
 } from '../controllers/PlanningStageController.js';
-import { isAdmin, isAdminOrTeacher, isStillStudent, isStudent } from "../middlewares/authentication.js";
+import { isAdmin, isAdminOrTeacher, isStillStudent, isStudent, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ router.get('/me', isStillStudent, isStudent, getPlanningStageByStudent);
 router.get('/:id', getPlanningStageById);
 
 // Create a new planning stage
-router.post('/', isAdminOrTeacher, createPlanningStage);
+router.post('/', isTeacher, createPlanningStage);
 
 // SEND EMAIL
 router.post('/send', isAdmin, sendMailPlanning);

@@ -24,7 +24,7 @@ const validateFiles = (documents) => {
 // Add a new internship
 export const addInternship = async (req, res) => {
     // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
-    const { title, documents, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails } = req.body;
+    const { title, documents = null, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails, noDocs = false } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
     // Validate dates (StartDate should be before EndDate)
     if (new Date(StartDate) > new Date(EndDate)) {
@@ -36,18 +36,18 @@ export const addInternship = async (req, res) => {
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
+        if (!noDocs && documents) {
+            // Validate documents input
+            if (!documents.ficheEval || !documents.attestation || !documents.rapport) {
+                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            }
 
-        // Validate documents input
-        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
-            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            // Validate file formats using the validateFiles function
+            const fileValidation = validateFiles(documents);
+            if (!fileValidation.isValid) {
+                return res.status(400).json({ error: fileValidation.message });
+            }
         }
-
-        // Validate file formats using the validateFiles function
-        const fileValidation = validateFiles(documents);
-        if (!fileValidation.isValid) {
-            return res.status(400).json({ error: fileValidation.message });
-        }
-
         // Validate the student (if provided)
         let student = null;
         if (studentId) {
@@ -215,7 +215,10 @@ export const getInternshipById = async (req, res) => {
             return res.status(404).json({ message: "Stage introuvable." });
         }
 
-        res.status(200).json(internship);
+        res.status(200).json({
+            message: "Internship fetched successfully.",
+            data: internship,
+        });
     } catch (error) {
         console.error("Error fetching internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la récupération du stage." });

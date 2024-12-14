@@ -222,11 +222,15 @@ export const getStudentById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const student = await Student.findById(id);
+        const student = await Student.findById(id)
+            .populate('user', 'email phone');;
         if (!student) {
             return res.status(404).json({ message: 'Student not found.' });
         }
-        res.status(200).json(student);
+        res.status(200).json({
+            message: "Student fetched successfully.",
+            data: student,
+        });
     } catch (error) {
         console.error('Error fetching student by ID:', error.message);
         res.status(500).json({ error: 'Failed to fetch student.' });
@@ -253,7 +257,10 @@ export const getStudentProfile = async (req, res) => {
         }
 
         // Respond with the student profile
-        res.status(200).json(student);
+        res.status(200).json({
+            message: "Student fetched successfully.",
+            data: student,
+        });
     } catch (error) {
         console.error('Error fetching student profile:', error.message);
         res.status(500).json({ error: 'Failed to fetch student profile.' });

@@ -62,7 +62,7 @@ const InternshipSchema = new Schema({
     },
     documents: {
         type: DocsSchema, // Embedding the DocsSchema
-        required: true, // Make this field mandatory
+        // required: true, // Make this field mandatory
     },
     nomSociete: {
         type: String,
@@ -126,12 +126,14 @@ const InternshipSchema = new Schema({
 // Pre-save hook to check if all documents are present and update isDeposed field
 InternshipSchema.pre('save', function (next) {
     // Check if all documents in DocsSchema exist
-    const { ficheEval, attestation, rapport } = this.documents;
-    if (ficheEval && attestation && rapport) {
-        this.isDeposed = true;  // Set isDeposed to true if all documents are present
-    } else {
-        this.isDeposed = false; // Otherwise, set it to false
+    if (this.documents) {
+        const { ficheEval, attestation, rapport } = this.documents;
+        if (ficheEval && attestation && rapport) {
+            this.isDeposed = true;  // Set isDeposed to true if all documents are present
+            return next();
+        }
     }
+    this.isDeposed = false; // Otherwise, set it to false
     next();
 });
 // Create and export the Internship model
