@@ -16,6 +16,7 @@ export const notifyAboutDepositDeadline = async (For = "STAGE", days = 3, isTest
             End_Deposit: { $in: [today.toISOString().split('T')[0], thresholdDate.toISOString().split('T')[0]] },
             For,
         });
+        console.log(depositPeriods);
 
         if (!depositPeriods) {
             console.log("No deposit periods ending soon.");
