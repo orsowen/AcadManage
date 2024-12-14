@@ -26,7 +26,7 @@ router.get('/cin/:cin', isAdmin, getUserByCin);
 // router.post('/register', isAdmin, createUser); 
 
 // create a new ADmin
-router.post('/register', createAdmin);
+router.post('/register', isAdmin, createAdmin);
 
 // Update user details
 router.patch('/:id', isAdmin, updateUser);
