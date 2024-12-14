@@ -1,6 +1,5 @@
 import express from "express";
 import {
-
     // createUser,
     createAdmin,
     deleteUser,
@@ -27,7 +26,7 @@ router.get('/cin/:cin', isAdmin, getUserByCin);
 // router.post('/register', isAdmin, createUser); 
 
 // create a new ADmin
-router.post('/register', isAdmin, createAdmin);
+router.post('/register', createAdmin);
 
 // Update user details
 router.patch('/:id', isAdmin, updateUser);

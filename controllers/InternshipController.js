@@ -205,6 +205,10 @@ export const getInternshipById = async (req, res) => {
                     select: 'email', // Populate the user's email linked to the teacher
                 },
             })
+            .populate({
+                path: "planning", // Populate
+                select: "horaire day meet_link",
+            })
             .exec();
 
         if (!internship) {
@@ -338,7 +342,7 @@ export const deleteInternship = async (req, res) => {
 // MANUAL ADDING TEACHER TO INTERNSHIPS
 export const addTeacherToInternship = async (req, res) => {
     try {
-        const { internshipIds, teacherId } = req.body;
+        const { internshipIds, teacherId, forceReplace = false } = req.body; // Adding forceReplace option
 
         // Check if internshipIds is an array and not empty
         if (!Array.isArray(internshipIds) || internshipIds.length === 0) {
@@ -370,13 +374,19 @@ export const addTeacherToInternship = async (req, res) => {
                 }
 
                 // Check if the internship already has an assigned teacher
-                if (internship.teacher) {
-                    failures.push({ internshipId, message: 'This internship already has an assigned teacher.' });
+                if (internship.teacher && !forceReplace) {
+                    failures.push({ internshipId, message: 'This internship already has an assigned teacher. Use "forceReplace" to overwrite.' });
                     continue;
                 }
 
                 // Assign the teacher to the internship
                 internship.teacher = teacherId;
+
+                // If forceReplace is true, replace the existing topic with the new teacher's topic (if applicable)
+                if (forceReplace && internship.topic) {
+                    internship.topic = { ...internship.topic, teacher: teacherId }; // Example of replacing or updating the topic
+                }
+
                 await internship.save();
 
                 // Add the internship to the teacher's assignedInternships array
@@ -566,6 +576,10 @@ export const getAssignedInternships = async (req, res) => {
                     select: 'email', // Select only email from user
                 },
             })
+            .populate({
+                path: "planning", // Populate
+                select: "horaire day meet_link",
+            })
             .select("-teacher")  // Exclude the teacher field from the result
             .skip((currentPage - 1) * currentLimit) // Skip results for pagination
             .limit(currentLimit) // Limit the results per page
@@ -694,6 +708,10 @@ export const getInternshipByStudentToken = async (req, res) => {
                     select: 'email', // Populate teacher's email from the User model
                 },
             })
+            .populate({
+                path: "planning", // Populate
+                select: "horaire day meet_link",
+            })
             .skip((currentPage - 1) * currentLimit) // Skip the appropriate number of results based on the page
             .limit(currentLimit) // Limit the number of results to the specified limit
             .exec();
@@ -747,7 +765,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
     try {
         // Fetch internships with pagination and populate relevant fields
         const internships = await Internship.find(filter)
-            .select('-_id -student -isArchived -documents -topic')
+            .select('-_id -student -isArchived -documents -topic -planning')
             .skip((currentPage - 1) * currentLimit)
             .limit(currentLimit)
             .populate({
