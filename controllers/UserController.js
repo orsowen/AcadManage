@@ -313,6 +313,13 @@ export const loginUser = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
+        // Conditionally populate fields based on role
+        if (user.role === 'teacher') {
+            await user.populate('teacher', '-__v'); // Populate teacher details
+        } else if (user.role === 'student') {
+            await user.populate('student', '-__v'); // Populate student details
+        }
+
         // Prepare payload
         const payload = {
             userId: user._id,
@@ -328,8 +335,8 @@ export const loginUser = async (req, res) => {
             payload.idRole = roleSpecificData._id;
 
             if (user.role === 'student') {
-                payload.isStillStudent = user.student.isGraduated === false;
-                payload.grade = user.student.grade;
+                payload.isStillStudent = roleSpecificData.isGraduated === false;
+                payload.grade = roleSpecificData.grade;
             }
         }
 
