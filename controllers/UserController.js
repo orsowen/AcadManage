@@ -53,6 +53,9 @@ export const createAdmin = async (req, res) => {
     if (!cin || !phone || !email) {
         return res.status(400).json({ message: 'CIN, phone, and email are required.' });
     }
+    if (!(/^[0-9]+$/.test(cin))) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
     // Email validation regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -119,8 +122,11 @@ export const createUser = async (req, res) => {
     if (!cin || !role || !phone || !email) {
         return res.status(400).json({ message: 'CIN, role, phone, and email are required.' });
     }
+    if (!(/^[0-9]+$/.test(cin)) || cin.length < 8) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
     // Email validation regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
     if (!emailRegex.test(email)) {
         return res.status(400).json({ message: 'Invalid email format.' });
     }
