@@ -491,7 +491,7 @@ export const assignTeachersToInternships = async (req, res) => {
                 });
 
                 internshipIndex++;
-                if (internshipIndex >= teacher.subjectCount) break;
+                if (i >= teacher.subjectCount) break;
             }
 
             // Save the teacher with updated internships
