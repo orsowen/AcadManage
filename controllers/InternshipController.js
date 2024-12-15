@@ -9,78 +9,88 @@ const validateFiles = (documents) => {
     const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
     const { attestation, rapport, ficheEval } = documents;
 
-    // Check if each file follows the allowed extension
-    if (!fileValidation.test(attestation) || !fileValidation.test(rapport) || !fileValidation.test(ficheEval)) {
+    // Check if each file is non-null and follows the allowed extension
+    if (
+        (attestation && !fileValidation.test(attestation)) ||
+        (rapport && !fileValidation.test(rapport)) ||
+        (ficheEval && !fileValidation.test(ficheEval))
+    ) {
         return {
             isValid: false,
             message: "Invalid file format. Only PDF or DOCX files are allowed for attestation, rapport, and ficheEval.",
         };
     }
 
-    return { isValid: true }; // All files are valid
+    return { isValid: true }; // All files are valid or skipped
 };
 
 
 // Add a new internship
 export const addInternship = async (req, res) => {
-    // const { title, documents, StartDate, EndDate, typeInternship, studentId, teacherId, topicDetails } = req.body;
-    const { title, documents = null, StartDate, EndDate, typeInternship, nomSociete, teacherId, topicDetails, noDocs = false } = req.body;
+    const {
+        title,
+        documents,
+        StartDate,
+        EndDate,
+        typeInternship,
+        nomSociete,
+        teacherId,
+        topicDetails,
+        noDocs = false
+    } = req.body;
     const studentId = req.user.idRole; // Extract student ID from JWT token
-    // Validate dates (StartDate should be before EndDate)
+
+    // Validate date input
     if (new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
     }
 
     try {
-        // Validate topicDetails input
+        // Validate topic details
         if (!topicDetails || !topicDetails.title || !topicDetails.description || !topicDetails.techList) {
             return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
         }
-        if (!noDocs && documents) {
-            // Validate documents input
-            if (!documents.ficheEval || !documents.attestation || !documents.rapport) {
-                return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
-            }
 
-            // Validate file formats using the validateFiles function
+        // Handle document validation if `noDocs` is false
+        if (!noDocs) {
             const fileValidation = validateFiles(documents);
             if (!fileValidation.isValid) {
                 return res.status(400).json({ error: fileValidation.message });
             }
         }
-        // Validate the student (if provided)
-        let student = null;
-        if (studentId) {
-            student = await Student.findById(studentId);
-            if (!student) {
-                return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-            }
+
+        // Ensure documents are set to `null` if `noDocs` is true
+        const validatedDocuments = noDocs
+            ? { ficheEval: null, attestation: null, rapport: null }
+            : documents;
+
+        // Validate student existence
+        const student = studentId ? await Student.findById(studentId) : null;
+        if (studentId && !student) {
+            return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
         }
 
-        // Validate the teacher (if provided)
-        let teacher = null;
-        if (teacherId) {
-            teacher = await Teacher.findById(teacherId);
-            if (!teacher) {
-                return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
-            }
-            // Ensure teacher is not assigned to the maximum number of internships
-            if (teacher.subjectCount <= teacher.assignedInternships.length) {
-                return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
-            }
+        // Validate teacher existence
+        const teacher = teacherId ? await Teacher.findById(teacherId) : null;
+        if (teacherId && !teacher) {
+            return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
         }
 
-        // Fetch the deposit period for "STAGE" and calculate the depotStatus
-        const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 }); // Get the latest period
-        let depotStatus = "in time";  // Default to "in time"
-
-        if (depositPeriod && new Date(depositPeriod.End_Deposit) < new Date()) {
-            depotStatus = "late";  // If the deposit period has ended, set status to "late"
+        // Ensure teacher has available slots
+        if (teacher && teacher.subjectCount <= teacher.assignedInternships.length) {
+            return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
         }
-        // Create the internship object with the provided topic and student/teacher if available
+
+        // Determine deposit status based on the latest deposit period
+        const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
+        const depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date()
+            ? "late"
+            : "in time";
+
+        // Create the internship object
         const newInternship = new Internship({
             title,
-            documents,
+            documents: validatedDocuments,
             StartDate,
             EndDate,
             nomSociete,
@@ -98,21 +108,31 @@ export const addInternship = async (req, res) => {
         // Save the internship
         const savedInternship = await newInternship.save();
 
-        // If a teacher is associated, add the internship to the teacher's list of assigned internships
+        // Update teacher's assigned internships
         if (teacher) {
             teacher.assignedInternships.push(savedInternship._id);
             await teacher.save();
         }
 
-        // Respond with the created internship details
-        res.status(201).json({ message: "Internship created successfully.", savedInternship });
-
+        // Respond with the created internship
+        const response = {
+            message: "Internship created successfully.",
+        };
+        if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
+            response.warning = "Les documents sont incomplets.";
+        }
+        response.internship = savedInternship;
+        res.status(201).json(response);
     } catch (error) {
-        // Handle and log unexpected errors
         console.error("Error adding internship:", error.message);
-        res.status(500).json({ error: "Erreur lors de l'ajout du stage.", error });
+
+        res.status(500).json({
+            error: "Erreur lors de l'ajout du stage.",
+            details: error.message,
+        });
     }
 };
+
 
 // get all Internships
 export const getAllInternships = async (req, res) => {
@@ -227,10 +247,9 @@ export const getInternshipById = async (req, res) => {
 
 // Update an internship and its associated topic (if true update only the documents)
 export const updateInternship = (onlyDocument = false) => async (req, res) => {
-    const studentId = req.user.idRole; // Extract student ID from JWT token
-    const role = req.user.role; // Extract role from JWT token
+    const { idRole: studentId, role } = req.user; // Extract student ID and role from JWT token
     const { id } = req.params;
-    const { title, documents, StartDate, EndDate, topicDetails, nomSociete } = req.body;
+    const { title, documents = {}, StartDate, EndDate, topicDetails, nomSociete } = req.body;
 
     // Validate date range if provided
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
@@ -238,7 +257,6 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
     }
 
     try {
-
         // Fetch the internship for updating
         const internship = await Internship.findById(id);
         if (!internship) {
@@ -249,44 +267,48 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
         if (internship.student._id.toString() !== studentId && role !== "admin") {
             return res.status(403).json({ message: "Unauthorized" });
         }
-
+        // Initialize documents if not provided
+        if (!internship.documents) {
+            internship.documents = {};
+        }
         // Handle document update (ficheEval, attestation, rapport)
-        if (documents) {
-            const { ficheEval, attestation, rapport } = documents;
+        const { ficheEval, attestation, rapport } = documents;
 
-            // Check if the necessary documents are provided
-            if (!ficheEval || !attestation || !rapport) {
-                return res.status(400).json({ error: "Les documents du stage sont incomplets." });
-            }
-
-            // Validate file formats using the validateFiles function
+        // Validate documents if provided
+        if (ficheEval || attestation || rapport) {
             const fileValidation = validateFiles(documents);
             if (!fileValidation.isValid) {
                 return res.status(400).json({ error: fileValidation.message });
             }
 
-            // Update internship documents
-            internship.documents.ficheEval = ficheEval;
-            internship.documents.attestation = attestation;
-            internship.documents.rapport = rapport;
+            // Update internship documents, set null if not provided
+            internship.documents.ficheEval = ficheEval || null;
+            internship.documents.attestation = attestation || null;
+            internship.documents.rapport = rapport || null;
         }
 
-        // Update other fields (topic, title, dates, etc.) if not only updating documents
+        // Update depotStatus and isDeposed if documents are complete
+        if (ficheEval && attestation && rapport) {
+            const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
+            internship.depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date() ? "late" : "in time";
+            internship.isDeposed = true;
+        } else {
+            internship.isDeposed = false; // Set to false if documents are not complete
+        }
+
+        // Update other fields if not only updating documents
         if (!onlyDocument) {
-            // Ensure topic details are provided
             if (topicDetails) {
                 const { title, description, techList } = topicDetails;
-
                 if (!title || !description || !techList) {
                     return res.status(400).json({ error: "Les détails du sujet sont incomplets." });
                 }
-
                 internship.topic.title = title;
                 internship.topic.description = description;
                 internship.topic.techList = techList;
             }
 
-            // Update the rest of the fields (title, dates, etc.)
+            // Update internship fields (title, dates, company name)
             if (title) internship.title = title;
             if (StartDate) internship.StartDate = StartDate;
             if (EndDate) internship.EndDate = EndDate;
@@ -543,6 +565,7 @@ export const removeAllAssignedInternships = async (req, res) => {
 
         for (const internship of internships) {
             internship.teacher = null; // Remove the teacher reference
+            if (!internship.documents) internship.documents = {};
             await internship.save(); // Save the internship document
         }
 
@@ -757,7 +780,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
     const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 5;
 
     // Build the filter object dynamically
-    const filter = { student: studentId, isArchived: false };
+    const filter = { student: studentId, isArchived: false, isValid: { $ne: null } };
 
     if (isValid !== undefined) filter.isValid = isValid === 'true'; // Ensure isValid is a boolean
     if (Type) filter.Type = Type;
