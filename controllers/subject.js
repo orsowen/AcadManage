@@ -385,6 +385,40 @@ export const assignTeacherToSubject = async (req, res) => {
     
 };
 
+export const assignStudentToSubject = async (req, res) => {
+    const { subjectId, studentId } = req.body;
+    console.log(subjectId, studentId);
+    
+    if (!subjectId || !studentId) {
+        return res.status(400).json({ message: 'ID de matière et ID d\'étudiant sont requis.' });
+    }
+
+    try {
+        const subject = await
+        Subject.findById(subjectId);
+        if (!subject) {
+            return res.status(404).json({ message: 'Matière introuvable.' });
+        }
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Etudiant introuvable.' });
+        }
+        // Vérifier si l'étudiant n'est pas déjà affecté à la matière
+        if (subject.students.includes(studentId)) {
+            return res.status(400).json({ message: 'L\'étudiant est déjà affecté à la matière.' });
+        }
+        subject.students.push(studentId);
+        await subject.save();
+        res.status(200).json({ message: 'Etudiant affecté à la matière',
+            subject: subject.title,
+            student: student.firstName +'' + student.lastName, });
+        
+    } catch (error) {
+        console.error("Erreur lors de l'affectation de l'étudiant :", error);
+        res.status(500).json({ error: "Erreur serveur." });
+        }
+    };
+    
 
 
 
