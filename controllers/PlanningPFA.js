@@ -106,17 +106,15 @@ export const getPlanningByTeacher = async (req, res) => {
   }
 };
 
+//8.2 by student
 export const getPlanningByStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
     console.log("Student ID:", studentId);
 
-    // 1. Chercher tous les sujets où l'étudiant est impliqué comme monome ou binome
+    // Chercher tous les sujets où l'étudiant est impliqué comme monome ou binome
     const subjects = await Subject_PFA.find({
-      $or: [
-        { monome: studentId }, // Si l'étudiant est le monome
-        { binome: studentId }, // Si l'étudiant est le binome
-      ],
+      $or: [{ monome: studentId }, { binome: studentId }],
     }).exec();
 
     console.log("Sujets trouvés:", subjects);
@@ -127,13 +125,21 @@ export const getPlanningByStudent = async (req, res) => {
         .json({ message: "Aucun sujet trouvé pour cet étudiant." });
     }
 
-    // 2. Chercher toutes les soutenances qui correspondent aux sujets trouvés
+    // Extraire les IDs des sujets trouvés
     const subjectIds = subjects.map((subject) => subject._id);
 
+    // Chercher toutes les soutenances qui correspondent aux sujets trouvés
     const planning = await SoutenancePFA.find({
       subject: { $in: subjectIds }, // Chercher les soutenances liées aux sujets trouvés
     })
-      .populate("subject", "title teacher monome binome") // Charger les infos du sujet
+      .populate({
+        path: "subject",
+        select: "title teacher monome binome",
+        populate: [
+          { path: "monome", select: "firstName lastName" },
+          { path: "binome", select: "firstName lastName" },
+        ],
+      })
       .exec();
 
     console.log("Planning trouvé:", planning);
@@ -143,10 +149,101 @@ export const getPlanningByStudent = async (req, res) => {
         .status(404)
         .json({ message: "Aucune soutenance trouvée pour cet étudiant." });
     }
-
     res.status(200).json({ planning });
   } catch (error) {
     console.error("Erreur lors de la récupération du planning :", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+//8.3 update soutenances
+export const updateSoutenance = async (req, res) => {
+  try {
+    const { id } = req.params; // ID de la soutenance à modifier
+    const { teacher, rapporteur, room, date, startTime } = req.body;
+
+    console.log(`Modification de la soutenance ${id}`);
+
+    // Vérifier si la soutenance existe
+    const soutenance = await SoutenancePFA.findById(id);
+    if (!soutenance) {
+      return res
+        .status(404)
+        .json({ message: "La soutenance demandée n'existe pas." });
+    }
+
+    // Calculer automatiquement endTime (durée fixe de 30 minutes)
+    const [startHours, startMinutes] = startTime.split(":").map(Number);
+    const endTime = `${startHours}:${(startMinutes + 30) % 60}`; // Ajout de 30 minutes
+    console.log(`Calculated endTime: ${endTime}`);
+
+    // Vérification des chevauchements horaires pour la salle
+    const overlapRoom = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Ignorer la soutenance actuelle
+      room: room,
+      date: date,
+      $or: [
+        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+      ],
+    });
+
+    if (overlapRoom) {
+      return res
+        .status(400)
+        .json({ message: "La salle est déjà réservée à cet horaire." });
+    }
+
+    // Vérification des chevauchements horaires pour l'enseignant
+    const overlapTeacher = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Ignorer la soutenance actuelle
+      teacher: teacher,
+      date: date,
+      $or: [
+        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+      ],
+    });
+
+    if (overlapTeacher) {
+      return res.status(400).json({
+        message:
+          "L'enseignant est déjà assigné à une autre soutenance à cet horaire.",
+      });
+    }
+
+    // Vérification des chevauchements horaires pour le rapporteur
+    const overlapRapporteur = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Ignorer la soutenance actuelle
+      rapporteur: rapporteur,
+      date: date,
+      $or: [
+        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+      ],
+    });
+
+    if (overlapRapporteur) {
+      return res.status(400).json({
+        message:
+          "Le rapporteur est déjà assigné à une autre soutenance à cet horaire.",
+      });
+    }
+
+    // Mise à jour des champs
+    soutenance.teacher = teacher || soutenance.teacher;
+    soutenance.rapporteur = rapporteur || soutenance.rapporteur;
+    soutenance.room = room || soutenance.room;
+    soutenance.date = date || soutenance.date;
+    soutenance.startTime = startTime || soutenance.startTime;
+    soutenance.endTime = endTime || soutenance.endTime;
+
+    // Sauvegarder la soutenance modifiée
+    const updatedSoutenance = await soutenance.save();
+
+    res.status(200).json({
+      message: "Soutenance mise à jour avec succès.",
+      soutenance: updatedSoutenance,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la modification de la soutenance :", error);
+    res.status(500).json({ message: "Erreur interne du serveur." });
   }
 };
