@@ -11,7 +11,7 @@ import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
 import routerPFA from "./PFA.js";
 import choicePFA from "./Choice.js";
-import soutenancesPFARoutes from "./routes/PlanningPFARoutes.js";
+import soutenancesPFARoutes from "./PlanningPFARoutes.js";
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/", choicePFA);
-app.use("/PFA", soutenancesPFARoutes);
+router.use("/PFA", soutenancesPFARoutes);
 // Hot l route mta3ek lenna fi 3oudh fi App.js
 // esstaamel router.use() mouch app.use() w kahaw mriguel : mriguel
 

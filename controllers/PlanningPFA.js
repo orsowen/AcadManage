@@ -82,3 +82,71 @@ export const generateSoutenances = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+//8.2 By teacher
+export const getPlanningByTeacher = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur
+    const planning = await SoutenancePFA.find({
+      $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+    })
+      .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
+      .exec();
+
+    if (planning.length === 0) {
+      return res.status(404).json({ message: "Aucune soutenance trouvée." });
+    }
+
+    res.status(200).json({ planning });
+  } catch (error) {
+    console.error("Erreur lors de la récupération du planning :", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getPlanningByStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    console.log("Student ID:", studentId);
+
+    // 1. Chercher tous les sujets où l'étudiant est impliqué comme monome ou binome
+    const subjects = await Subject_PFA.find({
+      $or: [
+        { monome: studentId }, // Si l'étudiant est le monome
+        { binome: studentId }, // Si l'étudiant est le binome
+      ],
+    }).exec();
+
+    console.log("Sujets trouvés:", subjects);
+
+    if (!subjects || subjects.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Aucun sujet trouvé pour cet étudiant." });
+    }
+
+    // 2. Chercher toutes les soutenances qui correspondent aux sujets trouvés
+    const subjectIds = subjects.map((subject) => subject._id);
+
+    const planning = await SoutenancePFA.find({
+      subject: { $in: subjectIds }, // Chercher les soutenances liées aux sujets trouvés
+    })
+      .populate("subject", "title teacher monome binome") // Charger les infos du sujet
+      .exec();
+
+    console.log("Planning trouvé:", planning);
+
+    if (!planning || planning.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Aucune soutenance trouvée pour cet étudiant." });
+    }
+
+    res.status(200).json({ planning });
+  } catch (error) {
+    console.error("Erreur lors de la récupération du planning :", error);
+    res.status(500).json({ message: error.message });
+  }
+};
