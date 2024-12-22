@@ -9,8 +9,6 @@ import {
 
 import { isStudent } from "../middlewares/authentication.js";
 
-import { isStudent } from "../middlewares/authentication.js";
-
 const router = express.Router();
 
 // Route pour ajouter un choix de sujet student

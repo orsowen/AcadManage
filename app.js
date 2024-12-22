@@ -7,6 +7,7 @@ import router from "./routes/index.js";
 import routerPFA from "./routes/PFARoutes.js";
 import PFE from "./routes/PFE.js";
 import choicePFA from "./routes/ChoiceRoutes.js";
+import soutenancesPFARoutes from "./routes/PlanningPFARoutes.js";
 
 // ENVIRONMENT variables configuration
 dotenv.config();
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use(["/PFE", "/PFA", "/STAGE"], DepositPeriod);
 app.use("/PFE", PFE);
 app.use("/PFA", routerPFA);
+app.use("/PFA", soutenancesPFARoutes);
 app.use("/", choicePFA);
 
 // All the endpoints below are in index.js for a better ordering and structure
