@@ -148,6 +148,7 @@ export const addChoice = async (req, res) => {
 export const updatePriority = async (req, res) => {
   try {
     const { choiceId, newPriority } = req.body;
+    const studentId = req.user.idRole;
 
     // Vérifier que la nouvelle priorité est valide
     if (![1, 2, 3].includes(newPriority)) {
@@ -159,9 +160,15 @@ export const updatePriority = async (req, res) => {
     if (!choice) {
       return res.status(404).json({ message: "Choice not found" });
     }
+     // Vérifier que le choix appartient à l'étudiant authentifié
+     if (choice.student._id.toString() !== studentId) {
+      return res.status(403).json({ message: "You are not authorized to update this choice" });
+    }
 
     // Vérifier que la nouvelle priorité est unique pour l'étudiant
-    const student = await Student.findById(choice.student._id).populate("choices");
+    const student = await Student.findById(studentId).populate("choices");
+
+    
     const existingPriorityChoice = student.choices.find(
       (c) => c.priority === newPriority && c._id.toString() !== choiceId
     );
