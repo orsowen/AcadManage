@@ -43,8 +43,8 @@ export const createPlanningStage = async (req, res) => {
         }
 
         // Ensure the user is authorized to plan this stage (teacher or admin)
-        if (teacherId !== internshipDoc.teacher._id.toString() && role !== "admin") {
-            return res.status(403).json({ error: "Unauthorized to plan this stage." });
+        if (!internshipDoc.teacher || (teacherId !== internshipDoc.teacher.toString() && role !== "admin")) {
+            return res.status(403).json({ error: internshipDoc.teacher ? "Unauthorized to plan this stage." : "No teacher assigned to the internship." });
         }
 
         // Create the new planning stage
@@ -111,7 +111,6 @@ export const createPlanningStage = async (req, res) => {
     }
 };
 
-
 // get all the planning stages
 export const getAllPlanningStages = async (req, res) => {
     const {
@@ -121,62 +120,104 @@ export const getAllPlanningStages = async (req, res) => {
         horaire,
         meet_link,
         startDate,
-        endDate
-    } = req.query; // Default to page 1 and 5 results per page
-    const skip = (page - 1) * limit;
-    try {
-        // Build the filter object dynamically
-        let filter = {};
-        if (day) filter.day = new Date(day); // Filter by specific day
-        if (horaire) filter.horaire = Number(horaire); // Filter by horaire
-        if (meet_link) filter.meet_link = { $regex: meet_link, $options: 'i' }; // Case-insensitive match for meet_link
+        endDate,
+    } = req.query;
 
-        // Range filters for day
-        if (startDate || endDate) {
-            filter.day = {};
-            if (startDate) filter.day.$gte = new Date(startDate); // Day >= startDate
-            if (endDate) filter.day.$lte = new Date(endDate); // Day <= endDate
+    // Validate and parse pagination parameters
+    const currentPage = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+    const currentLimit = parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+    // Dynamically build the filter object
+    const filter = {};
+
+    // Apply filters based on query parameters
+    if (day) {
+        const parsedDay = new Date(day);
+        if (isNaN(parsedDay)) {
+            return res.status(400).json({ error: "Invalid day format. Use YYYY-MM-DD." });
         }
+        filter.day = parsedDay;
+    }
 
-        // Fetch Planning Stages with the provided filters, pagination, and population
+    if (horaire) {
+        const parsedHoraire = Number(horaire);
+        if (isNaN(parsedHoraire)) {
+            return res.status(400).json({ error: "Invalid horaire format. It must be a number." });
+        }
+        filter.horaire = parsedHoraire;
+    }
+
+    if (meet_link) {
+        filter.meet_link = { $regex: meet_link, $options: "i" }; // Case-insensitive match
+    }
+
+    // Range filters for day
+    if (startDate || endDate) {
+        filter.day = {};
+        if (startDate) {
+            const parsedStartDate = new Date(startDate);
+            if (isNaN(parsedStartDate)) {
+                return res.status(400).json({ error: "Invalid startDate format. Use YYYY-MM-DD." });
+            }
+            filter.day.$gte = parsedStartDate;
+        }
+        if (endDate) {
+            const parsedEndDate = new Date(endDate);
+            if (isNaN(parsedEndDate)) {
+                return res.status(400).json({ error: "Invalid endDate format. Use YYYY-MM-DD." });
+            }
+            filter.day.$lte = parsedEndDate;
+        }
+    }
+
+    try {
+        // Fetch Planning Stages with filters, pagination, and population
         const planningStages = await PlanningStage.find(filter)
             .populate({
-                path: 'internship', // Populate internship field
-                select: 'title topic student teacher', // Select specific fields from internship
+                path: "internship",
+                select: "title topic student teacher",
                 populate: [
                     {
-                        path: 'student', // Populate student inside internship
-                        select: 'firstName lastName', // Fetch these fields from student
+                        path: "student",
+                        select: "firstName lastName",
                         populate: {
-                            path: 'user', // Populate user to fetch email
-                            select: 'email', // Select only email from user
+                            path: "user",
+                            select: "email",
                         },
                     },
                     {
-                        path: 'teacher', // Populate teacher inside internship
-                        select: 'firstName lastName', // Fetch these fields from teacher
+                        path: "teacher",
+                        select: "firstName lastName",
                         populate: {
-                            path: 'user', // Populate user to fetch email
-                            select: 'email', // Select only email from user
+                            path: "user",
+                            select: "email",
                         },
                     },
                 ],
-            }) // Populate internship, student, and teacher details
-            .skip(skip) // Skip results for previous pages
-            .limit(Number(limit)); // Limit the results to the specified number
-        // Fetch the total count of filtered Planning Stages
+            })
+            .skip((currentPage - 1) * currentLimit)
+            .limit(currentLimit);
+
+        // Fetch total count of filtered Planning Stages
         const total = await PlanningStage.countDocuments(filter);
+
+        if (planningStages.length === 0) {
+            return res.status(404).json({ message: "No planning stages found with the given filters." });
+        }
 
         res.status(200).json({
             total,
-            page: Number(page),
-            limit: Number(limit),
-            totalPages: Math.ceil(total / limit),
+            page: currentPage,
+            limit: currentLimit,
+            totalPages: Math.ceil(total / currentLimit),
             data: planningStages,
         });
     } catch (error) {
-        console.error('Error fetching planning stages:', error.message);
-        res.status(500).json({ error: 'Failed to fetch planning stages.' });
+        console.error("Error fetching planning stages:", error.message);
+        res.status(500).json({
+            error: "An unexpected error occurred while fetching planning stages.",
+            details: error.message,
+        });
     }
 };
 
@@ -315,12 +356,20 @@ export const updatePlanningStage = async (req, res) => {
     }
 };
 
-
 // Delete a Planning Stage
 export const deletePlanningStage = async (req, res) => {
     const { id } = req.params;
+    const { force } = req.body;
 
     try {
+        // SOFT DELETE
+        if (!force) {
+            const planningStage = await PlanningStage.findById(id);
+            planningStage.isArchived = true;
+            await planningStage.save();
+            return res.status(200).json({ message: 'Planning Stage archived successfully.' });
+        }
+        // HARD DELETE
         const deletedPlanningStage = await PlanningStage.findByIdAndDelete(id);
         if (!deletedPlanningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
@@ -360,7 +409,7 @@ export const updatePublicationStatus = async (req, res) => {
     }
 };
 
-// 
+// Send mail to teachers and students to inform them of planning
 export const sendMailPlanning = async (req, res) => {
     try {
         // Fetch all published and non-archived planning stages

@@ -14,4 +14,5 @@ router.get("/open", isAdmin, getDepositPeriods);
 
 router.patch("/open", isAdmin, updateDepositPeriod);
 
+
 export default router;

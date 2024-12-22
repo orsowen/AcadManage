@@ -59,11 +59,6 @@ const StudentSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-
-    isArchived: {
-        type: Boolean,
-        default: false, // Default value
-    },
     isPrepa: {
         type: Boolean,
     },
