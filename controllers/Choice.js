@@ -380,3 +380,207 @@ export const getChoiceById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+// Obtenir les choix de sujets d'un étudiant
+export const getStudentChoices = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+    console.log(studentId);
+    const student = await Student.findById(studentId).populate({
+      path: "choices",
+      populate: [
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+          },
+        },
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        }, // Sélectionner les champs spécifiques du binome
+      ],
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Préparer les choix pour la réponse
+    const choices = student.choices.map((choice) => {
+      const { title, description, technologies, teacher } = choice.subject;
+      const result = {
+        title,
+        description,
+        technologies,
+        teacher,
+        teacherAcceptance: choice.teacherAcceptance,
+        valid : choice.valid
+      };
+      if (choice.binome) {
+        result.binome = choice.binome;
+      }
+      return result;
+    });
+
+    res.status(200).json(choices);
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Affecter automatiquement les choix d'un étudiant
+
+export const autoAssignChoices = async (req, res) => {
+  try {
+    const students = await Student.find().populate({
+      path: "choices",
+      populate: [
+        {
+          path: "subject",
+          model: "Subject_PFA",
+          select: "title description technologies teacher binome monome",
+          populate: {
+            path: "teacher",
+            model: "Teacher",
+            select: "firstName lastName email",
+          },
+        },
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        },
+      ],
+    });
+
+    for (const student of students) {
+      // Étape 1 : Vérifier si l'enseignant a ajouté l'étudiant lors de la création du sujet PFA et si l'acceptation de l'enseignant mise par l'étudiant est true
+      const approvedChoices = student.choices.filter(choice => 
+        (choice.subject.monome && choice.subject.monome.toString() === student._id.toString() || 
+         choice.subject.binome && choice.subject.binome.toString() === student._id.toString()) && 
+        choice.teacherAcceptance
+      );
+
+      // Marquer les choix approuvés comme valides
+      for (const choice of approvedChoices) {
+        choice.valid = true;
+        await choice.save();
+      }
+
+      // Vérifier si aucun choix n'a été validé à l'étape 1
+      if (approvedChoices.length === 0) {
+        // Étape 2 : Affecter les priorités 1 si pas de conflits
+        const priority1Choices = student.choices.filter(choice => choice.priority === 1 && !choice.teacherAcceptance && !choice.valid);
+
+        for (const choice of priority1Choices) {
+          // Vérifier si un autre étudiant a déjà ce choix avec priorité 1
+          const conflictChoice = await Choice.findOne({
+            subject: choice.subject._id,
+            priority: 1,
+            valid: true
+          });
+
+          if (!conflictChoice) {
+            choice.valid = true;
+            await choice.save();
+          }
+        }
+      }
+
+      // Étape 3 : Laisser les autres choix non affectés
+      const otherChoices = student.choices.filter(choice => !choice.valid);
+      for (const choice of otherChoices) {
+        choice.valid = false;
+        await choice.save();
+      }
+    }
+
+    res.status(200).json({ message: "Auto assignment completed successfully for all students" });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Affecter un sujet PFA à un étudiant
+export const assignPFAtoStudent = async (req, res) => {
+  try {
+    const { id: subjectId, studentId } = req.params;
+    const { force } = req.body;
+
+    // Trouver le sujet PFA
+    const subject = await Subject_PFA.findById(subjectId);
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    // Trouver l'étudiant
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Vérifier si le sujet est déjà affecté à un autre étudiant
+    const existingChoice = await Choice.findOne({ subject: subjectId, valid: true });
+    if (existingChoice) {
+      if (!force) {
+        return res.status(400).json({ message: "Subject already assigned to another student" });
+      } else {
+        // Retirer le sujet de l'autre étudiant
+        existingChoice.valid = false;
+        await existingChoice.save();
+      }
+    }
+
+    // Vérifier si le choix existe déjà pour l'étudiant
+    let studentChoice = await Choice.findOne({ student: studentId, subject: subjectId });
+    if (studentChoice) {
+      // Mettre à jour le choix existant
+      studentChoice.valid = true;
+      studentChoice.teacherAcceptance = true; // Vous pouvez ajuster cette valeur selon vos besoins
+      await studentChoice.save();
+    } else {
+      // Créer un nouveau choix pour l'étudiant
+      studentChoice = new Choice({
+        student: studentId,
+        subject: subjectId,
+        priority: 1, // Vous pouvez ajuster la priorité selon vos besoins
+        valid: true,
+        teacherAcceptance: true // Vous pouvez ajuster cette valeur selon vos besoins
+      });
+
+      await studentChoice.save();
+
+      // Ajouter le choix à la liste des choix de l'étudiant
+      student.choices.push(studentChoice._id);
+      await student.save();
+    }
+
+    res.status(200).json({ message: "Subject assigned to student successfully", choice: studentChoice });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Supprimer les choix de tous les étudiants
+export const clearAllStudentChoices = async (req, res) => {
+  try {
+    // Mettre à jour tous les étudiants pour supprimer leurs choix
+    await Student.updateMany({}, { $set: { choices: [] } });
+
+    res.status(200).json({ message: "All student choices have been cleared successfully" });
+  } catch (error) {
+    console.error("Error clearing student choices:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+

@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
@@ -14,7 +15,7 @@ const ChoiceSchema = new Schema({
   },
   priority: {
     type: Number,
-    required: true,
+    required:false,
     enum: [1, 2, 3], // Priorité 1, 2 ou 3
   },
   binome: {
@@ -23,6 +24,11 @@ const ChoiceSchema = new Schema({
     required: false,
   },
   teacherAcceptance: {
+    type: Boolean,
+    default: false,
+    required: false,
+  },
+  valid: {
     type: Boolean,
     default: false,
     required: false,
