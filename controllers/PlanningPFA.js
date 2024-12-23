@@ -206,12 +206,12 @@ export const updateSoutenance = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
     }
-
+    console.log(existingSoutenance.room, startTime);
     // Vérifier les chevauchements : même horaire, même salle
     const overlappingSoutenanceSameRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
-      room,
-      date,
+      room: { $in: [room, existingSoutenance.room] },
+      date: { $in: [date, existingSoutenance.date] },
       $or: [
         {
           $and: [
@@ -233,7 +233,7 @@ export const updateSoutenance = async (req, res) => {
         },
       ],
     });
-
+    console.log(overlappingSoutenanceSameRoom);
     if (overlappingSoutenanceSameRoom) {
       return res.status(400).json({
         message: "Une autre soutenance occupe déjà cet horaire et cette salle.",
@@ -244,7 +244,7 @@ export const updateSoutenance = async (req, res) => {
     const overlappingSoutenanceDifferentRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
       room: { $ne: room },
-      date,
+      date: { $in: [date, existingSoutenance.date] },
       $or: [
         { teacher: teacher || existingSoutenance.teacher },
         { rapporteur: rapporteur || existingSoutenance.rapporteur },
@@ -299,19 +299,23 @@ export const updateSoutenance = async (req, res) => {
       }
     }
 
-    // Mettre à jour la soutenance
-    existingSoutenance.date = date;
-    existingSoutenance.startTime = startTime;
-    existingSoutenance.endTime = calculatedEndTime;
-    existingSoutenance.room = room;
-    if (teacher) existingSoutenance.teacher = teacher;
-    if (rapporteur) existingSoutenance.rapporteur = rapporteur;
-
-    await existingSoutenance.save();
+    // Mise à jour des champs en une seule opération
+    const updatedSoutenance = await SoutenancePFA.findByIdAndUpdate(
+      id,
+      {
+        date,
+        startTime,
+        endTime: calculatedEndTime,
+        room,
+        ...(teacher && { teacher }),
+        ...(rapporteur && { rapporteur }),
+      },
+      { new: true } // Retourner le document mis à jour
+    );
 
     res.status(200).json({
       message: "Soutenance mise à jour avec succès.",
-      soutenance: existingSoutenance,
+      soutenance: updatedSoutenance,
     });
   } catch (error) {
     console.error("Erreur lors de la mise à jour de la soutenance :", error);
