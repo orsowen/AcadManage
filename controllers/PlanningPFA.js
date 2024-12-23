@@ -206,34 +206,24 @@ export const updateSoutenance = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
     }
-    console.log(existingSoutenance.room, startTime);
+    const roomToCheck = room || existingSoutenance.room;
+    const startTimeTocheck = startTime || existingSoutenance.startTime;
+    const endTimeTocheck = calculatedEndTime || existingSoutenance.endTime;
+    const dateToCheck = date || existingSoutenance.date;
     // Vérifier les chevauchements : même horaire, même salle
     const overlappingSoutenanceSameRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
-      room: { $in: [room, existingSoutenance.room] },
-      date: { $in: [date, existingSoutenance.date] },
+      room: roomToCheck,
+      date: dateToCheck,
       $or: [
         {
           $and: [
-            { startTime: { $lte: startTime } },
-            { endTime: { $gte: startTime } },
-          ],
-        },
-        {
-          $and: [
-            { startTime: { $lte: calculatedEndTime } },
-            { endTime: { $gte: calculatedEndTime } },
-          ],
-        },
-        {
-          $and: [
-            { startTime: { $gte: startTime } },
-            { endTime: { $lte: calculatedEndTime } },
+            { startTime: { $gte: startTimeTocheck } },
+            { endTime: { $lte: endTimeTocheck } },
           ],
         },
       ],
     });
-    console.log(overlappingSoutenanceSameRoom);
     if (overlappingSoutenanceSameRoom) {
       return res.status(400).json({
         message: "Une autre soutenance occupe déjà cet horaire et cette salle.",
@@ -244,33 +234,19 @@ export const updateSoutenance = async (req, res) => {
     const overlappingSoutenanceDifferentRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
       room: { $ne: room },
-      date: { $in: [date, existingSoutenance.date] },
-      $or: [
-        { teacher: teacher || existingSoutenance.teacher },
-        { rapporteur: rapporteur || existingSoutenance.rapporteur },
-      ],
+      date: dateToCheck,
+      teacher: teacher || existingSoutenance.teacher,
+      rapporteur: rapporteur || existingSoutenance.rapporteur,
       $or: [
         {
           $and: [
-            { startTime: { $lte: startTime } },
-            { endTime: { $gte: startTime } },
-          ],
-        },
-        {
-          $and: [
-            { startTime: { $lte: calculatedEndTime } },
-            { endTime: { $gte: calculatedEndTime } },
-          ],
-        },
-        {
-          $and: [
-            { startTime: { $gte: startTime } },
-            { endTime: { $lte: calculatedEndTime } },
+            { startTime: { $gte: startTimeTocheck } },
+            { endTime: { $lte: endTimeTocheck } },
           ],
         },
       ],
     });
-
+    console.log(overlappingSoutenanceDifferentRoom);
     if (overlappingSoutenanceDifferentRoom) {
       if (!teacher && !rapporteur) {
         // Cas où aucun enseignant ni rapporteur n'est fourni
