@@ -16,6 +16,7 @@ export const generateSoutenances = async (req, res) => {
       });
     }
 
+    // Récupérer les sujets approuvés avec leurs encadrants
     const subjects = await Subject_PFA.find({ status: "Approved" })
       .populate("teacher", "firstName lastName")
       .exec();
@@ -24,33 +25,56 @@ export const generateSoutenances = async (req, res) => {
       return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
     }
 
-    const teachers = await Teacher.find().exec();
-
     let soutenances = [];
     let currentDayIndex = 0;
     let currentRoomIndex = 0;
-    let currentHour = 9; // Début à 9h00
+    let currentHour = 9; // Heure de début
+    let currentMinute = 0; // Minute de début
+
+    // Création d'une file circulaire des enseignants qui seront rapporteurs
+    const teacherQueue = subjects.map((subject) => subject.teacher);
 
     for (const subject of subjects) {
       // Déterminer la date et la salle
       const date = days[currentDayIndex];
       const room = rooms[currentRoomIndex];
 
-      // Ajouter une soutenance
-      const startTime = `${currentHour}:00`;
-      const endTime = `${currentHour + 0.5}:00`;
+      // Formater l'heure de début
+      const startTime = `${String(currentHour).padStart(2, "0")}:${String(
+        currentMinute
+      ).padStart(2, "0")}`;
 
-      // Trouver un rapporteur différent de l'encadrant
-      const rapporteur = teachers.find(
-        (teacher) => teacher._id.toString() !== subject.teacher._id.toString()
-      );
+      // Calculer l'heure de fin après 30 minutes
+      let totalMinutes = currentHour * 60 + currentMinute + 30; // Ajouter 30 minutes
+      const endHour = Math.floor(totalMinutes / 60);
+      const endMinute = totalMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, "0")}:${String(
+        endMinute
+      ).padStart(2, "0")}`;
+
+      // Trouver un rapporteur qui n'est pas l'encadrant du sujet
+      let rapporteur = null;
+      let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
+      while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
+        const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
+        if (
+          potentialRapporteur._id.toString() !== subject.teacher._id.toString()
+        ) {
+          rapporteur = potentialRapporteur;
+          teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
+          break;
+        }
+        teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
+        attempts++;
+      }
 
       if (!rapporteur) {
         return res
           .status(500)
-          .json({ message: "Impossible de trouver un rapporteur." });
+          .json({ message: "Impossible de trouver un rapporteur valide." });
       }
 
+      // Ajouter la soutenance à la liste
       soutenances.push({
         subject: subject._id,
         date,
@@ -61,12 +85,15 @@ export const generateSoutenances = async (req, res) => {
         rapporteur: rapporteur._id,
       });
 
-      // Mettre à jour les indices pour jour, salle et heure
-      currentHour += 0.5; // Ajouter 30 minutes
-      if (currentHour >= 15) {
-        // Fin de journée à 15h
-        currentHour = 9; // Revenir à 9h le jour suivant
-        currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Changer de salle
+      // Mettre à jour les indices pour la prochaine soutenance
+      currentHour = endHour;
+      currentMinute = endMinute;
+
+      // Si l'heure dépasse 15h00, passer au jour et à la salle suivants
+      if (currentHour >= 15 && currentMinute > 0) {
+        currentHour = 9; // Réinitialiser à 9h00
+        currentMinute = 0; // Réinitialiser les minutes
+        currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Passer à la salle suivante
         currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
       }
     }
@@ -156,94 +183,138 @@ export const getPlanningByStudent = async (req, res) => {
   }
 };
 
-//8.3 update soutenances
+//8.3  Update
 export const updateSoutenance = async (req, res) => {
   try {
-    const { id } = req.params; // ID de la soutenance à modifier
-    const { teacher, rapporteur, room, date, startTime } = req.body;
+    const { id } = req.params; // ID de la soutenance à mettre à jour
+    const { date, startTime, endTime, room, teacher, rapporteur } = req.body;
 
-    console.log(`Modification de la soutenance ${id}`);
-
-    // Vérifier si la soutenance existe
-    const soutenance = await SoutenancePFA.findById(id);
-    if (!soutenance) {
-      return res
-        .status(404)
-        .json({ message: "La soutenance demandée n'existe pas." });
+    // Récupérer la soutenance existante
+    const existingSoutenance = await SoutenancePFA.findById(id);
+    if (!existingSoutenance) {
+      return res.status(404).json({ message: "Soutenance introuvable." });
     }
 
-    // Calculer automatiquement endTime (durée fixe de 30 minutes)
-    const [startHours, startMinutes] = startTime.split(":").map(Number);
-    const endTime = `${startHours}:${(startMinutes + 30) % 60}`; // Ajout de 30 minutes
-    console.log(`Calculated endTime: ${endTime}`);
+    // Calculer `endTime` si non fourni
+    let calculatedEndTime = endTime;
+    if (!endTime && startTime) {
+      const [hour, minute] = startTime.split(":").map(Number);
+      const totalMinutes = hour * 60 + minute + 30; // Ajouter 30 minutes
+      const endHour = Math.floor(totalMinutes / 60);
+      const endMinute = totalMinutes % 60;
+      calculatedEndTime = `${String(endHour).padStart(2, "0")}:${String(
+        endMinute
+      ).padStart(2, "0")}`;
+    }
 
-    // Vérification des chevauchements horaires pour la salle
-    const overlapRoom = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      room: room,
-      date: date,
+    // Vérifier les chevauchements : même horaire, même salle
+    const overlappingSoutenanceSameRoom = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Exclure la soutenance en cours d'édition
+      room,
+      date,
       $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+        {
+          $and: [
+            { startTime: { $lte: startTime } },
+            { endTime: { $gte: startTime } },
+          ],
+        },
+        {
+          $and: [
+            { startTime: { $lte: calculatedEndTime } },
+            { endTime: { $gte: calculatedEndTime } },
+          ],
+        },
+        {
+          $and: [
+            { startTime: { $gte: startTime } },
+            { endTime: { $lte: calculatedEndTime } },
+          ],
+        },
       ],
     });
 
-    if (overlapRoom) {
-      return res
-        .status(400)
-        .json({ message: "La salle est déjà réservée à cet horaire." });
-    }
-
-    // Vérification des chevauchements horaires pour l'enseignant
-    const overlapTeacher = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      teacher: teacher,
-      date: date,
-      $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
-      ],
-    });
-
-    if (overlapTeacher) {
+    if (overlappingSoutenanceSameRoom) {
       return res.status(400).json({
-        message:
-          "L'enseignant est déjà assigné à une autre soutenance à cet horaire.",
+        message: "Une autre soutenance occupe déjà cet horaire et cette salle.",
       });
     }
 
-    // Vérification des chevauchements horaires pour le rapporteur
-    const overlapRapporteur = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      rapporteur: rapporteur,
-      date: date,
+    // Vérifier les chevauchements : même horaire, salle différente
+    const overlappingSoutenanceDifferentRoom = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Exclure la soutenance en cours d'édition
+      room: { $ne: room },
+      date,
       $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+        { teacher: teacher || existingSoutenance.teacher },
+        { rapporteur: rapporteur || existingSoutenance.rapporteur },
+      ],
+      $or: [
+        {
+          $and: [
+            { startTime: { $lte: startTime } },
+            { endTime: { $gte: startTime } },
+          ],
+        },
+        {
+          $and: [
+            { startTime: { $lte: calculatedEndTime } },
+            { endTime: { $gte: calculatedEndTime } },
+          ],
+        },
+        {
+          $and: [
+            { startTime: { $gte: startTime } },
+            { endTime: { $lte: calculatedEndTime } },
+          ],
+        },
       ],
     });
 
-    if (overlapRapporteur) {
-      return res.status(400).json({
-        message:
-          "Le rapporteur est déjà assigné à une autre soutenance à cet horaire.",
-      });
+    if (overlappingSoutenanceDifferentRoom) {
+      if (!teacher && !rapporteur) {
+        // Cas où aucun enseignant ni rapporteur n'est fourni
+        return res.status(400).json({
+          message:
+            "Un enseignant ou un rapporteur existe déjà dans une autre salle au même horaire. Veuillez les modifier.",
+        });
+      }
+      // Cas où les enseignants sont fournis : vérifier qu'ils ne sont pas engagés ailleurs
+      const isTeacherOccupied =
+        overlappingSoutenanceDifferentRoom.teacher.toString() ===
+          (teacher || existingSoutenance.teacher).toString() ||
+        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
+          (teacher || existingSoutenance.teacher).toString();
+      const isRapporteurOccupied =
+        overlappingSoutenanceDifferentRoom.teacher.toString() ===
+          (rapporteur || existingSoutenance.rapporteur).toString() ||
+        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
+          (rapporteur || existingSoutenance.rapporteur).toString();
+
+      if (isTeacherOccupied || isRapporteurOccupied) {
+        return res.status(400).json({
+          message:
+            "Un enseignant ou un rapporteur est déjà assigné dans une autre salle au même horaire.",
+        });
+      }
     }
 
-    // Mise à jour des champs
-    soutenance.teacher = teacher || soutenance.teacher;
-    soutenance.rapporteur = rapporteur || soutenance.rapporteur;
-    soutenance.room = room || soutenance.room;
-    soutenance.date = date || soutenance.date;
-    soutenance.startTime = startTime || soutenance.startTime;
-    soutenance.endTime = endTime || soutenance.endTime;
+    // Mettre à jour la soutenance
+    existingSoutenance.date = date;
+    existingSoutenance.startTime = startTime;
+    existingSoutenance.endTime = calculatedEndTime;
+    existingSoutenance.room = room;
+    if (teacher) existingSoutenance.teacher = teacher;
+    if (rapporteur) existingSoutenance.rapporteur = rapporteur;
 
-    // Sauvegarder la soutenance modifiée
-    const updatedSoutenance = await soutenance.save();
+    await existingSoutenance.save();
 
     res.status(200).json({
       message: "Soutenance mise à jour avec succès.",
-      soutenance: updatedSoutenance,
+      soutenance: existingSoutenance,
     });
   } catch (error) {
-    console.error("Erreur lors de la modification de la soutenance :", error);
-    res.status(500).json({ message: "Erreur interne du serveur." });
+    console.error("Erreur lors de la mise à jour de la soutenance :", error);
+    res.status(500).json({ message: error.message });
   }
 };
