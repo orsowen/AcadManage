@@ -17,7 +17,7 @@ export const loggedMiddleware = async (req, res, next) => {
         };
         next();
       } else {
-        res.status(401).json({ error: "user n'existe pas" });
+        res.status(401).json({ error: "user n existe pas" });
       }
     } catch (error) {
       res.status(500).json({ error: error.message });
