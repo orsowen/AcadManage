@@ -197,7 +197,27 @@ export const updateSoutenance = async (req, res) => {
       return res.status(404).json({ message: "Soutenance introuvable." });
     }
 
-    // Calculer `endTime` si non fourni
+    // Vérifier que le `teacher` spécifié existe dans SubjectPFA
+    if (teacher) {
+      const teacherExists = await Subject_PFA.findOne({ teacher });
+      if (!teacherExists) {
+        return res.status(400).json({
+          message: "L'enseignant spécifié  n'a pas de sujet PFA.",
+        });
+      }
+    }
+    // Vérifier que le `rapporteur` spécifié existe dans SubjectPFA
+    if (rapporteur) {
+      const rapporteurExists = await Subject_PFA.findOne({
+        teacher: rapporteur,
+      });
+      if (!rapporteurExists) {
+        return res.status(400).json({
+          message: "Le rapporteur spécifié n'a pas de sujet PFA.",
+        });
+      }
+    }
+    // Calculer endTime si non fourni
     let calculatedEndTime = endTime;
     if (!endTime && startTime) {
       const [hour, minute] = startTime.split(":").map(Number);
@@ -212,6 +232,7 @@ export const updateSoutenance = async (req, res) => {
     const startTimeTocheck = startTime || existingSoutenance.startTime;
     const endTimeTocheck = calculatedEndTime || existingSoutenance.endTime;
     const dateToCheck = date || existingSoutenance.date;
+
     // Vérifier les chevauchements : même horaire, même salle
     const overlappingSoutenanceSameRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
@@ -248,16 +269,15 @@ export const updateSoutenance = async (req, res) => {
         },
       ],
     });
-    console.log(overlappingSoutenanceDifferentRoom);
+
     if (overlappingSoutenanceDifferentRoom) {
       if (!teacher && !rapporteur) {
-        // Cas où aucun enseignant ni rapporteur n'est fourni
         return res.status(400).json({
           message:
             "Un enseignant ou un rapporteur existe déjà dans une autre salle au même horaire. Veuillez les modifier.",
         });
       }
-      // Cas où les enseignants sont fournis : vérifier qu'ils ne sont pas engagés ailleurs
+
       const isTeacherOccupied =
         overlappingSoutenanceDifferentRoom.teacher.toString() ===
           (teacher || existingSoutenance.teacher).toString() ||
