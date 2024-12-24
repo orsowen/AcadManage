@@ -4,6 +4,8 @@ import {
   getPlanningByStudent,
   getPlanningByTeacher,
   updateSoutenance,
+  publishSoutenance,
+  sendEmail,
 } from "../controllers/PlanningPFA.js";
 import { isAdmin } from "../middlewares/authentication.js";
 const router = express.Router();
@@ -16,4 +18,9 @@ router.get("/planning/teacher/:teacherId", isAdmin, getPlanningByTeacher);
 router.get("/planning/student/:studentId", isAdmin, getPlanningByStudent);
 // update pfa soutenance
 router.patch("/:id/soutenances", isAdmin, updateSoutenance);
+// Route pour publier/masquer les soutenances
+router.post("/publish/:response", isAdmin, publishSoutenance);
+// Route pour envoyer les emails
+router.post("/list/send/:option", sendEmail);
+
 export default router;

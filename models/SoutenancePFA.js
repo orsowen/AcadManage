@@ -32,6 +32,11 @@ const SoutenancePFASchema = new mongoose.Schema({
     ref: "Teacher", // Enseignant rapporteur
     required: true,
   },
+  status: {
+    type: String,
+    enum: ["publier", "masquer"],
+    default: "masquer",
+  },
 });
 
 export default mongoose.model("SoutenancePFA", SoutenancePFASchema);

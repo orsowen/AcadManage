@@ -2,6 +2,8 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import Teacher from "../models/Teachers.js";
 import SoutenancePFA from "../models/SoutenancePFA.js"; // Modèle Soutenance
 import dotenv from "dotenv";
+import User from "../models/User.js";
+import { sendMail } from "./mailer.js";
 
 dotenv.config();
 
@@ -296,5 +298,129 @@ export const updateSoutenance = async (req, res) => {
   } catch (error) {
     console.error("Erreur lors de la mise à jour de la soutenance :", error);
     res.status(500).json({ message: error.message });
+  }
+};
+//8.4 Publish /mask
+export const publishSoutenance = async (req, res) => {
+  const { response } = req.params;
+  if (!["publier", "masquer"].includes(response)) {
+    return res.status(400).json({ error: "Valeur de response invalide." });
+  }
+
+  try {
+    // const PublishedSoutenance = await SoutenancePFA.find({
+    //   status: "publier",
+    // });
+    //console.log("Previously published soutenances:", PublishedSoutenance);
+    // Mettre à jour toutes les soutenances
+    const result = await SoutenancePFA.updateMany({}, { status: response });
+
+    res.status(200).json({
+      message: `Les soutenances ont été ${
+        response === "publier" ? "publiées" : "masquées"
+      } avec succès.`,
+      modifiedCount: result.nModified,
+    });
+    // // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    // if (PublishedSoutenance.length === 0) {
+    //   await firstSend();
+    // } else {
+    //   await modifiedSend();
+    // }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Une erreur est survenue lors de la mise à jour des soutenances.",
+    });
+  }
+};
+
+// Fonction pour envoyer le premier email
+export const firstSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("Aucun destinataire défini.");
+    }
+
+    // Contenu du mail pour le premier envoi
+    const subject = "Publication des soutenances PFA";
+    const html = `
+      <p>Les soutenances ont été publiées.</p>
+      <p>Vous pouvez consulter les détails en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/soutenancePFA">Voir les soutenances</a>
+    `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Premier envoi effectué avec succès.");
+  } catch (error) {
+    console.error("Erreur lors du premier envoi :", error);
+  }
+};
+
+// Fonction pour envoyer un email modifié
+export const modifiedSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("Aucun destinataire défini.");
+    }
+
+    // Contenu du mail pour l'envoi modifié
+    const subject = "Mise à jour des soutenances PFA";
+    const html = `
+      <p>Les soutenances ont été mises à jour.</p>
+      <p> Veillez consultez les détails mis à jour en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/soutenancePFA">Voir les soutenances mises à jour</a>
+    `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Envoi modifié effectué avec succès.");
+  } catch (error) {
+    console.error("Erreur lors de l'envoi modifié :", error);
+  }
+};
+
+// // Contrôleur pour gérer l'envoi d'emails
+export const sendEmail = async (req, res) => {
+  const { option } = req.params; // `option` est soit "first" soit "modified"
+
+  try {
+    if (option === "first") {
+      await firstSend();
+      return res.status(200).json({ message: "Premier envoi effectué." });
+    } else if (option === "modified") {
+      await modifiedSend();
+      return res.status(200).json({ message: "Envoi modifié effectué." });
+    } else {
+      return res.status(400).json({
+        error: "Option invalide. Choisissez entre 'first' ou 'modified'.",
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'envoi :", error);
+    res
+      .status(500)
+      .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
   }
 };
