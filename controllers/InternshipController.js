@@ -1,6 +1,5 @@
 // controllers/internship.controller.js
 
-import DepositPeriod from '../models/DepositPeriod.js';
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
@@ -34,7 +33,6 @@ export const addInternship = async (req, res) => {
         EndDate,
         typeInternship,
         nomSociete,
-        teacherId,
         topicDetails,
         noDocs = false
     } = req.body;
@@ -69,23 +67,17 @@ export const addInternship = async (req, res) => {
         if (studentId && !student) {
             return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
         }
-
-        // Validate teacher existence
-        const teacher = teacherId ? await Teacher.findById(teacherId) : null;
-        if (teacherId && !teacher) {
-            return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
+        // Check for deposit error and late status
+        const depotError = req.depotError;
+        const depotLate = req.depotLate;
+        if (depotError) {
+            console.warn(depotError); // Handle the error message accordingly
         }
-
-        // Ensure teacher has available slots
-        if (teacher && teacher.subjectCount <= teacher.assignedInternships.length) {
-            return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
+        const response = {};
+        if (depotLate) {
+            response.Late_warning = "Internship added late.";
         }
-
-        // Determine deposit status based on the latest deposit period
-        const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
-        const depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date()
-            ? "late"
-            : "in time";
+        const depotStatus = depotLate ? "late" : "in time";
 
         // Create the internship object
         const newInternship = new Internship({
@@ -101,23 +93,14 @@ export const addInternship = async (req, res) => {
                 techList: topicDetails.techList,
             },
             student: studentId || null,
-            teacher: teacherId || null,
+            teacher: null,
             depotStatus,
         });
 
         // Save the internship
         const savedInternship = await newInternship.save();
-
-        // Update teacher's assigned internships
-        if (teacher) {
-            teacher.assignedInternships.push(savedInternship._id);
-            await teacher.save();
-        }
-
         // Respond with the created internship
-        const response = {
-            message: "Internship created successfully.",
-        };
+        response.message = "Internship created successfully.";
         if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
             response.warning = "Les documents sont incomplets.";
         }
@@ -250,7 +233,8 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
     const { idRole: studentId, role } = req.user; // Extract student ID and role from JWT token
     const { id } = req.params;
     const { title, documents = {}, StartDate, EndDate, topicDetails, nomSociete } = req.body;
-
+    // Check for deposit error and late status
+    const depotLate = req.depotLate;
     // Validate date range if provided
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
@@ -273,7 +257,11 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
         }
         // Handle document update (ficheEval, attestation, rapport)
         const { ficheEval, attestation, rapport } = documents;
-
+        if (!ficheEval || !attestation || !rapport) {
+            return res.status(400).json({
+                error: "Tous les documents (ficheEval, attestation, rapport) doivent être fournis."
+            });
+        }
         // Validate documents if provided
         if (ficheEval || attestation || rapport) {
             const fileValidation = validateFiles(documents);
@@ -289,8 +277,8 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
 
         // Update depotStatus and isDeposed if documents are complete
         if (ficheEval && attestation && rapport) {
-            const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
-            internship.depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date() ? "late" : "in time";
+
+            internship.depotStatus = depotLate ? "late" : "in time";
             internship.isDeposed = true;
         } else {
             internship.isDeposed = false; // Set to false if documents are not complete
@@ -326,8 +314,14 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
 
         // Save the updated internship
         const updatedInternship = await internship.save();
-        res.status(200).json({ message: "Internship updated successfully", updatedInternship });
+        let response = {}
 
+        response.message = "Internship updated successfully";
+        if (depotLate) {
+            response.warning = "Internship updated late.";
+        }
+        response.updatedInternship = updatedInternship;
+        res.status(200).json(response);
     } catch (error) {
         console.error("Error updating internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
@@ -438,66 +432,56 @@ export const addTeacherToInternship = async (req, res) => {
 
 // assign Teacher to Topics automatically
 export const assignTeachersToInternships = async (req, res) => {
-    const { teacherIds } = req.body; // Optional list of teacher IDs from the request body
+    const { teacherIds } = req.body;
+
+    if (!teacherIds || !Array.isArray(teacherIds) || teacherIds.length === 0) {
+        return res.status(400).json({ message: "Teacher IDs must be provided." });
+    }
+
+    // Filter out any empty strings from the teacherIds list
+    const validTeacherIds = teacherIds.filter((id) => id.trim() !== "");
+
+    if (validTeacherIds.length <= 0) {
+        return res.status(400).json({ message: "Teacher IDs not valid" });
+    }
 
     try {
-        // Step 1: Fetch eligible teachers based on provided teacher IDs or all teachers with available slots
-        let teachersQuery = [
-            { assignedInternships: { $size: 0 } }, // Teachers with no assigned internships
-            { $expr: { $lt: [{ $size: { $ifNull: ["$assignedInternships", []] } }, "$subjectCount"] } }, // Teachers with space left
-        ];
-
-        if (teacherIds && teacherIds.length > 0) {
-            // Filter out any empty strings from the teacherIds list
-            const validTeacherIds = teacherIds.filter(id => id.trim() !== "");
-            // Only push the teacher query if there are valid IDs
-            if (validTeacherIds.length > 0) {
-                teachersQuery.push({ _id: { $in: validTeacherIds } });
-            }
-        }
-
-        const teachers = await Teacher.find({ $and: teachersQuery });
+        // Step 1: Fetch eligible teachers based on provided teacher IDs
+        const teachers = await Teacher.find({ _id: { $in: validTeacherIds }, })
+            .populate("assignedInternships", "title")
+            .sort({ subjectCount: -1 });
 
         if (teachers.length === 0) {
-            return res.status(400).json({ message: 'No eligible teachers available for assignment.' });
+            return res.status(404).json({ message: "No valid teachers found with the provided IDs." });
         }
 
-        // Step 2: Fetch all internships with no assigned teacher
+        // Step 2: Fetch all internships without an assigned teacher
         const internships = await Internship.find({ teacher: null, isArchived: false });
 
         if (internships.length === 0) {
-            return res.status(400).json({ message: 'No unassigned internships available.' });
+            return res.status(404).json({ message: "No unassigned internships available." });
         }
 
-        // Step 3: Ensure internships have topics
-        const internshipsWithTopics = internships.filter(internship => internship.topic?.title);
+        // Step 3: Calculate the total number of internships
+        const totalInternships = internships.length;
 
-        if (internshipsWithTopics.length === 0) {
-            return res.status(400).json({ message: 'No internships with topics available for assignment.' });
-        }
+        // Step 4: Calculate how many internships each teacher should receive
+        const internshipsPerTeacher = Math.floor(totalInternships / teachers.length);
+        const remainingInternships = totalInternships % teachers.length; // Handle any remainder
 
-        // Step 4: Calculate the number of internships per teacher
-        const totalSubjects = teachers.reduce((sum, teacher) => sum + teacher.subjectCount, 0);
-        const totalInternships = internshipsWithTopics.length;
-
-        if (totalSubjects === 0 || totalInternships === 0) {
-            return res.status(400).json({ message: 'No available internships or teachers with available capacity.' });
-        }
-
-        const internshipsPerSubject = Math.max(1, totalInternships / totalSubjects); // Ensure a minimum of 1 internship per teacher
-
-        // Step 5: Assign internships to teachers
         let internshipIndex = 0;
         const results = []; // To store assignment details
 
-        for (const teacher of teachers) {
-            // Calculate the number of internships to assign based on the ratio
-            const maxAssignable = Math.floor((teacher.subjectCount - teacher.assignedInternships.length) * internshipsPerSubject);
-            const assignableCount = Math.min(maxAssignable, totalInternships - internshipIndex);
+        // Step 5: Assign internships to teachers
+        for (let i = 0; i < teachers.length; i++) {
+            const teacher = teachers[i];
 
+            // Determine the number of internships this teacher will receive
+            const internshipsToAssign = internshipsPerTeacher + (i < remainingInternships ? 1 : 0);
             const assignedInternships = [];
-            for (let i = 0; i < assignableCount && internshipIndex < totalInternships; i++) {
-                const internship = internshipsWithTopics[internshipIndex];
+
+            for (let j = 0; j < internshipsToAssign && internshipIndex < totalInternships; j++) {
+                const internship = internships[internshipIndex];
 
                 // Assign the teacher to the internship
                 internship.teacher = teacher._id;
@@ -513,7 +497,6 @@ export const assignTeachersToInternships = async (req, res) => {
                 });
 
                 internshipIndex++;
-                if (i >= teacher.subjectCount) break;
             }
 
             // Save the teacher with updated internships
@@ -528,11 +511,14 @@ export const assignTeachersToInternships = async (req, res) => {
                     assignedInternships,
                 });
             }
+
+            // Stop assigning if all internships are assigned
+            if (internshipIndex >= totalInternships) break;
         }
 
         // Step 6: Return the results with a meaningful message
         if (results.length === 0) {
-            return res.status(200).json({ message: 'No internships were assigned due to teacher availability.' });
+            return res.status(200).json({ message: "No internships were assigned due to teacher availability." });
         }
 
         const totalAssigned = results.reduce((acc, curr) => acc + curr.assignedInternships.length, 0);
@@ -540,10 +526,9 @@ export const assignTeachersToInternships = async (req, res) => {
             message: `${results.length} teachers successfully assigned a total of ${totalAssigned} internships.`,
             results,
         });
-
     } catch (error) {
-        console.error('Error assigning internships to teachers:', error.message);
-        res.status(500).json({ error: 'Failed to assign internships to teachers.', details: error.message });
+        console.error("Error assigning internships to teachers:", error.message);
+        res.status(500).json({ error: "Failed to assign internships to teachers.", details: error.message });
     }
 };
 
