@@ -303,15 +303,6 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
             if (nomSociete) internship.nomSociete = nomSociete;
         }
 
-        // Update student if studentId is provided
-        if (studentId) {
-            const student = await Student.findById(studentId);
-            if (!student) {
-                return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
-            }
-            internship.student = studentId;
-        }
-
         // Save the updated internship
         const updatedInternship = await internship.save();
         let response = {}
