@@ -504,38 +504,45 @@ export const sendMailPlanning = async (req, res) => {
                         select: "firstName lastName user",
                         populate: { path: "user", select: "email" },
                     },
-                    {
-                        path: "topic",
-                        select: "title description techList",
-                    },
                 ],
             });
 
-        if (planningStages.length === 0) {
+        if (!planningStages.length) {
             return res.status(404).json({ message: "Aucun planning trouvé à envoyer." });
         }
 
+        // Extract IDs of planning stages
+        const planningStageIds = planningStages.map(stage => stage._id);
+
+        // Prepare emails to send
         const emailsToSend = planningStages.flatMap(stage => {
-            const { horaire, day, meet_link, sendStatus } = stage;
-            const { internship } = stage;
-            const { topic, student, teacher } = internship || {};
+            const { horaire, day, meet_link, sendStatus, internship } = stage;
+            if (!internship) return [];
+
+            const { topic, student, teacher } = internship;
             const studentEmail = student?.user?.email;
             const teacherEmail = teacher?.user?.email;
 
+            // Ensure required fields are present
             if (!topic || !studentEmail || !teacherEmail) return [];
 
             const isModifiedSend = sendStatus === "Modified Sent";
-            const emailSubject = isModifiedSend ? "Détails modifiés de votre planning de stage" : "Détails de votre planning de stage";
+            const emailSubject = isModifiedSend
+                ? "Détails modifiés de votre planning de stage"
+                : "Détails de votre planning de stage";
 
-            const emailMessage = `
-                <p>Bonjour ${student.firstName} ${student.lastName},</p>
+            const emailBody = (recipient, isTeacher) => `
+                <p>Bonjour ${recipient.firstName} ${recipient.lastName},</p>
                 <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"} du planning pour le stage :</p>
                 <ul>
                     <li><strong>Horaire :</strong> ${horaire}</li>
                     <li><strong>Jour :</strong> ${day}</li>
                     <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                    <li><strong>Enseignant :</strong> ${teacher.firstName} ${teacher.lastName}</li>
-                    <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>
+                    ${isTeacher
+                    ? `<li><strong>Étudiant :</strong> ${student.firstName} ${student.lastName}</li>
+                    <li><strong>Email étudiant :</strong> ${studentEmail || "Non disponible"}</li>`
+                    : `<li><strong>Enseignant :</strong> ${teacher.firstName} ${teacher.lastName}</li>
+                    <li><strong>Email enseignant :</strong> ${teacherEmail || "Non disponible"}</li>`}
                     <li><strong>Sujet :</strong> ${topic.title}</li>
                     <li><strong>Description :</strong> ${topic.description}</li>
                     <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
@@ -546,41 +553,32 @@ export const sendMailPlanning = async (req, res) => {
                 {
                     email: teacherEmail,
                     subject: emailSubject,
-                    message: `
-                        <p>Bonjour ${teacher.firstName} ${teacher.lastName},</p>
-                        <p>Voici les ${isModifiedSend ? "détails modifiés" : "détails"} du planning pour le stage :</p>
-                        <ul>
-                            <li><strong>Horaire :</strong> ${horaire}</li>
-                            <li><strong>Jour :</strong> ${day}</li>
-                            <li><strong>Meet Link :</strong> <a href="${meet_link}">${meet_link}</a></li>
-                            <li><strong>Étudiant :</strong> ${student.firstName} ${student.lastName}</li>
-                            <li><strong>Email étudiant :</strong> ${studentEmail || "Non disponible"}</li>
-                            <li><strong>Sujet :</strong> ${topic.title}</li>
-                            <li><strong>Description :</strong> ${topic.description}</li>
-                            <li><strong>Technologies :</strong> ${topic.techList.join(", ")}</li>
-                        </ul>
-                    `,
+                    message: emailBody(teacher, true),
                 },
                 {
                     email: studentEmail,
                     subject: emailSubject,
-                    message: emailMessage,
+                    message: emailBody(student, false),
                 },
             ];
         });
 
-        if (emailsToSend.length === 0) {
+        if (!emailsToSend.length) {
             return res.status(400).json({ message: "Aucune adresse email trouvée à envoyer." });
         }
 
         // Send emails using sendMail utility
         await Promise.all(
-            emailsToSend.map(({ email, subject, message }) => sendMail(email, subject, message))
+            emailsToSend.map(({ email, subject, message }) =>
+                sendMail(email, subject, message).catch(err =>
+                    console.error(`Failed to send email to ${email}:`, err.message)
+                )
+            )
         );
 
-        // Update sendStatus after sending emails
+        // Update sendStatus only for the fetched planning stages
         await PlanningStage.updateMany(
-            { isPublished: true, isArchived: false },
+            { _id: { $in: planningStageIds } },
             { sendStatus: "Modified Sent" }
         );
 
