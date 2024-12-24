@@ -100,10 +100,6 @@ export const createPlanningStage = async (req, res) => {
                 select: "firstName lastName user",
                 populate: { path: "user", select: "email" },
             },
-            {
-                path: "topic",
-                select: "title description techList",
-            },
         ]);
 
         if (!internshipDoc) {
