@@ -1,6 +1,5 @@
 // controllers/internship.controller.js
 
-import DepositPeriod from '../models/DepositPeriod.js';
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
@@ -34,7 +33,6 @@ export const addInternship = async (req, res) => {
         EndDate,
         typeInternship,
         nomSociete,
-        teacherId,
         topicDetails,
         noDocs = false
     } = req.body;
@@ -69,23 +67,17 @@ export const addInternship = async (req, res) => {
         if (studentId && !student) {
             return res.status(404).json({ error: "L'étudiant associé n'existe pas." });
         }
-
-        // Validate teacher existence
-        const teacher = teacherId ? await Teacher.findById(teacherId) : null;
-        if (teacherId && !teacher) {
-            return res.status(404).json({ error: "L'enseignant associé n'existe pas." });
+        // Check for deposit error and late status
+        const depotError = req.depotError;
+        const depotLate = req.depotLate;
+        if (depotError) {
+            console.warn(depotError); // Handle the error message accordingly
         }
-
-        // Ensure teacher has available slots
-        if (teacher && teacher.subjectCount <= teacher.assignedInternships.length) {
-            return res.status(400).json({ error: `Teacher ${teacher.firstName} ${teacher.lastName} has no available slots.` });
+        const response = {};
+        if (depotLate) {
+            response.Late_warning = "Internship added late.";
         }
-
-        // Determine deposit status based on the latest deposit period
-        const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
-        const depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date()
-            ? "late"
-            : "in time";
+        const depotStatus = depotLate ? "late" : "in time";
 
         // Create the internship object
         const newInternship = new Internship({
@@ -101,23 +93,14 @@ export const addInternship = async (req, res) => {
                 techList: topicDetails.techList,
             },
             student: studentId || null,
-            teacher: teacherId || null,
+            teacher: null,
             depotStatus,
         });
 
         // Save the internship
         const savedInternship = await newInternship.save();
-
-        // Update teacher's assigned internships
-        if (teacher) {
-            teacher.assignedInternships.push(savedInternship._id);
-            await teacher.save();
-        }
-
         // Respond with the created internship
-        const response = {
-            message: "Internship created successfully.",
-        };
+        response.message = "Internship created successfully.";
         if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
             response.warning = "Les documents sont incomplets.";
         }
@@ -250,7 +233,8 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
     const { idRole: studentId, role } = req.user; // Extract student ID and role from JWT token
     const { id } = req.params;
     const { title, documents = {}, StartDate, EndDate, topicDetails, nomSociete } = req.body;
-
+    // Check for deposit error and late status
+    const depotLate = req.depotLate;
     // Validate date range if provided
     if (StartDate && EndDate && new Date(StartDate) > new Date(EndDate)) {
         return res.status(400).json({ error: "La date de début doit être antérieure à la date de fin." });
@@ -273,7 +257,11 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
         }
         // Handle document update (ficheEval, attestation, rapport)
         const { ficheEval, attestation, rapport } = documents;
-
+        if (!ficheEval || !attestation || !rapport) {
+            return res.status(400).json({
+                error: "Tous les documents (ficheEval, attestation, rapport) doivent être fournis."
+            });
+        }
         // Validate documents if provided
         if (ficheEval || attestation || rapport) {
             const fileValidation = validateFiles(documents);
@@ -289,8 +277,8 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
 
         // Update depotStatus and isDeposed if documents are complete
         if (ficheEval && attestation && rapport) {
-            const depositPeriod = await DepositPeriod.findOne({ For: "STAGE" }).sort({ End_Deposit: -1 });
-            internship.depotStatus = depositPeriod && new Date(depositPeriod.End_Deposit) < new Date() ? "late" : "in time";
+
+            internship.depotStatus = depotLate ? "late" : "in time";
             internship.isDeposed = true;
         } else {
             internship.isDeposed = false; // Set to false if documents are not complete
@@ -326,8 +314,14 @@ export const updateInternship = (onlyDocument = false) => async (req, res) => {
 
         // Save the updated internship
         const updatedInternship = await internship.save();
-        res.status(200).json({ message: "Internship updated successfully", updatedInternship });
+        let response = {}
 
+        response.message = "Internship updated successfully";
+        if (depotLate) {
+            response.warning = "Internship updated late.";
+        }
+        response.updatedInternship = updatedInternship;
+        res.status(200).json(response);
     } catch (error) {
         console.error("Error updating internship:", error.message);
         res.status(500).json({ error: "Erreur lors de la mise à jour du stage." });
