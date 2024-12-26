@@ -1,11 +1,34 @@
 import DefensePFE from '../models/DefensePFE.js';
-import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
 import { sendMail } from './mailer.js';
+import Joi from 'joi';
 
+
+const PFEValidationSchema = Joi.object({
+    title: Joi.string().trim().required(),
+    documents: Joi.object({
+        ficheEval: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+        attestation: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+        rapport: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+    }).required(),
+    StartDate: Joi.date().required(),
+    EndDate: Joi.date().required(),
+    Nom_societe: Joi.string().trim().required(),
+    teacher: Joi.string().trim().optional(),
+    topic: Joi.object({
+        title: Joi.string().trim().required(),
+        description: Joi.string().trim().required(),
+        techList: Joi.array().items(Joi.string().trim()).min(1).required(),
+    }).required(),
+});
 // create  PFE
 
 export const createPFE = async (req, res) => {
+    const { error } = PFEValidationSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ error: error.details[0].message });
+    }
+
     const { title, documents, StartDate, EndDate, Nom_societe, teacher, topic } = req.body;
 
     try {
@@ -19,25 +42,14 @@ export const createPFE = async (req, res) => {
 
         // Validate topic details
         if (!topic || !topic.title || !topic.description || !topic.techList) {
-            return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
+            return res.status(400).json({ error: "PFE details  are incomplet." });
         }
 
         // Validate document fields
         if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
-            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            return res.status(400).json({ error: "PFE documents are incomplets." });
         }
 
-        // Check if the current period allows PFE deposits
-        const currentPeriod = await DepositPeriod.findOne({
-            For: "PFE",
-            Start_Deposit: { $lte: new Date() },
-            End_Deposit: { $gte: new Date() }
-        });
-        if (!currentPeriod) {
-            return res.status(403).json({
-                error: "PFE topics can only be created during the deposit period."
-            });
-        }
 
         // Check if the student already has a PFE
         const existingPFE = await PFE.findOne({ student });
@@ -92,17 +104,7 @@ export const updatePFE = async (req, res) => {
     try {
         // Check if the current date is within the deposit period for PFE topics
 
-        const currentPeriod = await DepositPeriod.findOne({
-            For: "PFE",
-            Start_Deposit: { $lte: new Date() },
-            End_Deposit: { $gte: new Date() }
-        });
 
-        if (!currentPeriod) {
-            return res.status(403).json({
-                error: "PFE topics can only be updated during the deposit period."
-            });
-        }
         if (new Date(StartDate) >= new Date(EndDate)) {
             return res.status(400).json({
                 error: "StartDate must be earlier than EndDate."
@@ -143,24 +145,25 @@ export const updatePFE = async (req, res) => {
 // List all PFE information
 export const ListAllPFEInfo = async (req, res) => {
     try {
-        // Fetch PFEs with populated student data and sort by StartDate descending
-        const pfes = await PFE.find()
+        const pfes = await PFE.find({ isArchived: false })
             .populate({
                 path: 'student',
                 populate: {
                     path: 'user',
-                    select: 'email', // Only fetch email from the User model
+                    select: 'email', 
                 },
-            })// Populate all student fields
+            })
+            .populate({
+                path: 'Defense',
+                populate: {
+                    path: 'PFE',
+                    select: '_id',
+                },
+            })
             .sort({ StartDate: -1 });
-
-        // Fetch all defenses
-        const defenses = await DefensePFE.find();
 
         // Map PFEs to include required details
         const response = pfes.map((pfe) => {
-            const defense = defenses.find((d) => d.PFE.toString() === pfe._id.toString());
-
             return {
                 PFE: {
                     title: pfe.title,
@@ -175,7 +178,7 @@ export const ListAllPFEInfo = async (req, res) => {
                         ? {
                             firstName: pfe.student.firstName,
                             lastName: pfe.student.lastName,
-                            email: pfe.student.user.email,
+                            email: pfe.student.user?.email,
                             gender: pfe.student.gender,
                             governorate: pfe.student.governorate,
                             city: pfe.student.city,
@@ -185,10 +188,10 @@ export const ListAllPFEInfo = async (req, res) => {
                         : null,
                 },
                 Publisher: pfe.Publisher ? 'Published' : 'Hidden',
-                defense: defense
+                defense: pfe.Defense
                     ? {
-                        status: defense.Publisher ? 'Available' : 'Not Published',
-                        details: defense,
+                        status: pfe.Defense.Publisher ? 'Available' : 'Not Published',
+                        details: pfe.Defense,
                     }
                     : { status: 'Not Available', details: null },
             };
@@ -252,7 +255,6 @@ export const validateAssignments = async (req, res) => {
         const { ids } = req.body;
 
         const pfes = await PFE.find({ _id: { $in: ids } });
-        // Check if any PFE is missing
         if (pfes.length !== ids.length) {
             const missingIds = ids.filter(id => !pfes.some(pfe => pfe._id.toString() === id));
             return res.status(400).json({
@@ -260,7 +262,6 @@ export const validateAssignments = async (req, res) => {
                 missingIds,
             });
         }
-        // Check for missing teacher assignments
         const errors = pfes.filter(pfe => !pfe.teacher);
 
         if (errors.length > 0) {
@@ -298,7 +299,6 @@ export const assignPFEToTeacher = async (req, res) => {
         // Check if the PFE is already assigned to a teacher
         if (pfe.teacher) {
             if (force) {
-                // If force is true, unassign from the current teacher and assign to the new teacher
                 pfe.teacher = teacherId;
                 await pfe.save();
                 return res.status(200).json({
@@ -306,14 +306,13 @@ export const assignPFEToTeacher = async (req, res) => {
                     PFE: pfe,
                 });
             } else {
-                // If force is false, return an error
                 return res.status(400).json({
                     error: "This PFE is already assigned to another teacher. Use force=true to reassign.",
                 });
             }
         }
 
-        // If not assigned, assign the PFE to the teacher
+        //assign the PFE to the teacher
         pfe.teacher = teacherId;
         await pfe.save();
 
@@ -331,17 +330,15 @@ export const assignPFEToTeacher = async (req, res) => {
 
 //Publish Or Hide PFE
 export const publishOrHidePFE = async (req, res) => {
-    const { response } = req.params; // Expected values: "publish" or "hide"
+    const { response } = req.params; 
 
     try {
-        // Validate response parameter
         if (!["publish", "hide"].includes(response)) {
             return res.status(400).json({
                 error: "Invalid response. Expected 'publish' or 'hide'.",
             });
         }
 
-        // Determine the desired state
         const isPublished = response === "publish";
 
         // Update all PFEs to the desired state
@@ -376,20 +373,19 @@ export const publishOrHidePFE = async (req, res) => {
 // Function to send email and update emailStatus for all PFEs
 export const sendPlanningEmail = async (req, res) => {
     try {
-        // Get all PFEs that need to have an email sent
         const pfes = await PFE.find({ emailStatus: { $in: ['none', 'first'] } })
             .populate({
-                path: 'student', // Populate the student field
+                path: 'student', 
                 populate: {
-                    path: 'user', // Populate the user field inside student
-                    select: 'email firstName lastName' // Select email, firstName, and lastName from User
+                    path: 'user', 
+                    select: 'email firstName lastName' 
                 }
             })
             .populate({
-                path: 'teacher', // Populate the teacher field
+                path: 'teacher', 
                 populate: {
-                    path: 'user', // Populate the user field inside teacher
-                    select: 'email firstName lastName' // Select email, firstName, and lastName from User
+                    path: 'user', 
+                    select: 'email firstName lastName'
                 }
             });
 
@@ -399,25 +395,23 @@ export const sendPlanningEmail = async (req, res) => {
 
         // Loop through each PFE and send the email to both student and teacher
         for (let pfe of pfes) {
-            // Ensure the student field is populated with student data
             if (!pfe.student || !pfe.student.user || !pfe.student.user.email) {
                 console.warn(`No email found for student with ID ${pfe.student}`);
-                continue; // Skip this PFE if there's no student or email
+                continue;
             }
 
-            // Ensure the teacher field is populated with teacher data
             if (!pfe.teacher || !pfe.teacher.user || !pfe.teacher.user.email) {
                 console.warn(`No email found for teacher with ID ${pfe.teacher}`);
-                continue; // Skip this PFE if there's no teacher or email
+                continue; 
             }
             let subject = '';
             let status = pfe.emailStatus;
             if (status === 'none') {
                 subject = 'Your Planning Link';
-                status = 'first'; // Update status to "first"
+                status = 'first'; 
             } else if (status === 'first') {
-                subject = 'Reminder: Your Planning Link';
-                status = 'second'; // Update status to "second"
+                subject = 'Your Planning Link Modified';
+                status = 'second'; 
             } else {
                 continue; // Skip sending email if already sent twice
             }
@@ -479,7 +473,3 @@ export const sendPlanningEmail = async (req, res) => {
         return res.status(500).json({ message: 'Error sending emails.' });
     }
 };
-
-
-
-

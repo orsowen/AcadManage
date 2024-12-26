@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const Subject_PFASchema = new Schema({
-  binome: {
+  binomeExits: {
     type: Boolean,
     required: true,
   },
@@ -14,26 +14,43 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
-  lastnameBinome: {
+  anneYear: {
     type: String,
-    required: false,
+    default: function () {
+      // Automatically calculate the current academic year
+      const currentYear = new Date().getFullYear();
+      const month = new Date().getMonth();
+      // Academic year typically starts in September
+      return month >= 8
+        ? `${currentYear}-${currentYear + 1}`
+        : `${currentYear - 1}-${currentYear}`;
+    },
   },
-  firstnameBinome: {
-    type: String,
-    required: false,
+  monome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
   },
-  lastnameMonome: {
-    type: String,
-    required: false,
+  binome: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
+    required: function () {
+      return this.binome;
+    }, 
   },
-  firstnameMonome: {
-    type: String,
-    required: false,
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+  },
+  technologies: {
+    type: [String],
+    required: true,
   },
   status: {
     type: String,
-    enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
-    default: "Pending", // Par défaut, le statut est "Pending"
+    enum: ["Pending", "Approved", "Rejected"], 
+    default: "Pending", 
   },
   hidden: {
     type: Boolean,
@@ -42,12 +59,7 @@ const Subject_PFASchema = new Schema({
   published: {
     type: Boolean,
     default: false,
-  }, // Indique si le sujet est publié
-  sendStatus: {
-    type: String,
-    enum: ["First Sent", "Modified Sent", "Not Sent"],
-    default: "Not Sent",
-  }, // Indique l'état de l'envoi
+  }, 
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);

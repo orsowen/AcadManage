@@ -1,21 +1,21 @@
 import express from 'express';
 import {
-    createTeacher,
-    deleteTeacher,
-    getAllTeachers,
-    getTeacherById,
-    getTeacherProfile,
-    updateTeacher,
-    updateTeacherByToken,
-    updateTeacherPassword,
+  createTeacher,
+  deleteTeacher,
+  getAllTeachers,
+  getTeacherById,
+  getTeacherProfile,
+  updateTeacher,
+  updateTeacherByToken
 } from '../controllers/TeacherController.js';
-import { toggleArchiveUser } from '../controllers/UserController.js';
+import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
 
 const router = express.Router();
 
-// Create a new teacher
-router.post('/', isAdmin, createTeacher);
+
+// get Own Profile 
+router.get('/me', isTeacher, getTeacherProfile);
 
 // Get all teachers
 router.get('/', isAdmin, getAllTeachers);
@@ -23,16 +23,17 @@ router.get('/', isAdmin, getAllTeachers);
 // Get a single teacher by ID
 router.get('/:id', isAdmin, getTeacherById);
 
-// ( get dont work thats why post)
-router.post('/profile', isTeacher, getTeacherProfile);
+// Create a new teacher
+router.post('/', createTeacher);
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);
+
 // update teacher based on token
 router.put('/me', isTeacher, updateTeacherByToken);
 
 // patch update teacher password
-router.patch('/:id/password', isAdmin, updateTeacherPassword);
+router.patch('/:id/password', isAdmin, updatePassword("teacher"));
 
 // Delete a teacher
 router.delete('/:id', isAdmin, deleteTeacher);
