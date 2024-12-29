@@ -1,27 +1,40 @@
 import DepositPeriod from "../models/DepositPeriod.js";
 
-// For can be STAGE or PFE or PFA
-// middleware can be used like this : 
-// router.patch('/:id', isStudent, isDepotOpen("STAGE", "message d'erreur"), updateInternship(true));
-// NB ; lazem ykoun ba3d isStudent walla isAdmin 
-export const isDepotOpen = (For = "STAGE", message = undefined) => async (req, res, next) => {
+
+export const isDepotOpen = (For = "STAGE", message) => async (req, res, next) => {
     try {
-        if (req.user.role !== 'admin') {
-            // Check if the current period allows STAGE deposits
-            const currentPeriod = await DepositPeriod.findOne({
-                For: For.toUpperCase(),
-                Start_Deposit: { $lte: new Date() },
-                End_Deposit: { $gte: new Date() }
-            });
-            if (!currentPeriod) {
-                return res.status(403).json({
-                    error: message === undefined ? `Operation for ${For} can only be done during the deposit period.` : message,
-                });
-            }
+        const { lateDepotCode } = req.body;
+
+        // If the user is not an admin, check the deposit period or late code
+        // if (req.user.role !== "admin") {
+        const currentDate = new Date();
+
+        // Build query dynamically
+        const query = {
+            For: For.toUpperCase(),
+            $or: [
+                { Start_Deposit: { $lte: currentDate }, End_Deposit: { $gte: currentDate } }, // Active period
+            ],
+        };
+
+        // Add lateDepotCode condition only if it's provided and not null
+        if (lateDepotCode) {
+            query.$or.push({ lateDepotCode });
         }
+
+        // Fetch deposit period with conditions
+        const period = await DepositPeriod.findOne(query);
+
+        if (!period) {
+            req.depotError = message ?? `Operation for ${For} can only be done during the deposit period or with a valid late deposit code.`;
+            req.depotLate = true;
+        } else {
+            req.depotLate = false;
+        }
+        // }
         next();
-    } catch (e) {
-        // Use e.message for the error from catch block
-        res.status(401).json({ error: e.message });
+    } catch (error) {
+        console.error("Error in isDepotOpen middleware:", error.message);
+        res.status(500).json({ error: "Server error. Please try again later." });
     }
 };

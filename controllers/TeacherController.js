@@ -2,12 +2,19 @@ import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import Teacher from '../models/Teachers.js';
 import User from '../models/User.js';
-import { generateRandomPassword } from './UserController.js';
+import { generateRandomPassword, sendCreds } from './UserController.js';
 
 // Create a new teacher
 export const createTeacher = async (req, res) => {
-    const { lastName, firstName, cin, phone, email, subjectCount } = req.body;
-
+    const { lastName, firstName, cin, phone, email, subjectCount, sendCredsInMail = false } = req.body;
+    if (!(/^[0-9]+$/.test(cin)) || cin.length < 8) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
+    // Email validation regex
+    const emailRegex = /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format.' });
+    }
     // Initialize session for transactions
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -65,6 +72,10 @@ export const createTeacher = async (req, res) => {
         // Associate the teacher with the created user
         savedTeacher.user = savedUser._id;
         await savedTeacher.save();
+
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
 
         // Return the created teacher and user data
         res.status(201).json({
@@ -158,7 +169,7 @@ export const getTeacherById = async (req, res) => {
     try {
         // Fetch the teacher by ID
         const teacher = await Teacher.findById(id)
-            .populate('user', 'email');
+            .populate('user', 'email phone');
 
         if (!teacher) {
             return res.status(404).json({ error: "Teacher not found." });
@@ -192,7 +203,10 @@ export const updateTeacher = async (req, res) => {
 
         const updatedTeacher = await teacher.save(); // Save the updated teacher document
 
-        res.status(200).json(updatedTeacher);
+        res.status(200).json({
+            message: "Teacher profile updated successfully.",
+            updatedTeacher,
+        });
     } catch (error) {
         console.error('Error updating teacher:', error.message);
         res.status(400).json({ error: 'Error updating teacher. ' + error.message });
@@ -281,7 +295,10 @@ export const getTeacherProfile = async (req, res) => {
         }
 
         // Respond with the student profile
-        res.status(200).json(teacher);
+        res.status(200).json({
+            message: "Teacher fetched successfully.",
+            data: teacher,
+        });
     } catch (error) {
         console.error('Error fetching teacher profile:', error.message);
         res.status(500).json({ error: 'Failed to fetch teacher profile.' });
@@ -290,26 +307,112 @@ export const getTeacherProfile = async (req, res) => {
 
 // Update a teacher (own profile)
 export const updateTeacherByToken = async (req, res) => {
-    const id = req.user.idRole;
-    const { lastName, firstName, subjectCount } = req.body;
+    const { idRole: teacherId, userId } = req.user; // Extract IDs from JWT token
+    const { lastName, firstName, subjectCount, phone, email } = req.body;
+
+    if (!teacherId || !userId) {
+        return res.status(400).json({
+            error: "Missing teacher or user ID in the token.",
+        });
+    }
 
     try {
-        // Fetch the existing teacher by ID
-        const teacher = await Teacher.findById(id);
+        // Fetch the teacher and user records concurrently
+        const [teacher, user] = await Promise.all([
+            Teacher.findById(teacherId),
+            User.findById(userId)
+        ]);
+
         if (!teacher) {
             return res.status(404).json({ error: 'Teacher not found.' });
         }
 
-        // Proceed to update the teacher's details
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Check for duplicate email if it is being updated
+        if (email && email !== user.email) {
+            const existingUserWithEmail = await User.findOne({ email });
+            if (existingUserWithEmail && existingUserWithEmail._id.toString() !== user._id.toString()) {
+                return res.status(400).json({
+                    error: "The provided email is already in use by another user.",
+                });
+            }
+        }
+
+        // Check for duplicate phone if it is being updated
+        if (phone && phone !== user.phone) {
+            const existingUserWithPhone = await User.findOne({ phone });
+            if (existingUserWithPhone && existingUserWithPhone._id.toString() !== user._id.toString()) {
+                return res.status(400).json({
+                    error: "The provided phone number is already in use by another user.",
+                });
+            }
+        }
+
+        // Validate inputs
+        const errors = [];
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.push("Invalid email format.");
+        }
+        if (phone && !/^\+?[0-9]{7,15}$/.test(phone)) {
+            errors.push("Invalid phone number format.");
+        }
+
+        if (errors.length) {
+            return res.status(400).json({ error: errors });
+        }
+
+        // Update teacher details if provided
         teacher.lastName = lastName || teacher.lastName;
         teacher.firstName = firstName || teacher.firstName;
         teacher.subjectCount = subjectCount || teacher.subjectCount;
 
-        const updatedTeacher = await teacher.save(); // Save the updated teacher document
+        // Update user details if provided
+        user.phone = phone || user.phone;
+        user.email = email || user.email;
 
-        res.status(200).json(updatedTeacher);
+        // Save updates concurrently
+        await Promise.all([teacher.save(), user.save()]);
+
+        // Fetch updated teacher and user profile
+        const updatedTeacher = await Teacher.findById(teacherId).populate({
+            path: 'user',
+            select: 'email phone',
+        });
+
+        res.status(200).json({
+            message: "Teacher profile updated successfully.",
+            teacher: updatedTeacher,
+        });
     } catch (error) {
         console.error('Error updating teacher:', error.message);
-        res.status(400).json({ error: 'Error updating teacher. ' + error.message });
+
+        // Handle specific Mongoose errors
+        if (error.code === 11000) {
+            const duplicateField = Object.keys(error.keyValue)[0];
+            return res.status(400).json({
+                error: `Duplicate value for field: ${duplicateField}.`,
+            });
+        }
+
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                error: "Validation error while updating teacher profile.",
+                details: error.errors,
+            });
+        }
+
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                error: "Invalid ID format provided.",
+            });
+        }
+
+        res.status(500).json({
+            error: "An unexpected error occurred while updating teacher profile.",
+            details: error.message,
+        });
     }
 };

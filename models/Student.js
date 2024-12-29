@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import { Schema } from 'mongoose';
 
 const StudentSchema = new mongoose.Schema({
     lastName: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     firstName: {
         type: String,
@@ -14,15 +14,11 @@ const StudentSchema = new mongoose.Schema({
 
     arabicLastName: {
         type: String,
-        required: true
+        // required: true
     },
     arabicFirstName: {
         type: String,
-        required: true
-    },
-    cin: {
-        type: Number,
-        required: true
+        // required: true
     },
     birthDate: {
         type: Date,
@@ -32,8 +28,26 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    academicHistory: {
+        type: [
+            {
+                year: {
+                    type: String,
+                    required: true,
+                },
+                status: {
+                    type: String,
+                    required: true,
+                    enum: ['Success', 'Failure', 'Pending'],
+                    default: 'Pending',
+                },
+            },
+        ],
+        default: [], // Default to an empty array initially
+    },
     gender: {
         type: String,
+        enum: ["Male", "Female", "Homme", "Femme"],
         required: true
     },
     city: {
@@ -57,7 +71,7 @@ const StudentSchema = new mongoose.Schema({
         enum: ["ING1", "ING2", "ING3"],
         default: "ING1",
     },
-    isprepa: {
+    isGraduated: {
         type: Boolean,
         default: false
     },
@@ -91,7 +105,7 @@ const StudentSchema = new mongoose.Schema({
     M1Type: {
         type: String,
     },
-    cfil: {
+    cFil: {
         type: String,
     },
     scoreG: {
@@ -110,9 +124,27 @@ const StudentSchema = new mongoose.Schema({
         // default: null,
     },
     choices: [{
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Choice',
     }],
+});
+
+// Pre-save middleware to populate `academicHistory` with a default value if empty
+StudentSchema.pre('save', function (next) {
+    if (this.academicHistory.length === 0) {
+        const currentYear = new Date().getFullYear();
+        const month = new Date().getMonth();
+        const academicYear =
+            month >= 8
+                ? `${currentYear}-${currentYear + 1}`
+                : `${currentYear - 1}-${currentYear}`;
+
+        this.academicHistory.push({
+            year: academicYear,
+            status: 'Pending',
+        });
+    }
+    next();
 });
 
 export default mongoose.model('Student', StudentSchema);

@@ -50,6 +50,18 @@ const PFESchema = new Schema(
         Publisher: { type: Boolean, default: false },
         isArchived: { type: Boolean, default: false },
         emailStatus: { type: String, enum: ["none", "first", "second"], default: "none" },
+        anneYear: {
+            type: String,
+            default: function () {
+                // Automatically calculate the current academic year
+                const currentYear = new Date().getFullYear();
+                const month = new Date().getMonth();
+                // Academic year typically starts in September
+                return month >= 8
+                    ? `${currentYear}-${currentYear + 1}`
+                    : `${currentYear - 1}-${currentYear}`;
+            },
+        },
         student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
         teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
         Defense: { type: mongoose.Schema.Types.ObjectId, ref: 'DefensePFE' },

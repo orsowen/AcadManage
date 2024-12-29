@@ -9,7 +9,6 @@ export const addChoice = async (req, res) => {
 
     const studentId = req.user.idRole;
 
-    // Vérifier que la priorité est valide
     if (![1, 2, 3].includes(priority)) {
       return res.status(400).json({ message: "Invalid priority value" });
     }
@@ -43,14 +42,13 @@ export const addChoice = async (req, res) => {
     }
 
     // Vérifier que le sujet est un sujet en binôme
-    if (subject.binomeExits && binome) {
+    if (subject.binomeExits && !binomeId) {
       return res
         .status(400)
         .json({ message: "Binome ID is required for binome subjects" });
     }
 
     // Vérifier si le sujet avec la même priorité existe déjà pour cet étudiant
-
     const Subjects = await Subject_PFA.findOne({
       _id: subjectId,
       $or: [
@@ -80,7 +78,6 @@ export const addChoice = async (req, res) => {
       });
     }
 
-    // Créer un nouveau choix pour l'étudiant
     const newChoice = new Choice({
       student: studentId,
       subject: subjectId,
@@ -88,10 +85,8 @@ export const addChoice = async (req, res) => {
       binome: binomeId || null,
     });
 
-    // Sauvegarder le choix
     await newChoice.save();
 
-    // Ajouter le choix à l'étudiant
     student.choices.push(newChoice._id);
     await student.save();
 
@@ -117,7 +112,6 @@ export const addChoice = async (req, res) => {
         });
       }
 
-      // Créer un nouveau choix pour le binôme
       const binomeChoice = new Choice({
         student: binomeId,
         subject: subjectId,
@@ -125,10 +119,8 @@ export const addChoice = async (req, res) => {
         binome: studentId,
       });
 
-      // Sauvegarder le choix du binôme
       await binomeChoice.save();
 
-      // Ajouter le choix au binôme
       binome.choices.push(binomeChoice._id);
       await binome.save();
     }
@@ -146,12 +138,10 @@ export const updatePriority = async (req, res) => {
   try {
     const { choiceId, newPriority } = req.body;
 
-    // Vérifier que la nouvelle priorité est valide
     if (![1, 2, 3].includes(newPriority)) {
       return res.status(400).json({ message: "Invalid priority value" });
     }
 
-    // Trouver le choix
     const choice = await Choice.findById(choiceId).populate("student");
     if (!choice) {
       return res.status(404).json({ message: "Choice not found" });
@@ -170,7 +160,6 @@ export const updatePriority = async (req, res) => {
       });
     }
 
-    // Mettre à jour la priorité
     choice.priority = newPriority;
     await choice.save();
 
@@ -196,47 +185,52 @@ export const updateTeacherAcceptance = async (req, res) => {
   try {
     const { choiceId } = req.body;
 
-    // Trouver le choix principal
+
     const choice = await Choice.findById(choiceId).populate("student");
     if (!choice) {
       return res.status(404).json({ message: "Choice not found" });
     }
 
+    let binomeChoice = null;
+
     // Vérifier si le choix a un binôme
-    if (!choice.binome) {
-      return res
-        .status(400)
-        .json({ message: "Binome is required for acceptance" });
+    if (choice.binome) {
+      // Trouver le choix du binôme
+      binomeChoice = await Choice.findOne({
+        student: choice.binome,
+        subject: choice.subject,
+      });
+      if (!binomeChoice) {
+        return res
+          .status(404)
+          .json({ message: "Binome choice not found for the same subject" });
+      }
+      binomeChoice.teacherAcceptance = true;
+      await binomeChoice.save();
     }
 
-    // Mettre l'acceptation à TRUE pour le choix principal
+
     choice.teacherAcceptance = true;
     await choice.save();
 
-    // Mettre l'acceptation à TRUE pour le binôme sur le même sujet
-    const binomeChoice = await Choice.findOne({
-      student: choice.binome,
-      subject: choice.subject,
-    });
-    if (!binomeChoice) {
-      return res
-        .status(404)
-        .json({ message: "Binome choice not found for the same subject" });
-    }
-    binomeChoice.teacherAcceptance = true;
-    await binomeChoice.save();
 
-    // Désactiver les autres choix pour cet étudiant et son binôme uniquement
     await Choice.updateMany(
       {
-        _id: { $nin: [choice._id, binomeChoice._id] }, // Exclure le choix principal et celui du binôme
-        $or: [
-          { student: choice.student._id }, // Les choix de l'étudiant principal
-          { student: choice.binome }, // Les choix du binôme
-        ],
+        _id: { $ne: choice._id },
+        student: choice.student._id,
       },
       { teacherAcceptance: false }
     );
+
+    if (binomeChoice) {
+      await Choice.updateMany(
+        {
+          _id: { $ne: binomeChoice._id },
+          student: choice.binome,
+        },
+        { teacherAcceptance: false }
+      );
+    }
 
     res.status(200).json({
       message:
@@ -247,7 +241,6 @@ export const updateTeacherAcceptance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // Obtenir les choix de sujets d'un étudiant
 export const getChoices = async (req, res) => {
   try {
@@ -259,14 +252,18 @@ export const getChoices = async (req, res) => {
         {
           path: "subject",
           model: "Subject_PFA",
-          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          select: "title description technologies teacher",
           populate: {
             path: "teacher",
             model: "Teacher",
-            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+            select: "firstName lastName email",
           },
         },
-        { path: "binome", model: "Student", select: "firstName lastName email" }, // Sélectionner les champs spécifiques du binome
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        },
       ],
     });
 
@@ -274,7 +271,6 @@ export const getChoices = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Préparer les choix pour la réponse
     const choices = student.choices.map((choice) => {
       const { title, description, technologies, teacher } = choice.subject;
       const result = {
@@ -300,24 +296,26 @@ export const getChoices = async (req, res) => {
 export const getChoiceById = async (req, res) => {
   try {
     const studentId = req.user.idRole;
-    const { choiceId } = req.params; // Extraire l'ID du choix des paramètres de la requête
-
-    console.log(studentId);
+    const choiceId = req.params.id;
     const student = await Student.findById(studentId).populate({
       path: "choices",
-      match: { _id: choiceId }, // Filtrer les choix par ID de choix
+      match: { _id: choiceId },
       populate: [
         {
           path: "subject",
           model: "Subject_PFA",
-          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+          select: "title description technologies teacher",
           populate: {
             path: "teacher",
             model: "Teacher",
-            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+            select: "firstName lastName email",
           },
         },
-        { path: "binome", model: "Student", select: "firstName lastName email" }, // Sélectionner les champs spécifiques du binome
+        {
+          path: "binome",
+          model: "Student",
+          select: "firstName lastName email",
+        },
       ],
     });
 
@@ -325,13 +323,12 @@ export const getChoiceById = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const choice = student.choices[0]; // Il ne devrait y avoir qu'un seul choix correspondant à l'ID
+    const choice = student.choices[0];
 
     if (!choice) {
       return res.status(404).json({ message: "Choice not found" });
     }
 
-    // Préparer le choix pour la réponse
     const { title, description, technologies, teacher } = choice.subject;
     const result = {
       title,

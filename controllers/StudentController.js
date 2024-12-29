@@ -1,9 +1,8 @@
 import bcrypt from 'bcrypt'
 import mongoose from 'mongoose'
-import CV from "../models/CV.js"
 import Student from '../models/Student.js'
 import User from '../models/User.js'
-import { generateRandomPassword } from './UserController.js'
+import { generateRandomPassword, sendCreds } from './UserController.js'
 // Create a new student
 export const createStudent = async (req, res) => {
     const {
@@ -11,9 +10,16 @@ export const createStudent = async (req, res) => {
         birthDate, governorate, gender, city, postalCode, nationality, bac,
         grade, isPrepa, university, etablissement, speciality, licenseYear,
         M1university, M1Etablissement, M1speciality, M1Year, M1Type, cFil, scoreG,
-        bacYear, address
+        bacYear, address, sendCredsInMail = false,
     } = req.body
-
+    if (!(/^[0-9]+$/.test(cin)) || cin.length < 8) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
+    // Email validation regex
+    const emailRegex = /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format.' });
+    }
     const session = await mongoose.startSession();
     session.startTransaction()
 
@@ -91,6 +97,10 @@ export const createStudent = async (req, res) => {
         savedStudent.user = savedUser._id;
         await savedStudent.save(); // Update the student with the user ID
 
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
+
         // Return the success response
         res.status(201).json({
             message: "Student and user created successfully.",
@@ -120,7 +130,7 @@ export const createCV = async (req, res) => {
     try {
         const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio, user } = req.body;
 
-        const newCV = new mongoose.model('Student')({lastName,firstName,Title,phoneNum,adress,socialMediaLinks,competence,languages,skills,hobbies,WorkExperience,education,objective,Bio});
+        const newCV = new mongoose.model('Student')({ lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, objective, Bio });
 
         const savedCV = await newCV.save();
         res.status(201).json({ model: savedCV, message: "CV created successfully" });
@@ -219,11 +229,15 @@ export const getStudentById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const student = await Student.findById(id);
+        const student = await Student.findById(id)
+            .populate('user', 'email phone');;
         if (!student) {
             return res.status(404).json({ message: 'Student not found.' });
         }
-        res.status(200).json(student);
+        res.status(200).json({
+            message: "Student fetched successfully.",
+            data: student,
+        });
     } catch (error) {
         console.error('Error fetching student by ID:', error.message);
         res.status(500).json({ error: 'Failed to fetch student.' });
@@ -250,7 +264,10 @@ export const getStudentProfile = async (req, res) => {
         }
 
         // Respond with the student profile
-        res.status(200).json(student);
+        res.status(200).json({
+            message: "Student fetched successfully.",
+            data: student,
+        });
     } catch (error) {
         console.error('Error fetching student profile:', error.message);
         res.status(500).json({ error: 'Failed to fetch student profile.' });
