@@ -69,18 +69,48 @@ export const generateSoutenances = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
 
-      // Trouver un rapporteur qui n'est pas l'encadrant du sujet
+      // // Trouver un rapporteur qui n'est pas l'encadrant du sujet
+      // let rapporteur = null;
+      // let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
+      // while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
+      //   const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
+      //   if (
+      //     potentialRapporteur._id.toString() !== subject.teacher._id.toString()
+      //   ) {
+      //     rapporteur = potentialRapporteur;
+      //     teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
+      //     break;
+      //   }
+      //   teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
+      //   attempts++;
+      // }
       let rapporteur = null;
       let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
       while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
         const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
+
+        // Vérifier que le rapporteur n'est pas l'encadrant du sujet
         if (
           potentialRapporteur._id.toString() !== subject.teacher._id.toString()
         ) {
-          rapporteur = potentialRapporteur;
-          teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
-          break;
+          // Vérifier s'il n'est pas déjà assigné à une soutenance à la même heure
+          const isAlreadyAssigned = soutenances.some(
+            (soutenance) =>
+              soutenance.rapporteur.toString() ===
+                potentialRapporteur._id.toString() &&
+              soutenance.date === date && // Vérifier la même date
+              soutenance.startTime === startTime // Vérifier la même heure
+          );
+
+          // Si le rapporteur n'est pas déjà affecté à une soutenance à cette heure
+          if (!isAlreadyAssigned) {
+            rapporteur = potentialRapporteur;
+            teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
+            break;
+          }
         }
+
+        // Remettre l'enseignant à la fin de la file si il n'est pas choisi
         teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
         attempts++;
       }
