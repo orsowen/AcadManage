@@ -18,6 +18,21 @@ export const generateSoutenances = async (req, res) => {
       });
     }
 
+    // // Étape 1 : Récupérer les IDs des sujets validés depuis Choice
+    // const validChoices = await Choice.find({ valid: true }).select("subject").exec();
+    // const validSubjectIds = validChoices.map((choice) => choice.subject);
+
+    // if (validSubjectIds.length === 0) {
+    //   return res
+    //     .status(404)
+    //     .json({ message: "Aucun sujet validé trouvé dans les choix." });
+    // }
+
+    // // Étape 2 : Récupérer les sujets approuvés avec leurs encadrants
+    // const subjects = await Subject_PFA.find({ _id: { $in: validSubjectIds } })
+    //   .populate("teacher", "firstName lastName")
+    //   .exec();
+
     // Récupérer les sujets approuvés avec leurs encadrants
     const subjects = await Subject_PFA.find({ status: "Approved" })
       .populate("teacher", "firstName lastName")
@@ -102,7 +117,6 @@ export const generateSoutenances = async (req, res) => {
 
     // Sauvegarder les soutenances
     await SoutenancePFA.insertMany(soutenances);
-
     res
       .status(201)
       .json({ message: "Soutenances générées avec succès.", soutenances });
@@ -116,7 +130,17 @@ export const generateSoutenances = async (req, res) => {
 export const getPlanningByTeacher = async (req, res) => {
   try {
     const { teacherId } = req.params;
+    //     Récupérer les IDs des sujets validés à partir de Choice
+    //     const validChoices = await Choice.find({ valid: true }).select("subject").exec();
+    //     const validSubjectIds = validChoices.map((choice) => choice.subject);
 
+    //     // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur, et sujet validé
+    //     const planning = await SoutenancePFA.find({
+    //       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+    //       subject: { $in: validSubjectIds },
+    //     })
+    //       .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
+    //       .exec();
     // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur
     const planning = await SoutenancePFA.find({
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
@@ -140,6 +164,34 @@ export const getPlanningByStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
     console.log("Student ID:", studentId);
+
+    // Récupérer les IDs des sujets validés à partir de Choice où l'étudiant est impliqué
+    // const validChoices = await Choice.find({
+    //   valid: true,
+    //   $or: [{ student: studentId }, { binome: studentId }],
+    // }).select("subject").exec();
+
+    // const validSubjectIds = validChoices.map((choice) => choice.subject);
+
+    // console.log("Sujets validés trouvés :", validSubjectIds);
+    // if (!validSubjectIds || validSubjectIds.length === 0) {
+    //   return res
+    //     .status(404)
+    //     .json({ message: "Aucun sujet validé trouvé pour cet étudiant." });
+    // }
+    // Chercher toutes les soutenances qui correspondent aux sujets validés trouvés
+    //  const planning = await SoutenancePFA.find({
+    //   subject: { $in: validSubjectIds },
+    // })
+    //   .populate({
+    //     path: "subject",
+    //     select: "title teacher monome binome",
+    //     populate: [
+    //       { path: "monome", select: "firstName lastName" },
+    //       { path: "binome", select: "firstName lastName" },
+    //     ],
+    //   })
+    //   .exec();
 
     // Chercher tous les sujets où l'étudiant est impliqué comme monome ou binome
     const subjects = await Subject_PFA.find({
