@@ -2,6 +2,8 @@ import Subject_PFA from "../models/Subject_PFA.js";
 import Teacher from "../models/Teachers.js";
 import SoutenancePFA from "../models/SoutenancePFA.js"; // Modèle Soutenance
 import dotenv from "dotenv";
+import User from "../models/User.js";
+import { sendMail } from "./mailer.js";
 
 dotenv.config();
 
@@ -16,6 +18,7 @@ export const generateSoutenances = async (req, res) => {
       });
     }
 
+    // Récupérer les sujets approuvés avec leurs encadrants
     const subjects = await Subject_PFA.find({ status: "Approved" })
       .populate("teacher", "firstName lastName")
       .exec();
@@ -24,33 +27,56 @@ export const generateSoutenances = async (req, res) => {
       return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
     }
 
-    const teachers = await Teacher.find().exec();
-
     let soutenances = [];
     let currentDayIndex = 0;
     let currentRoomIndex = 0;
-    let currentHour = 9; // Début à 9h00
+    let currentHour = 9; // Heure de début
+    let currentMinute = 0; // Minute de début
+
+    // Création d'une file circulaire des enseignants qui seront rapporteurs
+    const teacherQueue = subjects.map((subject) => subject.teacher);
 
     for (const subject of subjects) {
       // Déterminer la date et la salle
       const date = days[currentDayIndex];
       const room = rooms[currentRoomIndex];
 
-      // Ajouter une soutenance
-      const startTime = `${currentHour}:00`;
-      const endTime = `${currentHour + 0.5}:00`;
+      // Formater l'heure de début
+      const startTime = `${String(currentHour).padStart(2, "0")}:${String(
+        currentMinute
+      ).padStart(2, "0")}`;
 
-      // Trouver un rapporteur différent de l'encadrant
-      const rapporteur = teachers.find(
-        (teacher) => teacher._id.toString() !== subject.teacher._id.toString()
-      );
+      // Calculer l'heure de fin après 30 minutes
+      let totalMinutes = currentHour * 60 + currentMinute + 30; // Ajouter 30 minutes
+      const endHour = Math.floor(totalMinutes / 60);
+      const endMinute = totalMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, "0")}:${String(
+        endMinute
+      ).padStart(2, "0")}`;
+
+      // Trouver un rapporteur qui n'est pas l'encadrant du sujet
+      let rapporteur = null;
+      let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
+      while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
+        const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
+        if (
+          potentialRapporteur._id.toString() !== subject.teacher._id.toString()
+        ) {
+          rapporteur = potentialRapporteur;
+          teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
+          break;
+        }
+        teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
+        attempts++;
+      }
 
       if (!rapporteur) {
         return res
           .status(500)
-          .json({ message: "Impossible de trouver un rapporteur." });
+          .json({ message: "Impossible de trouver un rapporteur valide." });
       }
 
+      // Ajouter la soutenance à la liste
       soutenances.push({
         subject: subject._id,
         date,
@@ -61,12 +87,15 @@ export const generateSoutenances = async (req, res) => {
         rapporteur: rapporteur._id,
       });
 
-      // Mettre à jour les indices pour jour, salle et heure
-      currentHour += 0.5; // Ajouter 30 minutes
-      if (currentHour >= 15) {
-        // Fin de journée à 15h
-        currentHour = 9; // Revenir à 9h le jour suivant
-        currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Changer de salle
+      // Mettre à jour les indices pour la prochaine soutenance
+      currentHour = endHour;
+      currentMinute = endMinute;
+
+      // Si l'heure dépasse 15h00, passer au jour et à la salle suivants
+      if (currentHour >= 15 && currentMinute > 0) {
+        currentHour = 9; // Réinitialiser à 9h00
+        currentMinute = 0; // Réinitialiser les minutes
+        currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Passer à la salle suivante
         currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
       }
     }
@@ -156,94 +185,262 @@ export const getPlanningByStudent = async (req, res) => {
   }
 };
 
-//8.3 update soutenances
+//8.3  Update
 export const updateSoutenance = async (req, res) => {
   try {
-    const { id } = req.params; // ID de la soutenance à modifier
-    const { teacher, rapporteur, room, date, startTime } = req.body;
+    const { id } = req.params; // ID de la soutenance à mettre à jour
+    const { date, startTime, endTime, room, teacher, rapporteur } = req.body;
 
-    console.log(`Modification de la soutenance ${id}`);
-
-    // Vérifier si la soutenance existe
-    const soutenance = await SoutenancePFA.findById(id);
-    if (!soutenance) {
-      return res
-        .status(404)
-        .json({ message: "La soutenance demandée n'existe pas." });
+    // Récupérer la soutenance existante
+    const existingSoutenance = await SoutenancePFA.findById(id);
+    if (!existingSoutenance) {
+      return res.status(404).json({ message: "Soutenance introuvable." });
     }
 
-    // Calculer automatiquement endTime (durée fixe de 30 minutes)
-    const [startHours, startMinutes] = startTime.split(":").map(Number);
-    const endTime = `${startHours}:${(startMinutes + 30) % 60}`; // Ajout de 30 minutes
-    console.log(`Calculated endTime: ${endTime}`);
-
-    // Vérification des chevauchements horaires pour la salle
-    const overlapRoom = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      room: room,
-      date: date,
-      $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
-      ],
-    });
-
-    if (overlapRoom) {
-      return res
-        .status(400)
-        .json({ message: "La salle est déjà réservée à cet horaire." });
+    // Vérifier que le `teacher` spécifié existe dans SubjectPFA
+    if (teacher) {
+      const teacherExists = await Subject_PFA.findOne({ teacher });
+      if (!teacherExists) {
+        return res.status(400).json({
+          message: "L'enseignant spécifié  n'a pas de sujet PFA.",
+        });
+      }
     }
+    // Vérifier que le `rapporteur` spécifié existe dans SubjectPFA
+    if (rapporteur) {
+      const rapporteurExists = await Subject_PFA.findOne({
+        teacher: rapporteur,
+      });
+      if (!rapporteurExists) {
+        return res.status(400).json({
+          message: "Le rapporteur spécifié n'a pas de sujet PFA.",
+        });
+      }
+    }
+    // Calculer endTime si non fourni
+    let calculatedEndTime = endTime;
+    if (!endTime && startTime) {
+      const [hour, minute] = startTime.split(":").map(Number);
+      const totalMinutes = hour * 60 + minute + 30; // Ajouter 30 minutes
+      const endHour = Math.floor(totalMinutes / 60);
+      const endMinute = totalMinutes % 60;
+      calculatedEndTime = `${String(endHour).padStart(2, "0")}:${String(
+        endMinute
+      ).padStart(2, "0")}`;
+    }
+    const roomToCheck = room || existingSoutenance.room;
+    const startTimeTocheck = startTime || existingSoutenance.startTime;
+    const endTimeTocheck = calculatedEndTime || existingSoutenance.endTime;
+    const dateToCheck = date || existingSoutenance.date;
 
-    // Vérification des chevauchements horaires pour l'enseignant
-    const overlapTeacher = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      teacher: teacher,
-      date: date,
+    // Vérifier les chevauchements : même horaire, même salle
+    const overlappingSoutenanceSameRoom = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Exclure la soutenance en cours d'édition
+      room: roomToCheck,
+      date: dateToCheck,
       $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+        {
+          $and: [
+            { startTime: { $gte: startTimeTocheck } },
+            { endTime: { $lte: endTimeTocheck } },
+          ],
+        },
       ],
     });
-
-    if (overlapTeacher) {
+    if (overlappingSoutenanceSameRoom) {
       return res.status(400).json({
-        message:
-          "L'enseignant est déjà assigné à une autre soutenance à cet horaire.",
+        message: "Une autre soutenance occupe déjà cet horaire et cette salle.",
       });
     }
 
-    // Vérification des chevauchements horaires pour le rapporteur
-    const overlapRapporteur = await SoutenancePFA.findOne({
-      _id: { $ne: id }, // Ignorer la soutenance actuelle
-      rapporteur: rapporteur,
-      date: date,
+    // Vérifier les chevauchements : même horaire, salle différente
+    const overlappingSoutenanceDifferentRoom = await SoutenancePFA.findOne({
+      _id: { $ne: id }, // Exclure la soutenance en cours d'édition
+      room: { $ne: room },
+      date: dateToCheck,
+      teacher: teacher || existingSoutenance.teacher,
+      rapporteur: rapporteur || existingSoutenance.rapporteur,
       $or: [
-        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }, // Début chevauche la fin
+        {
+          $and: [
+            { startTime: { $gte: startTimeTocheck } },
+            { endTime: { $lte: endTimeTocheck } },
+          ],
+        },
       ],
     });
 
-    if (overlapRapporteur) {
-      return res.status(400).json({
-        message:
-          "Le rapporteur est déjà assigné à une autre soutenance à cet horaire.",
-      });
+    if (overlappingSoutenanceDifferentRoom) {
+      if (!teacher && !rapporteur) {
+        return res.status(400).json({
+          message:
+            "Un enseignant ou un rapporteur existe déjà dans une autre salle au même horaire. Veuillez les modifier.",
+        });
+      }
+
+      const isTeacherOccupied =
+        overlappingSoutenanceDifferentRoom.teacher.toString() ===
+          (teacher || existingSoutenance.teacher).toString() ||
+        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
+          (teacher || existingSoutenance.teacher).toString();
+      const isRapporteurOccupied =
+        overlappingSoutenanceDifferentRoom.teacher.toString() ===
+          (rapporteur || existingSoutenance.rapporteur).toString() ||
+        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
+          (rapporteur || existingSoutenance.rapporteur).toString();
+
+      if (isTeacherOccupied || isRapporteurOccupied) {
+        return res.status(400).json({
+          message:
+            "Un enseignant ou un rapporteur est déjà assigné dans une autre salle au même horaire.",
+        });
+      }
     }
 
-    // Mise à jour des champs
-    soutenance.teacher = teacher || soutenance.teacher;
-    soutenance.rapporteur = rapporteur || soutenance.rapporteur;
-    soutenance.room = room || soutenance.room;
-    soutenance.date = date || soutenance.date;
-    soutenance.startTime = startTime || soutenance.startTime;
-    soutenance.endTime = endTime || soutenance.endTime;
-
-    // Sauvegarder la soutenance modifiée
-    const updatedSoutenance = await soutenance.save();
+    // Mise à jour des champs en une seule opération
+    const updatedSoutenance = await SoutenancePFA.findByIdAndUpdate(
+      id,
+      {
+        date,
+        startTime,
+        endTime: calculatedEndTime,
+        room,
+        ...(teacher && { teacher }),
+        ...(rapporteur && { rapporteur }),
+      },
+      { new: true } // Retourner le document mis à jour
+    );
 
     res.status(200).json({
       message: "Soutenance mise à jour avec succès.",
       soutenance: updatedSoutenance,
     });
   } catch (error) {
-    console.error("Erreur lors de la modification de la soutenance :", error);
-    res.status(500).json({ message: "Erreur interne du serveur." });
+    console.error("Erreur lors de la mise à jour de la soutenance :", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+//8.4 Publish /mask
+export const publishSoutenance = async (req, res) => {
+  const { response } = req.params;
+  if (!["publier", "masquer"].includes(response)) {
+    return res.status(400).json({ error: "Valeur de response invalide." });
+  }
+
+  try {
+    // const PublishedSoutenance = await SoutenancePFA.find({
+    //   status: "publier",
+    // });
+    //console.log("Previously published soutenances:", PublishedSoutenance);
+    // Mettre à jour toutes les soutenances
+    const result = await SoutenancePFA.updateMany({}, { status: response });
+
+    res.status(200).json({
+      message: `Les soutenances ont été ${
+        response === "publier" ? "publiées" : "masquées"
+      } avec succès.`,
+      modifiedCount: result.nModified,
+    });
+    // // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    // if (PublishedSoutenance.length === 0) {
+    //   await firstSend();
+    // } else {
+    //   await modifiedSend();
+    // }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Une erreur est survenue lors de la mise à jour des soutenances.",
+    });
+  }
+};
+
+// Fonction pour envoyer le premier email
+export const firstSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("Aucun destinataire défini.");
+    }
+
+    // Contenu du mail pour le premier envoi
+    const subject = "Publication des soutenances PFA";
+    const html = `
+      <p>Les soutenances ont été publiées.</p>
+      <p>Vous pouvez consulter les détails en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/soutenancePFA">Voir les soutenances</a>
+    `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Premier envoi effectué avec succès.");
+  } catch (error) {
+    console.error("Erreur lors du premier envoi :", error);
+  }
+};
+
+// Fonction pour envoyer un email modifié
+export const modifiedSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("Aucun destinataire défini.");
+    }
+
+    // Contenu du mail pour l'envoi modifié
+    const subject = "Mise à jour des soutenances PFA";
+    const html = `
+      <p>Les soutenances ont été mises à jour.</p>
+      <p> Veillez consultez les détails mis à jour en cliquant sur le lien ci-dessous :</p>
+      <a href="http://localhost:8800/PFA/soutenancePFA">Voir les soutenances mises à jour</a>
+    `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Envoi modifié effectué avec succès.");
+  } catch (error) {
+    console.error("Erreur lors de l'envoi modifié :", error);
+  }
+};
+
+// // Contrôleur pour gérer l'envoi d'emails
+export const sendEmail = async (req, res) => {
+  const { option } = req.params; // `option` est soit "first" soit "modified"
+
+  try {
+    if (option === "first") {
+      await firstSend();
+      return res.status(200).json({ message: "Premier envoi effectué." });
+    } else if (option === "modified") {
+      await modifiedSend();
+      return res.status(200).json({ message: "Envoi modifié effectué." });
+    } else {
+      return res.status(400).json({
+        error: "Option invalide. Choisissez entre 'first' ou 'modified'.",
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'envoi :", error);
+    res
+      .status(500)
+      .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
   }
 };
