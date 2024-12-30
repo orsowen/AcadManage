@@ -21,7 +21,7 @@ router.get('/', isAdmin, getAllPlanningStages);
 router.get('/me', isStillStudent, isStudent, getPlanningStageByStudent);
 
 // Fetch a planning stage by ID
-router.get('/:id', getPlanningStageById);
+router.get('/:id', isAdminOrTeacher, getPlanningStageById);
 
 // Create a new planning stage
 router.post('/', isTeacher, createPlanningStage);
