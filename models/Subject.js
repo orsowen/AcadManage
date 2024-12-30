@@ -5,12 +5,12 @@ const SubjectSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    
-    skills: [{ 
+
+    skills: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Skill",
     }
-],
+    ],
     level: {
         type: String,
         required: true
@@ -57,7 +57,7 @@ const SubjectSchema = new mongoose.Schema({
         ref: 'Teacher', // Référence au modèle User
         default: null,
     }],
-    
+
     students: [{  // Tableau d'ID d'étudiants
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Student',
@@ -65,7 +65,7 @@ const SubjectSchema = new mongoose.Schema({
 
     published: {
         type: Boolean,
-        required: false, 
+        required: false,
     },
 
     option: {
@@ -77,7 +77,7 @@ const SubjectSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-   
+
     coeff: {
         type: Number,
         required: true
@@ -87,8 +87,21 @@ const SubjectSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-  
- 
+
+    historique: [
+        {
+            date: { type: Date, default: Date.now },
+            action: String,
+            utilisateur: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            
+            raison: String,
+            proposition: Object, 
+            ancienCurriculum: Object,
+            validée: { type: Boolean, default: false }
+        }
+    ]
+
 });
+
 
 export default mongoose.model("Subject", SubjectSchema);
