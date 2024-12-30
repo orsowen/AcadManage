@@ -283,7 +283,8 @@ export const getPlanningStageById = async (req, res) => {
                         },
                     },
                 ],
-            }) // Populate internship, student, and teacher details
+            });
+
         if (!planningStage) {
             return res.status(404).json({ message: 'Planning Stage not found.' });
         }
@@ -323,7 +324,8 @@ export const getPlanningStageByStudent = async (req, res) => {
                         },
                     },
                 ],
-            });
+            })
+            .select('-isArchived -isPublished -isValid -reasonIfNotValid');
 
         // Filter out planning stages without matched internships
         const filteredStages = planningStages.filter((stage) => stage.internship);
@@ -380,7 +382,7 @@ export const updatePlanningStage = async (req, res) => {
                         },
                     },
                 ],
-            }) // Populate internship, student, and teacher details
+            });
 
 
         if (!planningStage) return res.status(404).json({ message: "Planning Stage not found." });
