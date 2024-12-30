@@ -1,6 +1,7 @@
 import Choice from "../models/Choice.js";
 import Student from "../models/Student.js";
 import Subject_PFA from "../models/Subject_PFA.js";
+import User from "../models/User.js";
 
 // Add a choice for a student
 export const addChoice = async (req, res) => {
@@ -160,15 +161,16 @@ export const updatePriority = async (req, res) => {
     if (!choice) {
       return res.status(404).json({ message: "Choice not found" });
     }
-     // Vérifier que le choix appartient à l'étudiant authentifié
-     if (choice.student._id.toString() !== studentId) {
-      return res.status(403).json({ message: "You are not authorized to update this choice" });
+    // Vérifier que le choix appartient à l'étudiant authentifié
+    if (choice.student._id.toString() !== studentId) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to update this choice" });
     }
 
     // Vérifier que la nouvelle priorité est unique pour l'étudiant
     const student = await Student.findById(studentId).populate("choices");
 
-    
     const existingPriorityChoice = student.choices.find(
       (c) => c.priority === newPriority && c._id.toString() !== choiceId
     );
@@ -381,7 +383,6 @@ export const getChoiceById = async (req, res) => {
   }
 };
 
-
 // Obtenir les choix de sujets d'un étudiant
 export const getStudentChoices = async (req, res) => {
   try {
@@ -421,7 +422,7 @@ export const getStudentChoices = async (req, res) => {
         technologies,
         teacher,
         teacherAcceptance: choice.teacherAcceptance,
-        valid : choice.valid
+        valid: choice.valid,
       };
       if (choice.binome) {
         result.binome = choice.binome;
@@ -463,12 +464,18 @@ export const autoAssignChoices = async (req, res) => {
 
     for (const student of students) {
       // Étape 1 : Vérifier si l'enseignant a ajouté l'étudiant lors de la création du sujet PFA et si l'acceptation de l'enseignant mise par l'étudiant est true
-      const approvedChoices = student.choices.filter(choice => 
-        (choice.subject.monome && choice.subject.monome.toString() === student._id.toString() || 
-         choice.subject.binome && choice.subject.binome.toString() === student._id.toString()) && 
-        choice.teacherAcceptance
+      const approvedChoices = student.choices.filter(
+        (choice) =>
+          ((choice.subject.monome &&
+            choice.subject.monome.toString() === student._id.toString()) ||
+            (choice.subject.binome &&
+              choice.subject.binome.toString() === student._id.toString())) &&
+          choice.teacherAcceptance
       );
-      console.log(`Approved choices for student ${student._id}:`, approvedChoices);
+      console.log(
+        `Approved choices for student ${student._id}:`,
+        approvedChoices
+      );
 
       // Marquer les choix approuvés comme valides
       for (const choice of approvedChoices) {
@@ -479,26 +486,37 @@ export const autoAssignChoices = async (req, res) => {
       // Vérifier si aucun choix n'a été validé à l'étape 1
       if (approvedChoices.length === 0) {
         // Étape 2 : Affecter les priorités 1 si pas de conflits
-        const priority1Choices = student.choices.filter(choice => choice.priority === 1 && !choice.teacherAcceptance && !choice.valid);
+        const priority1Choices = student.choices.filter(
+          (choice) =>
+            choice.priority === 1 && !choice.teacherAcceptance && !choice.valid
+        );
 
         for (const choice of priority1Choices) {
           // Vérifier si un autre étudiant a déjà ce choix avec priorité 1
           const conflictChoices = await Choice.find({
             subject: choice.subject._id,
             priority: 1,
-            valid: true
+            valid: true,
           });
           console.log("Conflict choices:", conflictChoices);
 
           // Vérifier si le conflit est avec le binome du même sujet
-          const isConflictWithBinome = conflictChoices.some(conflictChoice => 
-            conflictChoice.binome && conflictChoice.binome.toString() === student._id.toString()
+          const isConflictWithBinome = conflictChoices.some(
+            (conflictChoice) =>
+              conflictChoice.binome &&
+              conflictChoice.binome.toString() === student._id.toString()
           );
 
           if (isConflictWithBinome) {
             for (const conflictChoice of conflictChoices) {
-              if (conflictChoice.binome && conflictChoice.binome.toString() === student._id.toString()) {
-                console.log("Conflict choice b  :", conflictChoice.binome.toString());
+              if (
+                conflictChoice.binome &&
+                conflictChoice.binome.toString() === student._id.toString()
+              ) {
+                console.log(
+                  "Conflict choice b  :",
+                  conflictChoice.binome.toString()
+                );
                 conflictChoice.valid = false;
                 await conflictChoice.save();
               }
@@ -532,27 +550,31 @@ export const autoAssignChoices = async (req, res) => {
       }
 
       // Étape 3 : Laisser les autres choix non affectés
-      const otherChoices = student.choices.filter(choice => !choice.valid);
+      const otherChoices = student.choices.filter((choice) => !choice.valid);
       for (const choice of otherChoices) {
         choice.valid = false;
         await choice.save();
       }
 
-        // Mettre à jour les choix de l'étudiant pour ne conserver que ceux avec valid: true
-        student.choices = student.choices.filter(choice => choice.valid);
-        await student.save();
-  
-        // Mettre à jour les choix du binôme pour ne conserver que ceux avec valid: true
-        if (student.binome) {
-          const binome = await Student.findById(student.binome).populate("choices");
-          if (binome) {
-            binome.choices = binome.choices.filter(choice => choice.valid);
-            await binome.save();
-          }
-        }
+      // Mettre à jour les choix de l'étudiant pour ne conserver que ceux avec valid: true
+      // student.choices = student.choices.filter(choice => choice.valid);
+      // await student.save();
+
+      // Mettre à jour les choix du binôme pour ne conserver que ceux avec valid: true
+      // if (student.binome) {
+      //   const binome = await Student.findById(student.binome).populate("choices");
+      //   if (binome) {
+      //     binome.choices = binome.choices.filter(choice => choice.valid);
+      //     await binome.save();
+      //   }
+      // }
     }
 
-    res.status(200).json({ message: "Auto assignment completed successfully for all students" });
+    res
+      .status(200)
+      .json({
+        message: "Auto assignment completed successfully for all students",
+      });
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: error.message });
@@ -578,75 +600,204 @@ export const assignPFAtoStudent = async (req, res) => {
     }
 
     // Vérifier si le sujet est déjà affecté à un autre étudiant
-    const existingChoice = await Choice.findOne({ subject: subjectId, valid: true });
-    if (existingChoice && existingChoice.student.toString() !== studentId) {
-      if (!force) {
-        return res.status(400).json({ message: "Subject already assigned to another student" });
-      } else {
-        // Retirer le sujet de l'autre étudiant
-        existingChoice.valid = false;
-        await existingChoice.save();
+    const existingChoice = await Choice.findOne({
+      subject: subjectId,
+      valid: true,
+    });
+    if (existingChoice) {
+      if (existingChoice.student.toString() !== studentId) {
+        if (!force) {
+          return res
+            .status(400)
+            .json({ message: "Subject already assigned to another student" });
+        } else {
+          // Retirer le sujet de l'autre étudiant
+          existingChoice.valid = false;
+          await existingChoice.save();
 
-        // Mettre à jour les choix de l'autre étudiant
-        const otherStudent = await Student.findById(existingChoice.student);
-        if (otherStudent) {
-          otherStudent.choices = otherStudent.choices.filter(choiceId => choiceId.toString() !== existingChoice._id.toString());
-          await otherStudent.save();
+          // Mettre à jour les choix de l'autre étudiant
+          const otherStudent = await Student.findById(existingChoice.student);
+          if (otherStudent) {
+            otherStudent.choices = otherStudent.choices.filter(
+              (choiceId) =>
+                choiceId.toString() !== existingChoice._id.toString()
+            );
+            await otherStudent.save();
+          }
+
+          // Retirer le sujet du binome de l'autre étudiant
+          if (existingChoice.binome) {
+            const binomeStudent = await Student.findById(existingChoice.binome);
+            if (binomeStudent) {
+              // Mettre à jour le choix du binome pour le même sujet
+              const binomeChoice = await Choice.findOne({
+                student: existingChoice.binome,
+                subject: subjectId,
+              });
+              if (binomeChoice) {
+                binomeChoice.valid = false;
+                await binomeChoice.save();
+              }
+
+              binomeStudent.choices = binomeStudent.choices.filter(
+                (choiceId) =>
+                  choiceId.toString() !== binomeChoice._id.toString()
+              );
+              await binomeStudent.save();
+            }
+          }
+          // Vérifier si le choix existe déjà pour l'étudiant
+          let studentChoice = await Choice.findOne({ student: studentId });
+          if (studentChoice) {
+            // Mettre à jour le choix existant
+            studentChoice.valid = true;
+            await studentChoice.save();
+          }
         }
       }
     }
 
-    // Vérifier si le choix existe déjà pour l'étudiant
-    let studentChoice = await Choice.findOne({ student: studentId, subject: subjectId });
-    if (studentChoice) {
-      // Mettre à jour le choix existant
-      studentChoice.valid = true;
-      await studentChoice.save();
-    }else {
-        return res.status404().json({ message: "Choice not found for the student" });
-      }
-    
-  // Mettre à jour les choix de l'étudiant pour ne conserver que ceux avec valid: true
-  student.choices = student.choices.filter(choice => choice.valid);
-  await student.save();
+    // Mettre à jour les choix de l'étudiant pour ne conserver que ceux avec valid: true
+    student.choices = student.choices.filter((choice) => choice.valid);
+    await student.save();
 
-    res.status(200).json({ message: "Subject assigned to student successfully", choice: studentChoice });
+    res
+      .status(200)
+      .json({
+        message: "Subject assigned to student successfully",
+      });
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: error.message });
   }
 };
-
 
 // Publier ou masquer l'affectation d'un sujet PFA
 export const publishHidePFAChoice = async (req, res) => {
   try {
     const { response } = req.params;
-    const { subjectId } = req.body;
-
-    // Vérifier si le sujet PFA existe
-    const subject = await Subject_PFA.findById(subjectId);
-    if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
-    }
 
     // Publier ou masquer l'affectation
-    const valid = response === 'publish';
-    await Choice.updateMany({ subject: subjectId }, { valid });
+    let updateResult;
+    if (response === "publish") {
+      updateResult = await Choice.updateMany({ valid: true }, { isAffectationVisible: true });
+    } else if (response === "hide") {
+      updateResult = await Choice.updateMany({ valid: false }, { isAffectationVisible: false });
+    } else {
+      return res.status(400).json({ message: "Invalid response parameter" });
+    }
+
+    console.log(`Update result: ${JSON.stringify(updateResult)}`);
 
     // Mettre à jour les choix des étudiants concernés
-    const students = await Student.find({ 'choices.subject': subjectId }).populate('choices');
+    const students = await Student.find().populate("choices");
+
     for (const student of students) {
-      student.choices = student.choices.filter(choice => choice.valid);
+      student.choices = student.choices.filter((choice) => choice.isAffectationVisible);
       await student.save();
     }
 
-    res.status(200).json({ message: `Assignment ${valid ? 'published' : 'hidden'} successfully` });
+    res.status(200).json({
+      message: `Assignment ${response === "publish" ? "published" : "hidden"} successfully`,
+    });
+    
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: error.message });
   }
 };
+
+
+export const firstSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et des enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
+
+    // Envoyer un email de confirmation avec un lien vers la liste des sujets
+    const subject =
+      "Publication des choix de sujets PFA";
+    const html = `
+      <p>Les sujets ont été publiés.</p>
+      <p>Vous pouvez les consulter </p>
+    `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Premier envoi effectué avec succès.");
+  } catch (error) {
+    console.error("Error during first send:", error);
+  }
+};
+
+// Handle modified send option
+export const modifiedSend = async () => {
+  try {
+    // Récupérer les emails des étudiants et des enseignants
+    const users = await User.find()
+      .populate("student", "email")
+      .populate("teacher", "email")
+      .exec();
+
+    const emails = users.map((user) => user.email);
+
+    if (emails.length === 0) {
+      throw new Error("No recipients defined");
+    }
+
+    const subject =
+    "Modification à propos la publication des choix de sujets PFA";
+  const html = `
+    <p>Les sujets ont été publiés de nouveau </p>
+    <p>Vous pouvez les consulter </p>
+  `;
+
+    for (const email of emails) {
+      await sendMail(email, subject, html);
+    }
+
+    console.log("Envoi modifié effectué avec succès.");
+  } catch (error) {
+    console.error("Error during modified send:", error);
+  }
+};
+
+// Envoyer un e-mail à tous les étudiants pour les informer de l'affectation des sujets PFA
+export const sendMail = async (req, res) => {
+  try {
+    // Vérifier si des sujets ont déjà été publiés
+    const previouslyValidChoices = await Choice.find({
+      isAffectationVisible: true,
+    });
+    console.log("Previously visible choices :", previouslyValidChoices);
+
+        // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+        if (previouslyValidChoices.length === 0) {
+          await firstSend();
+        } else {
+          await modifiedSend();
+        }
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+
+} 
+
+
+
+
+
 
 
 // Supprimer les choix de tous les étudiants
@@ -655,10 +806,11 @@ export const clearAllStudentChoices = async (req, res) => {
     // Mettre à jour tous les étudiants pour supprimer leurs choix
     await Student.updateMany({}, { $set: { choices: [] } });
 
-    res.status(200).json({ message: "All student choices have been cleared successfully" });
+    res
+      .status(200)
+      .json({ message: "All student choices have been cleared successfully" });
   } catch (error) {
     console.error("Error clearing student choices:", error);
     res.status(500).json({ message: error.message });
   }
 };
-
