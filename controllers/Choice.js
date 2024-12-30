@@ -787,7 +787,8 @@ export const sendMail = async (req, res) => {
         } else {
           await modifiedSend();
         }
-  } catch (error) {
+  } catch (error)
+   {
     console.log(error.message);
     res.status(500).json({ message: error.message });
   }
