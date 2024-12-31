@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { sendMail } from './mailer.js';
+import Teachers from '../models/Teachers.js';
+import Student from '../models/Student.js';
 
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
@@ -112,7 +114,6 @@ export const createAdmin = async (req, res) => {
         res.status(500).json({ message: 'Server error while creating user.', error: error.message });
     }
 };
-
 
 // Create a new user
 export const createUser = async (req, res) => {
@@ -411,19 +412,30 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 // update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
 export const updatePassword = (role = "admin") => async (req, res) => {
     const { id } = req.params; // ID passed as a parameter
-    const { password, sendCredsInMail = false } = req.body; // New password from the request body
+    const { newpassword,passwordConfirmation, sendCredsInMail = false} = req.body; // New password from the request body
 
     try {
         // Check if the password is provided
-        if (!password) {
+        if (!newpassword) {
             return res.status(400).json({ message: 'Password is required.' });
         }
+        if (!passwordConfirmation) {
+            return res.status(400).json({ message: 'Password must be confirmed.' });
+        }
+        
 
         // Validate password length and complexity
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
-        if (!passwordRegex.test(password)) {
+        if (!passwordRegex.test(newpassword)) {
             return res.status(400).json({
                 message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+
+        if (passwordConfirmation !== newpassword)
+        {
+            return res.status(400).json({
+                message: 'password not conform.',
             });
         }
         let user;
@@ -440,13 +452,13 @@ export const updatePassword = (role = "admin") => async (req, res) => {
         }
 
         // Hash the new password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(newpassword, 10);
 
         user.password = hashedPassword;
         await user.save();
         // send updated creds in mail
         if (sendCredsInMail) {
-            sendCreds(user.email, password, true);
+            sendCreds(user.email, newpassword, true);
         }
         // Respond with success message
         res.status(200).json({ message: 'Password updated successfully.' });

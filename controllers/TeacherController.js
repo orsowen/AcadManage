@@ -1,8 +1,9 @@
-import bcrypt from 'bcrypt';
-import mongoose from 'mongoose';
-import Teacher from '../models/Teachers.js';
-import User from '../models/User.js';
-import { generateRandomPassword, sendCreds } from './UserController.js';
+import bcrypt from 'bcrypt'
+import mongoose from 'mongoose'
+import Teacher from '../models/Teachers.js'
+import User from '../models/User.js'
+import XLSX from "xlsx"
+import { generateRandomPassword, sendCreds } from './UserController.js'
 
 // Create a new teacher
 export const createTeacher = async (req, res) => {
@@ -47,7 +48,7 @@ export const createTeacher = async (req, res) => {
         }
 
         // Create the teacher
-        const newTeacher = new Teacher({ lastName, firstName, subjectCount });
+        const newTeacher = new Teacher({ cin,lastName, firstName, subjectCount });
         const savedTeacher = await newTeacher.save({ session });
 
         // Generate a random password for the user
@@ -104,6 +105,131 @@ export const createTeacher = async (req, res) => {
         session.endSession(); // End the session
     }
 };
+
+export const createTeacherFromFile = async (req, res) => {
+    
+    try {
+        // Check if a file was uploaded
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded. Please provide a file.' });
+        }
+
+        let filePath  = req.file.path;
+        console.log('File uploaded successfully:', filePath);
+        //console.log('Uploaded file:', req.file);
+
+        // Read the Excel file
+        const workbook = XLSX.readFile(filePath);
+
+        // Get the first worksheet
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Convert the worksheet to JSON
+        const data = XLSX.utils.sheet_to_json(worksheet).slice(0);
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'The uploaded file is empty.' });
+        }
+
+        // Respond with the extracted data
+        //res.status(200).json({ message: 'Data extracted successfully', data });
+
+        const users = []; 
+        let index = 0;
+        
+        for (const item of data) {
+            const session = await mongoose.startSession();
+            session.startTransaction()
+            index++
+
+            const { lastName, firstName, cin, phone, email, subjectCount } = item;
+
+            if (!cin || !phone || !email || !lastName || !firstName || !subjectCount ) {
+                console.warn(`Skipping row ${index}: Missing required fields.`);
+                continue;
+            }
+
+            // Email validation regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                console.warn(`Skipping row ${index}: Invalid email format.`);
+                continue;
+            }
+
+            // Check if the user already exists
+            const existingTeacher = await Teacher.findOne({ $or: [{ cin }, { email }, { phone }] });
+            const existingUser = await User.findOne({ $or: [{ cin }, { email }, { phone }] });
+            if (existingUser || existingTeacher) {
+                existingTeacher ? console.warn(`Skipping row ${index}: Teacher already exists.`) : console.warn(`Skipping row ${index}: Teacher already exists.`);
+                continue;
+            }
+            console.log("* data checked and it's safe");
+
+            // creating teachers
+            const newTeacher = new Teacher({
+                cin,
+                lastName,
+                firstName,
+                subjectCount
+            });
+
+            // Save the Teacher
+            const savedTeacher = await newTeacher.save({session});
+            console.log("* Teacher save success");
+
+            // Generate a random password
+            const generatepassword = generateRandomPassword();
+            const hashedPassword = await bcrypt.hash(generatepassword, 10);
+            console.log("* password generated with success");
+
+            // Create a new user for the teacher
+            const newUser = new User({
+            cin,
+            email,
+            phone,
+            password: hashedPassword,
+            role: 'teacher',
+            teacher: savedTeacher._id, // Link the user to the teacher
+            });
+            console.log("* the new user created with success");
+
+            // Save the user to the database
+            const savedUser = await newUser.save({ session });
+            await session.commitTransaction();
+            
+            // Link the saved user to the Teacher
+            savedTeacher.user = savedUser._id;
+            await savedTeacher.save(); // Update the Teacher with the user ID
+           
+
+            const {password, createdAt, updatedAt,__v, student,isArchived, ...newSavedUser} = savedUser.toObject()
+            users.push({
+                newSavedUser,
+                password: generatepassword, // This can be handled securely through email
+            });
+            console.log("* the new user saved in the database with success");
+
+            // Send the password via email
+            await sendCreds(email, generatepassword, false);
+            session.endSession();
+        }
+        if (users.length != 0){
+            console.log("* send all data");
+            res.status(200).json({message: 'Users created successfully.',users});
+        }else
+        {
+            console.warn("no user created");
+            res.status(400).json({message: 'no user created plz check your datafile'});
+        }
+    } catch (error) {
+        // Roll back the transaction if an error occurs
+        await session.abortTransaction();
+        session.endSession();
+        
+        console.error('Error processing Excel file:', error.message);
+        res.status(500).json({ message: 'Server error while processing Excel file.', error: error.message });
+    }
+}
 
 // Get all teachers
 export const getAllTeachers = async (req, res) => {
