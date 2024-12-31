@@ -19,10 +19,6 @@ const StudentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    cin: {
-        type: Number,
-        required: true
-    },
     birthDate: {
         type: Date,
         required: true

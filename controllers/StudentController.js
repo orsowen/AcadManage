@@ -412,7 +412,7 @@ export const getCvMe = async (req, res) => {
         if (!cv) {
             return res.status(404).json({ message: "Student don't have cv" });
         }
-        console.log(cv)
+        
         const result = {
             academicDetails: student.academicHistory,
             academicProjects: student.academicprojects,
