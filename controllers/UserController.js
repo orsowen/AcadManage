@@ -2,8 +2,6 @@ import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { sendMail } from './mailer.js';
-import Teachers from '../models/Teachers.js';
-import Student from '../models/Student.js';
 
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
@@ -412,7 +410,7 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 // update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
 export const updatePassword = (role = "admin") => async (req, res) => {
     const { id } = req.params; // ID passed as a parameter
-    const { newpassword,passwordConfirmation, sendCredsInMail = false} = req.body; // New password from the request body
+    const { newpassword, passwordConfirmation, sendCredsInMail = false } = req.body; // New password from the request body
 
     try {
         // Check if the password is provided
@@ -422,7 +420,7 @@ export const updatePassword = (role = "admin") => async (req, res) => {
         if (!passwordConfirmation) {
             return res.status(400).json({ message: 'Password must be confirmed.' });
         }
-        
+
 
         // Validate password length and complexity
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
@@ -432,8 +430,7 @@ export const updatePassword = (role = "admin") => async (req, res) => {
             });
         }
 
-        if (passwordConfirmation !== newpassword)
-        {
+        if (passwordConfirmation !== newpassword) {
             return res.status(400).json({
                 message: 'password not conform.',
             });

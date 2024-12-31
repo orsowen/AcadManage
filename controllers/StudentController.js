@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt'
 import mongoose from 'mongoose'
+import XLSX from "xlsx"
+import CV from '../models/CV.js'
 import Student from '../models/Student.js'
 import User from '../models/User.js'
 import CV from '../models/CV.js'
@@ -137,7 +139,7 @@ export const createStudentFromFile = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded. Please provide a file.' });
         }
 
-        let filePath  = req.file.path;
+        let filePath = req.file.path;
         console.log('File uploaded successfully:', filePath);
         //console.log('Uploaded file:', req.file);
 
@@ -157,9 +159,9 @@ export const createStudentFromFile = async (req, res) => {
         // Respond with the extracted data
         //res.status(200).json({ message: 'Data extracted successfully', data });
 
-        const users = []; 
+        const users = [];
         let index = 0;
-        
+
         for (const item of data) {
             const session = await mongoose.startSession();
             session.startTransaction()
@@ -173,7 +175,7 @@ export const createStudentFromFile = async (req, res) => {
                 bacYear, address
             } = item;
 
-            if (!cin || !phone || !email || !lastName || !firstName || !arabicLastName || !arabicFirstName || !birthDate || !governorate || !gender || !postalCode || !nationality || !bac || !grade || !city ) {
+            if (!cin || !phone || !email || !lastName || !firstName || !arabicLastName || !arabicFirstName || !birthDate || !governorate || !gender || !postalCode || !nationality || !bac || !grade || !city) {
                 console.warn(`Skipping row ${index}: Missing required fields.`);
                 continue;
             }
@@ -226,7 +228,7 @@ export const createStudentFromFile = async (req, res) => {
             });
 
             // Save the student
-            const savedStudent = await newStudent.save({session});
+            const savedStudent = await newStudent.save({ session });
             console.log("* student save success");
 
             // Generate a random password
@@ -236,25 +238,25 @@ export const createStudentFromFile = async (req, res) => {
 
             // Create a new user for the student
             const newUser = new User({
-            cin,
-            email,
-            phone,
-            password: hashedPassword,
-            role: 'student',
-            student: savedStudent._id, // Link the user to the student
+                cin,
+                email,
+                phone,
+                password: hashedPassword,
+                role: 'student',
+                student: savedStudent._id, // Link the user to the student
             });
             console.log("* the new user created with success");
 
             // Save the user to the database
             const savedUser = await newUser.save({ session });
             await session.commitTransaction();
-            
+
             // Link the saved user to the student
             savedStudent.user = savedUser._id;
             await savedStudent.save(); // Update the student with the user ID
-           
 
-            const {password, createdAt, updatedAt,__v, teacher,isArchived, ...newSavedUser} = savedUser.toObject()
+
+            const { password, createdAt, updatedAt, __v, teacher, isArchived, ...newSavedUser } = savedUser.toObject()
             users.push({
                 newSavedUser,
                 password: generatepassword, // This can be handled securely through email
@@ -265,19 +267,18 @@ export const createStudentFromFile = async (req, res) => {
             await sendCreds(email, generatepassword, false);
             session.endSession();
         }
-        if (users.length != 0){
+        if (users.length != 0) {
             console.log("* send all data");
-            res.status(200).json({message: 'Users created successfully.',users});
-        }else
-        {
+            res.status(200).json({ message: 'Users created successfully.', users });
+        } else {
             console.warn("no user created");
-            res.status(400).json({message: 'no user created plz check your datafile'});
+            res.status(400).json({ message: 'no user created plz check your datafile' });
         }
     } catch (error) {
         // Roll back the transaction if an error occurs
         await session.abortTransaction();
         session.endSession();
-        
+
         console.error('Error processing Excel file:', error.message);
         res.status(500).json({ message: 'Server error while processing Excel file.', error: error.message });
     }
@@ -288,7 +289,7 @@ export const createCV = async (req, res) => {
     try {
         const studentId = req.user.idRole;
         if (!studentId) {
-        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+            return res.status(400).json({ message: 'Student ID is not available in the token.' });
         }
 
         const student = await Student.findById(studentId)
@@ -301,25 +302,25 @@ export const createCV = async (req, res) => {
             return res.status(404).json({ message: 'Student have already a cv.' });
         }
 
-        
-        const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio} = req.body;
-        const newCV = new mongoose.model('CV')({ 
-            lastName, 
-            firstName, 
-            Title, 
-            phoneNum, 
-            adress, 
-            socialMediaLinks, 
-            competence, 
-            languages, 
-            skills, 
-            hobbies, 
-            WorkExperience, 
+
+        const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio } = req.body;
+        const newCV = new mongoose.model('CV')({
+            lastName,
+            firstName,
+            Title,
+            phoneNum,
+            adress,
+            socialMediaLinks,
+            competence,
+            languages,
+            skills,
+            hobbies,
+            WorkExperience,
             education,
-            academicprojects, 
-            objective, 
-            Bio, 
-            user : studentId
+            academicprojects,
+            objective,
+            Bio,
+            user: studentId
         });
 
         const savedCV = await newCV.save()
@@ -396,13 +397,13 @@ export const getAllStudents = async (req, res) => {
 // Fetch students cv parcours académique + certifications, autres diplômes,langues,...
 export const getCvMe = async (req, res) => {
 
-    
+
     try {
         const studentId = req.user.idRole;
         if (!studentId) {
-        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+            return res.status(400).json({ message: 'Student ID is not available in the token.' });
         }
-    
+
         const student = await Student.findById(studentId)
         if (!student) {
             return res.status(404).json({ message: 'Student not found.' });
@@ -412,12 +413,12 @@ export const getCvMe = async (req, res) => {
         if (!cv) {
             return res.status(404).json({ message: "Student don't have cv" });
         }
-        
+        console.log(cv)
         const result = {
             academicDetails: student.academicHistory,
             academicProjects: student.academicprojects,
             additionalDetails: {
-                socialMediaLinks : cv.socialMediaLinks,
+                socialMediaLinks: cv.socialMediaLinks,
                 languages: cv.languages,
                 certifications: cv.skills,
                 hobbies: cv.hobbies,
@@ -438,9 +439,9 @@ export const getCvByID = async (req, res) => {
     try {
         const studentId = req.params.id;
         if (!studentId) {
-        return res.status(400).json({ message: 'Student ID required.' });
+            return res.status(400).json({ message: 'Student ID required.' });
         }
-    
+
         const student = await Student.findById(studentId)
         if (!student) {
             return res.status(404).json({ message: 'Student not found.' });
