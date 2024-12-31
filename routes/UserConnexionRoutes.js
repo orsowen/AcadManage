@@ -1,6 +1,5 @@
 import express from "express";
 import {
-
     createUser,
     createAdmin,
     deleteUser,
@@ -10,12 +9,9 @@ import {
     toggleArchiveUser,
     updatePassword,
     updateUser,
-    createUserFromFile,
 } from '../controllers/UserController.js';
 import { isAdmin } from "../middlewares/authentication.js";
-import multer from "multer"
 
-const upload = multer({ dest: 'uploads/' });
 const router = express.Router();
 
 
@@ -27,9 +23,6 @@ router.get('/cin/:cin', isAdmin, getUserByCin);
 
 // create a new user
 router.post('/', isAdmin, createUser); 
-
-// create a new user from ewel file
-router.post('/import', isAdmin,upload.single('file'), createUserFromFile); 
 
 // create a new ADmin
 router.post('/register', isAdmin, createAdmin);

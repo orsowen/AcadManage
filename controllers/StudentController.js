@@ -2,7 +2,10 @@ import bcrypt from 'bcrypt'
 import mongoose from 'mongoose'
 import Student from '../models/Student.js'
 import User from '../models/User.js'
+import CV from '../models/CV.js'
+import XLSX from "xlsx";
 import { generateRandomPassword, sendCreds } from './UserController.js'
+
 // Create a new student
 export const createStudent = async (req, res) => {
     const {
@@ -35,6 +38,7 @@ export const createStudent = async (req, res) => {
 
         // Create a new student
         const newStudent = new Student({
+            cin,
             lastName,
             firstName,
             arabicLastName,
@@ -119,13 +123,202 @@ export const createStudent = async (req, res) => {
     }
 };
 
+export const createStudentFromFile = async (req, res) => {
+    try {
+        // Check if a file was uploaded
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded. Please provide a file.' });
+        }
+
+        let filePath  = req.file.path;
+        console.log('File uploaded successfully:', filePath);
+        //console.log('Uploaded file:', req.file);
+
+        // Read the Excel file
+        const workbook = XLSX.readFile(filePath);
+
+        // Get the first worksheet
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Convert the worksheet to JSON
+        const data = XLSX.utils.sheet_to_json(worksheet).slice(0);
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'The uploaded file is empty.' });
+        }
+
+        // Respond with the extracted data
+        //res.status(200).json({ message: 'Data extracted successfully', data });
+
+        const users = []; 
+        let index = 0;
+        
+        for (const item of data) {
+            const session = await mongoose.startSession();
+            session.startTransaction()
+            index++
+
+            const {
+                lastName, firstName, cin, email, phone, arabicLastName, arabicFirstName,
+                birthDate, governorate, gender, city, postalCode, nationality, bac,
+                grade, isPrepa, university, etablissement, speciality, licenseYear,
+                M1university, M1Etablissement, M1speciality, M1Year, M1Type, cFil, scoreG,
+                bacYear, address
+            } = item;
+
+            if (!cin || !phone || !email || !lastName || !firstName || !arabicLastName || !arabicFirstName || !birthDate || !governorate || !gender || !postalCode || !nationality || !bac || !grade || !city ) {
+                console.warn(`Skipping row ${index}: Missing required fields.`);
+                continue;
+            }
+
+            // Email validation regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                console.warn(`Skipping row ${index}: Invalid email format.`);
+                continue;
+            }
+
+            // Check if the user already exists
+            const existingStudent = await Student.findOne({ $or: [{ cin }, { email }, { phone }] });
+            const existingUser = await User.findOne({ $or: [{ cin }, { email }, { phone }] });
+            if (existingUser || existingStudent) {
+                existingStudent ? console.warn(`Skipping row ${index}: Student already exists.`) : console.warn(`Skipping row ${index}: Student already exists.`);
+                continue;
+            }
+            console.log("* data checked and it's safe");
+
+            // creating students
+            const newStudent = new Student({
+                cin,
+                lastName,
+                firstName,
+                arabicLastName,
+                arabicFirstName,
+                birthDate,
+                governorate,
+                gender,
+                city,
+                postalCode,
+                nationality,
+                bac,
+                grade,
+                isPrepa,
+                university,
+                etablissement,
+                speciality,
+                licenseYear,
+                M1university,
+                M1Etablissement,
+                M1speciality,
+                M1Year,
+                M1Type,
+                cFil,
+                scoreG,
+                bacYear,
+                address,
+            });
+
+            // Save the student
+            const savedStudent = await newStudent.save({session});
+            console.log("* student save success");
+
+            // Generate a random password
+            const generatepassword = generateRandomPassword();
+            const hashedPassword = await bcrypt.hash(generatepassword, 10);
+            console.log("* password generated with success");
+
+            // Create a new user for the student
+            const newUser = new User({
+            cin,
+            email,
+            phone,
+            password: hashedPassword,
+            role: 'student',
+            student: savedStudent._id, // Link the user to the student
+            });
+            console.log("* the new user created with success");
+
+            // Save the user to the database
+            const savedUser = await newUser.save({ session });
+            await session.commitTransaction();
+            
+            // Link the saved user to the student
+            savedStudent.user = savedUser._id;
+            await savedStudent.save(); // Update the student with the user ID
+           
+
+            const {password, createdAt, updatedAt,__v, teacher,isArchived, ...newSavedUser} = savedUser.toObject()
+            users.push({
+                newSavedUser,
+                password: generatepassword, // This can be handled securely through email
+            });
+            console.log("* the new user saved in the database with success");
+
+            // Send the password via email
+            await sendCreds(email, generatepassword, false);
+            session.endSession();
+        }
+        if (users.length != 0){
+            console.log("* send all data");
+            res.status(200).json({message: 'Users created successfully.',users});
+        }else
+        {
+            console.warn("no user created");
+            res.status(400).json({message: 'no user created plz check your datafile'});
+        }
+    } catch (error) {
+        // Roll back the transaction if an error occurs
+        await session.abortTransaction();
+        session.endSession();
+        
+        console.error('Error processing Excel file:', error.message);
+        res.status(500).json({ message: 'Server error while processing Excel file.', error: error.message });
+    }
+
+}
+
 export const createCV = async (req, res) => {
     try {
-        const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio, user } = req.body;
+        const studentId = req.user.idRole;
+        if (!studentId) {
+        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+        }
 
-        const newCV = new mongoose.model('Student')({ lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, objective, Bio });
+        const student = await Student.findById(studentId)
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
 
-        const savedCV = await newCV.save();
+        const existingCV = await CV.findById(studentId)
+        if (!existingCV) {
+            return res.status(404).json({ message: 'Student have already a cv.' });
+        }
+
+        
+        const { lastName, firstName, Title, phoneNum, adress, socialMediaLinks, competence, languages, skills, hobbies, WorkExperience, education, academicprojects, objective, Bio} = req.body;
+        const newCV = new mongoose.model('CV')({ 
+            lastName, 
+            firstName, 
+            Title, 
+            phoneNum, 
+            adress, 
+            socialMediaLinks, 
+            competence, 
+            languages, 
+            skills, 
+            hobbies, 
+            WorkExperience, 
+            education,
+            academicprojects, 
+            objective, 
+            Bio, 
+            user : studentId
+        });
+
+        const savedCV = await newCV.save()
+        student.cv = newCV._id
+        await student.save();
+
         res.status(201).json({ model: savedCV, message: "CV created successfully" });
     } catch (error) {
         console.error('Error creating CV:', error.message);
@@ -194,18 +387,35 @@ export const getAllStudents = async (req, res) => {
 };
 
 // Fetch students cv parcours académique + certifications, autres diplômes,langues,...
-export const getCv = async (req, res) => {
+export const getCvMe = async (req, res) => {
 
-    const studentId = req.user.idRole;
+    
     try {
+        const studentId = req.user.idRole;
+        if (!studentId) {
+        return res.status(400).json({ message: 'Student ID is not available in the token.' });
+        }
+    
+        const student = await Student.findById(studentId)
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        const cv = await CV.findById(student.cv)
+        if (!cv) {
+            return res.status(404).json({ message: "Student don't have cv" });
+        }
+        console.log(cv)
         const result = {
-            academicDetails: student.education,
+            academicDetails: student.academicHistory,
             academicProjects: student.academicprojects,
             additionalDetails: {
-                languages: student.languages,
-                certifications: student.skills,
-                hobbies: student.hobbies,
-                workExperience: student.WorkExperience
+                socialMediaLinks : cv.socialMediaLinks,
+                languages: cv.languages,
+                certifications: cv.skills,
+                hobbies: cv.hobbies,
+                workExperience: cv.WorkExperience,
+                academicProjects: cv.academicprojects,
             }
         };
 
@@ -213,6 +423,87 @@ export const getCv = async (req, res) => {
     } catch (error) {
         console.error('Error fetching students:', error.message);
         res.status(500).json({ error: 'Failed to fetch student details.' });
+    }
+};
+
+// Fetch students cv By ID
+export const getCvByID = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        if (!studentId) {
+        return res.status(400).json({ message: 'Student ID required.' });
+        }
+    
+        const student = await Student.findById(studentId)
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        const cv = await CV.findById(student.cv)
+        if (!cv) {
+            return res.status(404).json({ message: "Student don't have cv" });
+        }
+
+        res.status(200).json({ model: cv, message: "success" });
+    } catch (error) {
+        console.error('Error fetching students:', error.message);
+        res.status(500).json({ error: 'Failed to fetch student details.' });
+    }
+};
+
+// update student 
+export const updateCV = async (req, res) => {
+    const studentId = req.user.idRole;
+    const updatedData = req.body;
+
+    try {
+        const student = await Student.findById(id);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        // Step 2: Validate that only valid fields are being updated
+        const validFields = Object.keys(Student.schema.paths); // Get list of valid fields in the Student model
+        const updateFields = Object.keys(updatedData); // Get the fields being updated
+
+        // Check for invalid fields
+        const invalidFields = updateFields.filter(field => !validFields.includes(field));
+        if (invalidFields.length > 0) {
+            return res.status(400).json({ message: `Invalid fields: ${invalidFields.join(', ')}` });
+        }
+
+        // Step 3: Perform the update only for the valid fields
+        updateFields.forEach((key) => {
+            // Update only the existing fields in the document
+            if (student[key] !== undefined && updatedData[key] !== undefined) {
+                student[key] = updatedData[key]; // Update the student field
+            }
+        });
+
+        // Step 4: Validate fields before saving
+        await student.validate(); // Ensure the updated student data is valid based on model validation
+
+        // Step 5: Save the updated student
+        const updatedStudent = await student.save();
+
+        // Step 6: Return the updated student
+        res.status(200).json({ message: 'Student updated successfully.', updatedStudent });
+    } catch (error) {
+        // Log detailed error for debugging
+        console.error('Error updating student:', error.message);
+
+        // Step 7: Specific error handling
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid student ID format.' });
+        }
+
+        // Validation errors from the model
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation failed.', error: error.message });
+        }
+
+        // Catch any other unexpected errors
+        res.status(500).json({ message: 'Server error while updating student.', error: error.message });
     }
 };
 

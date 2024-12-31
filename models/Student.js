@@ -73,10 +73,6 @@ const StudentSchema = new mongoose.Schema({
         enum: ["ING1", "ING2", "ING3"],
         default: "ING1",
     },
-    isprepa: {
-        type: Boolean,
-        default: false
-    },
     isPrepa: {
         type: Boolean,
     },
@@ -123,12 +119,16 @@ const StudentSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User", // Reference to User model
-        // default: null,
     },
     choices: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Choice',
     }],
+    // Link to CV 
+    cv: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CV", // Reference to CV model
+    },
 });
 
 // Pre-save middleware to populate `academicHistory` with a default value if empty
