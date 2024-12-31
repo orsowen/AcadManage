@@ -41,7 +41,7 @@ const academicprojects = new mongoose.Schema({
     },
 });
 
-const StudentSchema = new mongoose.Schema({
+const CVSchema = new mongoose.Schema({
     lastName: {
         type: String,
         required: true
@@ -112,4 +112,4 @@ const StudentSchema = new mongoose.Schema({
     },
 });
 
-export default mongoose.model('CV', StudentSchema);
+export default mongoose.model('CV', CVSchema);
