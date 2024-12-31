@@ -23,40 +23,37 @@ export const addSubject = async (req, res) => {
             credit,
         } = req.body;
 
-        // Valider teacher
-        for ( const teacher of teachers) {
-        const teacherUser = await Teacher.findById(teacher); // Vérifier si l'utilisateur est un enseignant
-        if (!teacherUser) {
-            return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
-        }}
+        // Valider les enseignants
+        for (const teacher of teachers) {
+            const teacherUser = await Teacher.findById(teacher);
+            if (!teacherUser) {
+                return res.status(404).json({ error: `Le professeur avec l'ID ${teacher} n'existe pas.` });
+            }
+        }
 
-        // Valider student
-        for ( const student of students) {
-        const studentUser = await Student.findById(student); // Vérifier si l'utilisateur est un étudiant
-        if (!studentUser) {
-            return res.status(404).json({ error: " 'student' n'est pas valide de ID : ", student });
-        }}
-      
+        // Valider les étudiants
+        for (const student of students) {
+            const studentUser = await Student.findById(student);
+            if (!studentUser) {
+                return res.status(404).json({ error: `L'étudiant avec l'ID ${student} n'existe pas.` });
+            }
+        }
+
         // Validation des champs obligatoires
         if (!title || !skills || !level || !semester || !option || !chargeHoraire || !coeff || !credit) {
             return res.status(400).json({ message: "Tous les champs obligatoires ne sont pas remplis ou invalides." });
         }
 
-        // Convertir en tableau si une seule compétence est fournie
         const skillsArray = Array.isArray(skills) ? skills : [skills];
-
-        // Vérifier si toutes les compétences existent dans la base de données
         const validSkills = await Skill.find({ _id: { $in: skillsArray } });
 
-        // Si le nombre de compétences trouvées ne correspond pas à celui envoyé, cela signifie que certaines sont invalides
         if (validSkills.length !== skillsArray.length) {
             return res.status(404).json({ message: "Certaines compétences sont introuvables." });
         }
 
-        // Créer et sauvegarder la matière
         const newSubject = new Subject({
             title,
-            skills: validSkills.map(skill => skill._id), // Utiliser les _id des compétences valides
+            skills: validSkills.map(skill => skill._id),
             level,
             semester,
             curriculum,
@@ -67,8 +64,14 @@ export const addSubject = async (req, res) => {
             chargeHoraire,
             coeff,
             credit,
+            historique: [
+                {
+                    date: new Date(),
+                    action: "Ajout",
+                    utilisateur: req.user.id,
+                },
+            ],
         });
-
         const savedSubject = await newSubject.save();
         res.status(201).json({ message: "Matière ajoutée avec succès.", data: savedSubject });
     } catch (error) {
@@ -79,10 +82,10 @@ export const addSubject = async (req, res) => {
 export const getAllSubjects = async (req, res) => {
     try {
         const subjects = await Subject.find()
-            .populate('skills', 'name') // Récupérer les compétences associées
-            .populate('teachers', 'firstName lastName') // Récupérer les infos de l'enseignant
-            .populate('students', 'firstName lastName') // Récupérer les infos de l'étudiant
-
+            .populate('skills', 'name')
+            .populate('teachers', 'firstName lastName')
+            .populate('students', 'firstName lastName')
+        
         res.status(200).json(subjects);
     } catch (error) {
         res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
@@ -92,14 +95,18 @@ export const getAllSubjects = async (req, res) => {
 export const getSubjectById = async (req, res) => {
     try {
         // Récupérer l'ID de la matière depuis les paramètres de la requête
-        const subject = await Subject.findById(req.params.id)
-        
+        const subject = await Subject.findById(req.params.id).populate('historique');
+
         if (!subject) {
             return res.status(404).json({ message: "Matière introuvable." });
         }
 
         // Si la matière est trouvée, renvoyer les informations
-        res.status(200).json({ message: "Matière trouvée.", data: subject });
+        res.status(200).json({
+            objectif: "Détail de la matière",
+            data: subject
+        });
+
     } catch (error) {
         // Si une erreur survient pendant la récupération, renvoyer une erreur
         res.status(500).json({ message: "Erreur lors de la récupération de la matière.", error: error.message });
@@ -108,7 +115,7 @@ export const getSubjectById = async (req, res) => {
 
 export const updateSubject = async (req, res) => {
     try {
-        const { id } = req.params;  // Récupérer l'ID de la matière depuis les paramètres de la requête
+        const { id } = req.params;
         const {
             title,
             skills,
@@ -122,71 +129,152 @@ export const updateSubject = async (req, res) => {
             chargeHoraire,
             coeff,
             credit,
-        } = req.body;  // Récupérer les informations envoyées dans le body de la requête
+        } = req.body;
 
-        // Vérifier si l'ID est valide
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "ID de la matière invalide." });
         }
 
-        // Trouver la matière par ID
         const subject = await Subject.findById(id);
         if (!subject) {
             return res.status(404).json({ message: "Matière introuvable." });
         }
 
-        // Valider teacher
-        for (const teacher in teachers) {
-            const teacherUser = await Teacher.findById(teacher); // Vérifier si l'utilisateur est un enseignant
-            if (!teacherUser) {
-                return res.status(404).json({ error: " 'teacher' n'est pas valide, de id :", teacher });
+        // Valider enseignants et étudiants
+        for (const teacher of teachers) {
+            const teacherUser = await Teacher.findById(teacher);
+            if (teacher && !teacherUser) {
+                return res.status(404).json({ error: `Le professeur avec l'ID ${teacher} n'existe pas.` });
             }
         }
 
-        // Valider student
-        for (const student in students) {
-            const studentUser = await Student.findById(student); // Vérifier si l'utilisateur est un étudiant
-            if (!studentUser) {
-                return res.status(404).json({ error: " 'student' n'est pas valide de ID : ", student });
+        for (const student of students) {
+            const studentUser = await Student.findById(student);
+            if (student && !studentUser) {
+                return res.status(404).json({ error: `L'étudiant avec l'ID ${student} n'existe pas.` });
             }
         }
 
-        // Filter out students that are already in the subject's students list
-        const nonExistentStudents = students.filter(
-            (student) => !subject.students.includes(student)
-        );
-        // Filter out teachers that are already in the subject's teachers list
-        const nonExistentTeachers = teachers.filter(
-            (teacher) =>!subject.teachers.includes(teacher)
-        );
-    
-        // Mettre à jour la matière avec les nouvelles informations
-        subject.title = title || subject.title;
-        subject.skills = skills || subject.skills;
-        subject.level = level || subject.level;
-        subject.semester = semester || subject.semester;
-        subject.curriculum = curriculum || subject.curriculum;
-        subject.teachers.push(...nonExistentTeachers);
-        subject.students.push(...nonExistentStudents);
-        subject.published = published !== undefined ? published : subject.published;
-        subject.option = option || subject.option;
-        subject.chargeHoraire = chargeHoraire || subject.chargeHoraire;
-        subject.coeff = coeff || subject.coeff;
-        subject.credit = credit || subject.credit;
+        // Filtrer les nouveaux enseignants et étudiants
+        const newTeachers = teachers ? teachers.filter(teacher => !subject.teachers.includes(teacher)) : [];
+        const newStudents = students ? students.filter(student => !subject.students.includes(student)) : [];
 
-        // Sauvegarder les modifications dans la base de données
+        // Préparer un tableau pour les modifications
+        const modifications = [];
+
+        // Vérification des champs principaux et mise à jour partielle
+        if (title && title !== subject.title) {
+            modifications.push({ field: "title", oldValue: subject.title, newValue: title });
+            subject.title = title;
+        }
+        if (skills && !arraysEqual(skills, subject.skills)) {
+            modifications.push({ field: "skills", oldValue: subject.skills, newValue: skills });
+            subject.skills = skills;
+        }
+        if (level && level !== subject.level) {
+            modifications.push({ field: "level", oldValue: subject.level, newValue: level });
+            subject.level = level;
+        }
+        if (semester && semester !== subject.semester) {
+            modifications.push({ field: "semester", oldValue: subject.semester, newValue: semester });
+            subject.semester = semester;
+        }
+
+        // Gestion du curriculum : mise à jour partielle
+        if (curriculum) {
+            curriculum.forEach((newChapter, chapterIndex) => {
+                const existingChapter = subject.curriculum[chapterIndex];
+
+                if (existingChapter) {
+                    if (newChapter.chapter && newChapter.chapter !== existingChapter.chapter) {
+                        modifications.push({ field: `curriculum[${chapterIndex}].chapter`, oldValue: existingChapter.chapter, newValue: newChapter.chapter });
+                        existingChapter.chapter = newChapter.chapter;
+                    }
+
+                    if (newChapter.sections) {
+                        newChapter.sections.forEach((newSection, sectionIndex) => {
+                            const existingSection = existingChapter.sections[sectionIndex];
+
+                            if (existingSection) {
+                                if (newSection.name && newSection.name !== existingSection.name) {
+                                    modifications.push({ field: `curriculum[${chapterIndex}].sections[${sectionIndex}].name`, oldValue: existingSection.name, newValue: newSection.name });
+                                    existingSection.name = newSection.name;
+                                }
+                            } else {
+                                existingChapter.sections.push(newSection);
+                                modifications.push({ field: `curriculum[${chapterIndex}].sections[${sectionIndex}]`, newValue: newSection });
+                            }
+                        });
+                    }
+                } else {
+                    subject.curriculum.push(newChapter);
+                    modifications.push({ field: `curriculum[${chapterIndex}]`, newValue: newChapter });
+                }
+            });
+        }
+
+        // Mise à jour des enseignants et étudiants si nécessaire
+        if (teachers && !arraysEqual(teachers, subject.teachers)) {
+            modifications.push({ field: "teachers", oldValue: subject.teachers, newValue: teachers });
+            subject.teachers = teachers;
+        }
+        if (students && !arraysEqual(students, subject.students)) {
+            modifications.push({ field: "students", oldValue: subject.students, newValue: students });
+            subject.students = students;
+        }
+        if (published !== undefined && published !== subject.published) {
+            modifications.push({ field: "published", oldValue: subject.published, newValue: published });
+            subject.published = published;
+        }
+        if (option && option !== subject.option) {
+            modifications.push({ field: "option", oldValue: subject.option, newValue: option });
+            subject.option = option;
+        }
+        if (chargeHoraire && chargeHoraire !== subject.chargeHoraire) {
+            modifications.push({ field: "chargeHoraire", oldValue: subject.chargeHoraire, newValue: chargeHoraire });
+            subject.chargeHoraire = chargeHoraire;
+        }
+        if (coeff && coeff !== subject.coeff) {
+            modifications.push({ field: "coeff", oldValue: subject.coeff, newValue: coeff });
+            subject.coeff = coeff;
+        }
+        if (credit && credit !== subject.credit) {
+            modifications.push({ field: "credit", oldValue: subject.credit, newValue: credit });
+            subject.credit = credit;
+        }
+
+        // Si des modifications existent, les ajouter à l'historique
+        if (modifications.length > 0) {
+            const historiqueEntry = {
+                date: new Date(),
+                action: "Modification partielle",
+                utilisateur: req.user.id,
+                details: modifications,
+            };
+            subject.historique.push(historiqueEntry);
+        }
+
+        // Sauvegarder les nouvelles informations dans la base de données
         const updatedSubject = await subject.save();
 
-        // Répondre avec la matière mise à jour
-        res.status(200).json({ message: "Matière mise à jour avec succès.", data: updatedSubject });
+        res.status(200).json({ message: "Matière mise à jour partiellement avec succès.", data: updatedSubject });
     } catch (error) {
-        res.status(500).json({ message: "Erreur lors de la mise à jour de la matière.", error: error.message });
+        res.status(500).json({ message: "Erreur lors de la mise à jour partielle de la matière.", error: error.message });
     }
+};
+
+// Fonction pour comparer les tableaux (par exemple les skills et les enseignants)
+const arraysEqual = (a, b) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (!b.includes(a[i])) return false;
+    }
+    return true;
 };
 
 export const toggleSubjectPublish = async (req, res) => {
     try {
-        const { response } = req.params; 
+        const { response } = req.params;
         const { subjectId } = req.body;
 
         if (!subjectId) {
@@ -208,6 +296,12 @@ export const toggleSubjectPublish = async (req, res) => {
             return res.status(400).json({ message: "Valeur de réponse invalide. Utilisez 'publish' ou 'unpublish'." });
         }
 
+        subject.historique.push({
+            date: new Date(),
+            action: response === "publish" ? "Publication de la matière" : "Masquage de la matière",
+            utilisateur: req.user.id,
+        });
+
         const updatedSubject = await subject.save();
 
         res.status(200).json({
@@ -228,7 +322,7 @@ export const updateAvancement = async (req, res) => {
     }
 
     try {
-        const subject = await Subject.findById(id)
+        const subject = await Subject.findById(id);
         if (!subject) {
             return res.status(404).json({ error: "Matière non trouvée." });
         }
@@ -251,61 +345,16 @@ export const updateAvancement = async (req, res) => {
             chapter.completedAt = date;
         }
 
-        await subject.save();
-
-        // Test de l'envoi de l'email à l'administrateur
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
+        subject.historique.push({
+            date: new Date(),
+            action: "Mise à jour de l'avancement",
+            utilisateur: req.user.id,
         });
 
-        const admin = await User.findOne({ role: "admin" });
-        if (admin) {
-            try {
-                console.log(`Tentative d'envoi d'email à l'administrateur ${admin.email}...`);
-                await transporter.sendMail({
-                    from: { name: "acadManager", address: process.env.EMAIL_USER },
-                    to: admin.email, // Assurez-vous que l'admin a un champ 'email'
-                    subject: `Mise à jour de l'avancement de "${subject.title}"`,
-                    text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
-                });
-                console.log(`Email envoyé à l'administrateur ${admin.email}`);
-            } catch (error) {
-                console.error("Erreur lors de l'envoi de l'email à l'administrateur :", error);
-            }
-        } else {
-            console.log("Aucun administrateur trouvé.");
-        }
-
-     
-        // Envoi d'un email aux étudiants concernés 
-        const students = await User.find({ student: { $in: subject.students } });
-        console.log(students);
-
-        for (const student of students) {
-            try {
-                if (student.email) {
-                    console.log(`Tentative d'envoi d'email à l'étudiant ${student.email}...`);
-                    await transporter.sendMail({
-                        from: { name: "acadManager", address: process.env.EMAIL_USER },
-                        to: student.email,
-                        subject: `Mise à jour de l'avancement dans "${subject.title}"`,
-                        text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
-                    });
-                    console.log(`Email envoyé à l'étudiant ${student.email}`);
-                } else {
-                    console.warn(`L'étudiant avec l'ID ${student._id} n'a pas d'email.`);
-                }
-            } catch (error) {
-                console.error(`Erreur lors de l'envoi d'un email à ${student.email}:`, error);
-            }
-        }
+        await subject.save();
 
         res.status(200).json({
-            message: "Avancement mis à jour avec succès et emails envoyés.",
+            message: "Avancement mis à jour avec succès.",
         });
     } catch (error) {
         res.status(500).json({
@@ -315,14 +364,13 @@ export const updateAvancement = async (req, res) => {
     }
 };
 
-
 export const getAllSubjectsByTeacher = async (req, res) => {
-    const  idTeacher = req.user.idRole;
-    
+    const idTeacher = req.user.idRole;
+
     console.log(idTeacher);
     try {
 
-        const subjects = await Subject.find({teachers: { $in: idTeacher}})
+        const subjects = await Subject.find({ teachers: { $in: idTeacher } })
             .populate('skills', 'name') // Récupérer les compétences associées
             .populate('teachers', 'firstName lastName') // Récupérer les infos de l'enseignant
             .populate('students', 'firstName lastName') // Récupérer les infos de l'étudiant
@@ -350,41 +398,143 @@ export const getAllSubjectsByStudent = async (req, res) => {
     }
 };
 
-// Affecter un enseignant à une matière
-export const assignTeacherToSubject = async (req, res) => {
-    const { subjectId, teacherId } = req.body;
-    console.log(subjectId, teacherId);
+export const assignStudentToSubject = async (req, res) => {
+    const { subjectId, studentId } = req.body;
+    console.log(subjectId, studentId);
 
-    if (!subjectId || !teacherId) {
-        return res.status(400).json({ message: 'ID de matière et ID d\'enseignant sont requis.' });
+    if (!subjectId || !studentId) {
+        return res.status(400).json({ message: 'ID de matière et ID d\'étudiant sont requis.' });
     }
 
     try {
-        const subject = await Subject.findById(subjectId);
+        const subject = await
+            Subject.findById(subjectId);
         if (!subject) {
             return res.status(404).json({ message: 'Matière introuvable.' });
         }
-        const teacher = await Teacher.findById(teacherId);
-        if (!teacher) {
-            return res.status(404).json({ message: 'Enseignant introuvable.' });
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Etudiant introuvable.' });
         }
-        // Vérifier si l'enseignant n'est pas déjà affecté à la matière
-        if (subject.teachers.includes(teacherId)) {
-            return res.status(400).json({ message: 'L\'enseignant est déjà affecté à la matière.' });
+        // Vérifier si l'étudiant n'est pas déjà affecté à la matière
+        if (subject.students.includes(studentId)) {
+            return res.status(400).json({ message: 'L\'étudiant est déjà affecté à la matière.' });
         }
-        subject.teachers.push(teacherId);
+        subject.students.push(studentId);
+
+        subject.historique.push({
+            date: new Date(),
+            action: "Affectation de l'étudiant",
+            utilisateur: req.user.id,
+        });
+
         await subject.save();
-        res.status(200).json({ message: 'Enseignant affecté à la matière',
+        res.status(200).json({
+            message: 'Etudiant affecté à la matière',
             subject: subject.title,
-            teacher: teacher.firstName +'' + teacher.lastName, });
-        
+            student: student.firstName + '' + student.lastName,
+        });
+
     } catch (error) {
-        console.error("Erreur lors de l'affectation de l'enseignant :", error);
+        console.error("Erreur lors de l'affectation de l'étudiant :", error);
         res.status(500).json({ error: "Erreur serveur." });
-        }
-    
+    }
 };
 
+export const proposeModification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { curriculum, raison } = req.body; 
+        const userId = req.user.id; 
 
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "ID de la matière invalide." });
+        }
 
+        const subject = await Subject.findById(id);
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        if (!raison || raison.trim() === "") {
+            return res.status(400).json({ message: "La raison du changement est obligatoire." });
+        }
+
+        // Ajouter la proposition au champ `historique`
+        const historiqueEntry = {
+            date: new Date(),
+            action: "Proposition de modification",
+            utilisateur: userId,
+            raison: raison,
+            proposition: curriculum,
+            validée: false // En attente de validation
+        };
+
+        subject.historique.push(historiqueEntry);
+
+        await subject.save();
+
+        res.status(200).json({
+            message: "Proposition de modification ajoutée à l’historique en attente de validation.",
+            data: subject
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Erreur lors de la proposition de modification.",
+            error: error.message
+        });
+    }
+};
+
+export const validateModification = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "ID de la matière invalide." });
+        }
+
+        const subject = await Subject.findById(id);
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        // Trouver la dernière proposition non validée
+        const lastProposition = subject.historique
+            .slice()
+            .reverse()
+            .find((entry) => entry.validée === false && entry.action === "Proposition de modification");
+
+        if (!lastProposition) {
+            return res.status(404).json({ message: "Aucune proposition en attente de validation." });
+        }
+
+        // Ajouter l'ancien curriculum à l'historique
+        const ancienCurriculum = JSON.parse(JSON.stringify(subject.curriculum)); // Cloner l'ancien curriculum
+        subject.historique.push({
+            date: new Date(),
+            action: "Validation de modification",
+            utilisateur: req.user.id,
+            ancienCurriculum: ancienCurriculum,
+            raison: "Validation des modifications proposées",
+            validée: true
+        });
+
+        // Appliquer les modifications proposées au curriculum
+        subject.curriculum = lastProposition.proposition;
+        lastProposition.validée = true; // Marquer la proposition comme validée
+
+        await subject.save();
+
+        res.status(200).json({
+            message: "Proposition validée et curriculum mis à jour.",
+            data: subject
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Erreur lors de la validation de la proposition.",
+            error: error.message
+        });
+    }
+};
 

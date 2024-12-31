@@ -226,7 +226,7 @@ export const firstSend = async () => {
     const emails = users
       .map((user) => {
         if (user.role === "student" && user.student?.grade === "ING2") {
-          return user.student.email;
+          return user.email;
         } else if (user.role === "teacher") {
           return user.email;
         }
@@ -263,7 +263,7 @@ export const modifiedSend = async () => {
     const emails = users
       .map((user) => {
         if (user.role === "student" && user.student?.grade === "ING2") {
-          return user.student.email;
+          return user.email;
         } else if (user.role === "teacher") {
           return user.email;
         }

@@ -63,5 +63,4 @@ router.get('/:id/CV', isAdminOrTeacher, getCvByID);
 // patch studiant CV
 router.get('/:id/CV', isStudent, updateCV);
 
-
 export default router;

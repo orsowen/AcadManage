@@ -18,10 +18,14 @@ const DespositPeriodchema = new mongoose.Schema({
   },
   For: {
     type: String,
-    enum: ["PFA", "PFE", "STAGE"], 
+    enum: ["PFA", "PFE", "STAGE"],
     default: "STAGE",
     required: true,
 
+  },
+  lateDepotCode: {
+    type: String,
+    default: null,
   },
 });
 

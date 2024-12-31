@@ -17,53 +17,56 @@ const depositValidationSchema = Joi.object({
     "any.required": "Le type de dépôt est requis.",
     "any.only": "Le type de dépôt doit être PFA, PFE ou STAGE.",
   }),
+  lateDepotCode: Joi.string().allow(null).optional().messages({
+    "string.base": "Le code de dépôt tardif doit être une chaîne de caractères.",
+  }),
 });
 
 // **Ajouter une période de dépôt**
 
 export const addDepositPeriod =
   (useUrl = true) =>
-  async (req, res) => {
-    try {
-      const choix =
-        useUrl == true ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
-      req.body.For = choix; // Injecting 'For' into request body
+    async (req, res) => {
+      try {
+        const choix =
+          useUrl == true ? req.baseUrl.replace("/", "").toUpperCase() : "STAGE"; // Extracts PFE, PFA, STAGE
+        req.body.For = choix; // Injecting 'For' into request body
 
-      // Validation des données
-      const { error } = depositValidationSchema.validate(req.body);
-      if (error) {
-        return res.status(400).json({ message: error.details[0].message });
-      }
+        // Validation des données
+        const { error } = depositValidationSchema.validate(req.body);
+        if (error) {
+          return res.status(400).json({ message: error.details[0].message });
+        }
 
-      const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
+        const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
 
-      // Vérifier s'il existe déjà une période pour ce choix
-      const existingPeriod = await DepositPeriod.findOne({ For: choix });
-      if (existingPeriod) {
-        return res.status(400).json({
-          message: `Une période de dépôt pour ${choix} existe déjà. Veuillez la supprimer ou la modifier avant d'en ajouter une nouvelle.`,
+        // Vérifier s'il existe déjà une période pour ce choix
+        const existingPeriod = await DepositPeriod.findOne({ For: choix });
+        if (existingPeriod) {
+          return res.status(400).json({
+            message: `Une période de dépôt pour ${choix} existe déjà. Veuillez la supprimer ou la modifier avant d'en ajouter une nouvelle.`,
+          });
+        }
+
+        const newDepositPeriod = new DepositPeriod({
+          Start_Deposit,
+          End_Deposit,
+          Start_Choice,
+          End_Choice,
+          For: choix,
         });
+
+        await newDepositPeriod.save();
+
+        res.status(201).json({
+          message: "Période de dépôt ajoutée avec succès.",
+          data: newDepositPeriod,
+        });
+      } catch (error) {
+        console.error("Erreur lors de l'ajout de la période de dépôt :", error);
+        res.status(500).json({ message: "Erreur de serveur." });
       }
-
-      const newDepositPeriod = new DepositPeriod({
-        Start_Deposit,
-        End_Deposit,
-        Start_Choice,
-        End_Choice,
-        For: choix,
-      });
-
-      await newDepositPeriod.save();
-
-      res.status(201).json({
-        message: "Période de dépôt ajoutée avec succès.",
-        data: newDepositPeriod,
-      });
-    } catch (error) {
-      console.error("Erreur lors de l'ajout de la période de dépôt :", error);
-      res.status(500).json({ message: "Erreur de serveur." });
-    }
-  };
+    };
 
 // **Récupérer toutes les périodes de dépôt**
 export const getDepositPeriods = async (req, res) => {
@@ -86,7 +89,7 @@ export const updateDepositPeriod = async (req, res) => {
   try {
     const choix = req.baseUrl.replace("/", "").toUpperCase();
     req.body.For = choix;
-    const { Start_Deposit, End_Deposit, Start_Choice, End_Choice } = req.body;
+    const { Start_Deposit, End_Deposit, Start_Choice, End_Choice, lateDepotCode } = req.body;
 
     const { error } = depositValidationSchema.validate(req.body);
     if (error) {
@@ -102,10 +105,9 @@ export const updateDepositPeriod = async (req, res) => {
 
     const updatedPeriod = await DepositPeriod.findOneAndUpdate(
       { For: choix },
-      { Start_Deposit, End_Deposit, Start_Choice, End_Choice },
+      { Start_Deposit, End_Deposit, Start_Choice, End_Choice, lateDepotCode },
       { new: true }
     );
-    console.log(choix);
     if (!updatedPeriod) {
       return res
         .status(404)

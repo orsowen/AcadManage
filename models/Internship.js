@@ -22,21 +22,24 @@ const TopicSchema = new Schema({
 const DocsSchema = new Schema({
     attestation: {
         type: String,
-        required: true,
+        // required: true,
         trim: true,
         match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+        default: null, // default
     },
     rapport: {
         type: String,
-        required: true,
+        // required: true,
         trim: true,
         match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+        default: null, // default
     },
     ficheEval: {
         type: String,
-        required: true,
+        // required: true,
         trim: true,
         match: /\.(pdf|docx)$/i, // Accept only .pdf or .docx files
+        default: null, // default
     },
 });
 
@@ -51,6 +54,14 @@ const InternshipSchema = new Schema({
         type: String,
         enum: ["1", "2"],
         required: true,
+    },
+    depotStatus: {
+        type: String,
+        enum: ["in time", "late"],
+    },
+    isDeposed: {
+        type: Boolean,
+        default: false, // Default value
     },
     documents: {
         type: DocsSchema, // Embedding the DocsSchema
@@ -81,7 +92,7 @@ const InternshipSchema = new Schema({
     },
     isValid: {
         type: Boolean,
-        default: false, // Default value
+        default: null, // Default value
     },
     reasonIfNotValid: {
         type: String,
@@ -104,10 +115,28 @@ const InternshipSchema = new Schema({
         ref: 'Teacher', // Model name to reference
         // required: true,
     },
+    planning: {
+        type: mongoose.Schema.Types.ObjectId, // Reference to PlanningStage model
+        ref: 'PlanningStage', // Model name to reference
+        // required: false,
+    },
 }, {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
 });
 
+// Pre-save hook to check if all documents are present and update isDeposed field
+InternshipSchema.pre('save', function (next) {
+    // Check if all documents in DocsSchema exist
+    // if (this.documents) {
+    const { ficheEval, attestation, rapport } = this.documents;
+    if (ficheEval && attestation && rapport) {
+        this.isDeposed = true;  // Set isDeposed to true if all documents are present
+        return next();
+    }
+    // }
+    this.isDeposed = false; // Otherwise, set it to false
+    next();
+});
 // Create and export the Internship model
 const Internship = mongoose.model('Internship', InternshipSchema);
 
