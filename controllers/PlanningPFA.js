@@ -1,5 +1,5 @@
 import Subject_PFA from "../models/Subject_PFA.js";
-import Teacher from "../models/Teachers.js";
+import Choice from "../models/Choice.js";
 import SoutenancePFA from "../models/SoutenancePFA.js"; // Modèle Soutenance
 import dotenv from "dotenv";
 import User from "../models/User.js";
@@ -18,29 +18,31 @@ export const generateSoutenances = async (req, res) => {
       });
     }
 
-    // // Étape 1 : Récupérer les IDs des sujets validés depuis Choice
-    // const validChoices = await Choice.find({ valid: true }).select("subject").exec();
-    // const validSubjectIds = validChoices.map((choice) => choice.subject);
+    // Étape 1 : Récupérer les IDs des sujets validés depuis Choice
+    const validChoices = await Choice.find({ valid: true })
+      .select("subject")
+      .exec();
+    const validSubjectIds = validChoices.map((choice) => choice.subject);
 
-    // if (validSubjectIds.length === 0) {
-    //   return res
-    //     .status(404)
-    //     .json({ message: "Aucun sujet validé trouvé dans les choix." });
-    // }
+    if (validSubjectIds.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Aucun sujet validé trouvé dans les choix." });
+    }
 
-    // // Étape 2 : Récupérer les sujets approuvés avec leurs encadrants
-    // const subjects = await Subject_PFA.find({ _id: { $in: validSubjectIds } })
-    //   .populate("teacher", "firstName lastName")
-    //   .exec();
-
-    // Récupérer les sujets approuvés avec leurs encadrants
-    const subjects = await Subject_PFA.find({ status: "Approved" })
+    // Étape 2 : Récupérer les sujets approuvés avec leurs encadrants
+    const subjects = await Subject_PFA.find({ _id: { $in: validSubjectIds } })
       .populate("teacher", "firstName lastName")
       .exec();
 
-    if (subjects.length === 0) {
-      return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
-    }
+    // // Récupérer les sujets approuvés avec leurs encadrants
+    // const subjects = await Subject_PFA.find({ status: "Approved" })
+    //   .populate("teacher", "firstName lastName")
+    //   .exec();
+
+    // if (subjects.length === 0) {
+    //   return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
+    // }
 
     let soutenances = [];
     let currentDayIndex = 0;
@@ -69,7 +71,7 @@ export const generateSoutenances = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
 
-      // // Trouver un rapporteur qui n'est pas l'encadrant du sujet
+      // Trouver un rapporteur qui n'est pas l'encadrant du sujet
       // let rapporteur = null;
       // let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
       // while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
@@ -160,23 +162,25 @@ export const generateSoutenances = async (req, res) => {
 export const getPlanningByTeacher = async (req, res) => {
   try {
     const { teacherId } = req.params;
-    //     Récupérer les IDs des sujets validés à partir de Choice
-    //     const validChoices = await Choice.find({ valid: true }).select("subject").exec();
-    //     const validSubjectIds = validChoices.map((choice) => choice.subject);
+    //Récupérer les IDs des sujets validés à partir de Choice
+    const validChoices = await Choice.find({ valid: true })
+      .select("subject")
+      .exec();
+    const validSubjectIds = validChoices.map((choice) => choice.subject);
 
-    //     // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur, et sujet validé
-    //     const planning = await SoutenancePFA.find({
-    //       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
-    //       subject: { $in: validSubjectIds },
-    //     })
-    //       .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
-    //       .exec();
-    // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur
+    // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur, et sujet validé
     const planning = await SoutenancePFA.find({
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+      subject: { $in: validSubjectIds },
     })
       .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
       .exec();
+    // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur
+    // const planning = await SoutenancePFA.find({
+    //   $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+    // })
+    //   .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
+    //   .exec();
 
     if (planning.length === 0) {
       return res.status(404).json({ message: "Aucune soutenance trouvée." });
@@ -192,82 +196,48 @@ export const getPlanningByTeacher = async (req, res) => {
 //8.2 by student
 export const getPlanningByStudent = async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const { studentId } = req.params; // ID de l'étudiant
     console.log("Student ID:", studentId);
 
-    // Récupérer les IDs des sujets validés à partir de Choice où l'étudiant est impliqué
-    // const validChoices = await Choice.find({
-    //   valid: true,
-    //   $or: [{ student: studentId }, { binome: studentId }],
-    // }).select("subject").exec();
-
-    // const validSubjectIds = validChoices.map((choice) => choice.subject);
-
-    // console.log("Sujets validés trouvés :", validSubjectIds);
-    // if (!validSubjectIds || validSubjectIds.length === 0) {
-    //   return res
-    //     .status(404)
-    //     .json({ message: "Aucun sujet validé trouvé pour cet étudiant." });
-    // }
-    // Chercher toutes les soutenances qui correspondent aux sujets validés trouvés
-    //  const planning = await SoutenancePFA.find({
-    //   subject: { $in: validSubjectIds },
-    // })
-    //   .populate({
-    //     path: "subject",
-    //     select: "title teacher monome binome",
-    //     populate: [
-    //       { path: "monome", select: "firstName lastName" },
-    //       { path: "binome", select: "firstName lastName" },
-    //     ],
-    //   })
-    //   .exec();
-
-    // Chercher tous les sujets où l'étudiant est impliqué comme monome ou binome
-    const subjects = await Subject_PFA.find({
-      $or: [{ monome: studentId }, { binome: studentId }],
-    }).exec();
-
-    console.log("Sujets trouvés:", subjects);
-
-    if (!subjects || subjects.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Aucun sujet trouvé pour cet étudiant." });
-    }
-
-    // Extraire les IDs des sujets trouvés
-    const subjectIds = subjects.map((subject) => subject._id);
-
-    // Chercher toutes les soutenances qui correspondent aux sujets trouvés
-    const planning = await SoutenancePFA.find({
-      subject: { $in: subjectIds }, // Chercher les soutenances liées aux sujets trouvés
+    // Récupérer les sujets validés liés à l'étudiant
+    const validChoices = await Choice.find({
+      valid: true,
+      $or: [{ student: studentId }, { binome: studentId }],
     })
-      .populate({
-        path: "subject",
-        select: "title teacher monome binome",
-        populate: [
-          { path: "monome", select: "firstName lastName" },
-          { path: "binome", select: "firstName lastName" },
-        ],
-      })
+      .select("subject")
       .exec();
 
-    console.log("Planning trouvé:", planning);
+    const validSubjectIds = validChoices.map((choice) => choice.subject);
 
-    if (!planning || planning.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Aucune soutenance trouvée pour cet étudiant." });
+    if (!validSubjectIds.length) {
+      return res.status(404).json({
+        message: "Aucun sujet validé trouvé pour cet étudiant.",
+      });
     }
+
+    // Récupérer les soutenances liées aux sujets validés
+    const planning = await SoutenancePFA.find({
+      subject: { $in: validSubjectIds },
+    })
+      .populate("subject", "title teacher") // Charger uniquement les champs nécessaires
+      .exec();
+
+    if (!planning.length) {
+      return res.status(404).json({
+        message: "Aucune soutenance trouvée pour cet étudiant.",
+      });
+    }
+
+    // Retourner le planning sans les détails des étudiants
     res.status(200).json({ planning });
   } catch (error) {
     console.error("Erreur lors de la récupération du planning :", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Erreur interne du serveur." });
   }
 };
 
 //8.3  Update
+// 8.3 Update
 export const updateSoutenance = async (req, res) => {
   try {
     const { id } = req.params; // ID de la soutenance à mettre à jour
@@ -279,16 +249,17 @@ export const updateSoutenance = async (req, res) => {
       return res.status(404).json({ message: "Soutenance introuvable." });
     }
 
-    // Vérifier que le `teacher` spécifié existe dans SubjectPFA
+    // Vérification si l'enseignant existe dans SubjectPFA
     if (teacher) {
       const teacherExists = await Subject_PFA.findOne({ teacher });
       if (!teacherExists) {
         return res.status(400).json({
-          message: "L'enseignant spécifié  n'a pas de sujet PFA.",
+          message: "L'enseignant spécifié n'a pas de sujet PFA.",
         });
       }
     }
-    // Vérifier que le `rapporteur` spécifié existe dans SubjectPFA
+
+    // Vérification si le rapporteur existe dans SubjectPFA
     if (rapporteur) {
       const rapporteurExists = await Subject_PFA.findOne({
         teacher: rapporteur,
@@ -299,6 +270,7 @@ export const updateSoutenance = async (req, res) => {
         });
       }
     }
+
     // Calculer endTime si non fourni
     let calculatedEndTime = endTime;
     if (!endTime && startTime) {
@@ -310,6 +282,7 @@ export const updateSoutenance = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
     }
+
     const roomToCheck = room || existingSoutenance.room;
     const startTimeTocheck = startTime || existingSoutenance.startTime;
     const endTimeTocheck = calculatedEndTime || existingSoutenance.endTime;
@@ -335,13 +308,18 @@ export const updateSoutenance = async (req, res) => {
       });
     }
 
-    // Vérifier les chevauchements : même horaire, salle différente
+    // Vérifier les chevauchements : même horaire, mais salle différente
     const overlappingSoutenanceDifferentRoom = await SoutenancePFA.findOne({
       _id: { $ne: id }, // Exclure la soutenance en cours d'édition
-      room: { $ne: room },
       date: dateToCheck,
-      teacher: teacher || existingSoutenance.teacher,
-      rapporteur: rapporteur || existingSoutenance.rapporteur,
+      $or: [
+        {
+          teacher: teacher || existingSoutenance.teacher,
+        },
+        {
+          rapporteur: rapporteur || existingSoutenance.rapporteur,
+        },
+      ],
       $or: [
         {
           $and: [
@@ -353,33 +331,13 @@ export const updateSoutenance = async (req, res) => {
     });
 
     if (overlappingSoutenanceDifferentRoom) {
-      if (!teacher && !rapporteur) {
-        return res.status(400).json({
-          message:
-            "Un enseignant ou un rapporteur existe déjà dans une autre salle au même horaire. Veuillez les modifier.",
-        });
-      }
-
-      const isTeacherOccupied =
-        overlappingSoutenanceDifferentRoom.teacher.toString() ===
-          (teacher || existingSoutenance.teacher).toString() ||
-        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
-          (teacher || existingSoutenance.teacher).toString();
-      const isRapporteurOccupied =
-        overlappingSoutenanceDifferentRoom.teacher.toString() ===
-          (rapporteur || existingSoutenance.rapporteur).toString() ||
-        overlappingSoutenanceDifferentRoom.rapporteur.toString() ===
-          (rapporteur || existingSoutenance.rapporteur).toString();
-
-      if (isTeacherOccupied || isRapporteurOccupied) {
-        return res.status(400).json({
-          message:
-            "Un enseignant ou un rapporteur est déjà assigné dans une autre salle au même horaire.",
-        });
-      }
+      return res.status(400).json({
+        message:
+          "Un enseignant ou un rapporteur est déjà assigné dans une autre salle au même horaire.",
+      });
     }
 
-    // Mise à jour des champs en une seule opération
+    // Mise à jour de la soutenance
     const updatedSoutenance = await SoutenancePFA.findByIdAndUpdate(
       id,
       {
@@ -402,6 +360,7 @@ export const updateSoutenance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 //8.4 Publish /mask
 export const publishSoutenance = async (req, res) => {
   const { response } = req.params;
