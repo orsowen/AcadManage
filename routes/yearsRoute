@@ -1,0 +1,12 @@
+import express from "express";
+import { addSkill, getSkills, getSkillById } from "../controllers/years.js";
+import { isAdmin, isAdminOrTeacher } from "../middlewares/authentication.js";
+
+
+const router = express.Router();
+
+router.patch('/', isAdmin, addSkill);
+router.post('/', isAdminOrTeacher, getSkills);
+router.post('/:id', isAdmin, getSkillById);
+
+export default router;

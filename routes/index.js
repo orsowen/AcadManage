@@ -10,6 +10,7 @@ import skillRoutes from "./skill.js";
 import studentRoutes from "./StudentRoutes.js";
 import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
+import yearsRoutes from "./YearsRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
 
@@ -28,6 +29,7 @@ router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/PFAChoices", choicePFA);
+router.use("/years", yearsRoutes);
 
 // TEST MAIL NOTIFICATION
 router.get("/test-notif-late-depot-satge", async (req, res) => {
