@@ -6,9 +6,11 @@ import {
   updateSoutenance,
   publishSoutenance,
   sendEmail,
+  getSoutenancesForTeacher,
   getSoutenanceDetailsForStudent,
+  getSubjectByIdForTeacher,
 } from "../controllers/PlanningPFA.js";
-import { isAdmin, isStudent } from "../middlewares/authentication.js";
+import { isAdmin, isTeacher, isStudent } from "../middlewares/authentication.js";
 const router = express.Router();
 
 // POST /planning-PFA - Create a new planning PFA
@@ -29,5 +31,11 @@ router.get(
   isStudent,
   getSoutenanceDetailsForStudent
 );
+
+// Route to get soutenances  for the authenticated teacher
+router.get("/soutenances/teacher", isTeacher, getSoutenancesForTeacher);
+
+// Route to get soutenances details for the authenticated teacher
+router.get("/soutenances/:id/teacher", isTeacher, getSubjectByIdForTeacher);
 
 export default router;

@@ -33,6 +33,12 @@ const ChoiceSchema = new Schema({
     default: false,
     required: false,
   },
+  isAffectationVisible:
+  {
+    type: Boolean,
+    default: false,
+    required: false,
+  }
 });
 
 const Choice = mongoose.model("Choice", ChoiceSchema);
