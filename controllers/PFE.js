@@ -150,7 +150,7 @@ export const ListAllPFEInfo = async (req, res) => {
                 path: 'student',
                 populate: {
                     path: 'user',
-                    select: 'email', 
+                    select: 'email',
                 },
             })
             .populate({
@@ -330,7 +330,7 @@ export const assignPFEToTeacher = async (req, res) => {
 
 //Publish Or Hide PFE
 export const publishOrHidePFE = async (req, res) => {
-    const { response } = req.params; 
+    const { response } = req.params;
 
     try {
         if (!["publish", "hide"].includes(response)) {
@@ -375,16 +375,16 @@ export const sendPlanningEmail = async (req, res) => {
     try {
         const pfes = await PFE.find({ emailStatus: { $in: ['none', 'first'] } })
             .populate({
-                path: 'student', 
+                path: 'student',
                 populate: {
-                    path: 'user', 
-                    select: 'email firstName lastName' 
+                    path: 'user',
+                    select: 'email firstName lastName'
                 }
             })
             .populate({
-                path: 'teacher', 
+                path: 'teacher',
                 populate: {
-                    path: 'user', 
+                    path: 'user',
                     select: 'email firstName lastName'
                 }
             });
@@ -402,16 +402,16 @@ export const sendPlanningEmail = async (req, res) => {
 
             if (!pfe.teacher || !pfe.teacher.user || !pfe.teacher.user.email) {
                 console.warn(`No email found for teacher with ID ${pfe.teacher}`);
-                continue; 
+                continue;
             }
             let subject = '';
             let status = pfe.emailStatus;
             if (status === 'none') {
                 subject = 'Your Planning Link';
-                status = 'first'; 
+                status = 'first';
             } else if (status === 'first') {
                 subject = 'Your Planning Link Modified';
-                status = 'second'; 
+                status = 'second';
             } else {
                 continue; // Skip sending email if already sent twice
             }
@@ -471,5 +471,75 @@ export const sendPlanningEmail = async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: 'Error sending emails.' });
+    }
+};
+
+export const getTeacherDefenses = async (req, res) => {
+    try {
+        const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+
+        // Find defenses where the teacher is president, rapporteur, or the supervisor (Encadrent)
+        const defenses = await DefensePFE.find({
+            $or: [
+                { PresidentJury: teacherId },
+                { Rapporteur: teacherId },
+                { Encadrent: teacherId },
+            ],
+        })
+            .populate({
+                path: "PresidentJury",
+                select: "firstName lastName email",
+            })
+            .populate({
+                path: "Rapporteur",
+                select: "firstName lastName email",
+            })
+            .populate({
+                path: "Encadrent",
+                select: "firstName lastName email",
+            })
+            .populate({
+                path: "PFE",
+                populate: {
+                    path: "student",
+                    select: "firstName lastName email",
+                },
+            });
+
+        if (!defenses || defenses.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No defenses found for this teacher.",
+            });
+        }
+
+        // Map the defenses to include the teacher's role
+        const defensesWithRoles = defenses.map((defense) => {
+            let role = null;
+            if (defense.PresidentJury?._id.toString() === teacherId) {
+                role = "President";
+            } else if (defense.Rapporteur?._id.toString() === teacherId) {
+                role = "Rapporteur";
+            } else if (defense.Encadrent?._id.toString() === teacherId) {
+                role = "Encadrent";
+            }
+
+            return {
+                ...defense.toObject(),
+                teacherRole: role, // Add the teacher's role for this defense
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: defensesWithRoles,
+        });
+    } catch (error) {
+        console.error("Error fetching teacher defenses:", error);
+        res.status(500).json({
+            success: false,
+            message: "An error occurred while fetching defenses.",
+            error: error.message,
+        });
     }
 };

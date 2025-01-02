@@ -7,7 +7,8 @@ import {
     validateAssignments,
     assignPFEToTeacher,
     publishOrHidePFE,
-    sendPlanningEmail
+    sendPlanningEmail,
+    getTeacherDefenses
 } from '../controllers/PFE.js';
 
 import {
@@ -47,5 +48,8 @@ router.post('/planning/publish/:response', isAdmin, publishOrHidePFE);
 
 // Route for admins to send planning emails (e.g., schedules, notifications)
 router.post('/planning/send', isAdmin, sendPlanningEmail);
+
+router.get("/PFE/me", isTeacher,getTeacherDefenses)
+
 
 export default router;
