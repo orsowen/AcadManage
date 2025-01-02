@@ -236,7 +236,6 @@ export const getPlanningByStudent = async (req, res) => {
   }
 };
 
-//8.3  Update
 // 8.3 Update
 export const updateSoutenance = async (req, res) => {
   try {
@@ -323,8 +322,10 @@ export const updateSoutenance = async (req, res) => {
       $or: [
         {
           $and: [
-            { startTime: { $gte: startTimeTocheck } },
-            { endTime: { $lte: endTimeTocheck } },
+            {
+              startTime: { $lt: endTimeTocheck },
+              endTime: { $gt: startTimeTocheck },
+            },
           ],
         },
       ],
@@ -483,5 +484,81 @@ export const sendEmail = async (req, res) => {
     res
       .status(500)
       .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
+  }
+};
+// 8.4 Soutenance Details for Student
+export const getSoutenanceDetailsForStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params; // ID de l'étudiant
+
+    // Étape 1 : Trouver les sujets validés liés à l'étudiant
+    const validChoices = await Choice.find({
+      valid: true,
+      $or: [{ student: studentId }, { binome: studentId }],
+    })
+      .select("subject")
+      .exec();
+
+    const validSubjectIds = validChoices.map((choice) => choice.subject);
+
+    if (!validSubjectIds.length) {
+      return res
+        .status(404)
+        .json({ message: "Aucun sujet validé trouvé pour cet étudiant." });
+    }
+
+    // Étape 2 : Trouver la soutenance liée au sujet
+    const soutenance = await SoutenancePFA.findOne({
+      subject: { $in: validSubjectIds },
+    })
+      .populate("subject", "title")
+      .populate({
+        path: "teacher", // Charger l'enseignant encadrant
+        select: "firstName lastName",
+        populate: {
+          path: "user", // Charger les infos utilisateur du teacher
+          select: "email",
+        },
+      })
+      .populate({
+        path: "rapporteur", // Charger le rapporteur
+        select: "firstName lastName",
+        populate: {
+          path: "user", // Charger les infos utilisateur du rapporteur
+          select: "email", // Charger uniquement l'email
+        },
+      })
+      .exec();
+    if (!soutenance) {
+      return res
+        .status(404)
+        .json({ message: "Aucune soutenance trouvée pour cet étudiant." });
+    }
+
+    // Étape 3 : Retourner les détails
+    const details = {
+      date: soutenance.date,
+      startTime: soutenance.startTime,
+      endTime: soutenance.endTime,
+      room: soutenance.room,
+      teacher: {
+        firstName: soutenance.teacher.firstName,
+        lastName: soutenance.teacher.lastName,
+        email: soutenance.teacher.user?.email, // Récupérer l'email de l'enseignant
+      },
+      rapporteur: {
+        firstName: soutenance.rapporteur.firstName,
+        lastName: soutenance.rapporteur.lastName,
+        email: soutenance.rapporteur.user?.email, // Récupérer l'email du rapporteur
+      },
+    };
+
+    res.status(200).json({ details });
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des détails de la soutenance :",
+      error
+    );
+    res.status(500).json({ message: "Erreur interne du serveur." });
   }
 };
