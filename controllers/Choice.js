@@ -2,6 +2,7 @@ import Choice from "../models/Choice.js";
 import Student from "../models/Student.js";
 import Subject_PFA from "../models/Subject_PFA.js";
 import User from "../models/User.js";
+import { sendMail } from "./mailer.js";
 
 // Add a choice for a student
 export const addChoice = async (req, res) => {
@@ -708,6 +709,33 @@ export const publishHidePFAChoice = async (req, res) => {
 };
 
 
+
+export const sendMailTo = async (req, res) => {
+  try {
+    // Vérifier si des sujets ont déjà été publiés
+    const previouslyValidChoices = await Choice.find({
+      isAffectationVisible: true,
+    });
+    console.log("Previously visible choices:", previouslyValidChoices);
+
+    // Envoyer la réponse après l'envoi des emails
+    res.status(200).json({ message: "Emails sent successfully" });
+
+
+    // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    if (previouslyValidChoices.length === 0) {
+      await firstSend();
+    } else {
+      await modifiedSend();
+    }
+
+ 
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const firstSend = async () => {
   try {
     // Récupérer les emails des étudiants et des enseignants
@@ -717,21 +745,21 @@ export const firstSend = async () => {
       .exec();
 
     const emails = users.map((user) => user.email);
+    console.log("Emails to send:", emails);
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
 
     // Envoyer un email de confirmation avec un lien vers la liste des sujets
-    const subject =
-      "Publication des choix de sujets PFA";
+    const subject = "Publication des choix de sujets PFA";
     const html = `
-      <p>Les sujets ont été publiés.</p>
+      <p>Les choix ont été publiés !</p>
       <p>Vous pouvez les consulter </p>
     `;
 
     for (const email of emails) {
-      await sendMail(email, subject, html);
+      await sendMail(email, subject, html); // Ensure sendEmail is correctly defined
     }
 
     console.log("Premier envoi effectué avec succès.");
@@ -750,20 +778,20 @@ export const modifiedSend = async () => {
       .exec();
 
     const emails = users.map((user) => user.email);
+    console.log("Emails to send:", emails);
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
 
-    const subject =
-    "Modification à propos la publication des choix de sujets PFA";
-  const html = `
-    <p>Les sujets ont été publiés de nouveau </p>
-    <p>Vous pouvez les consulter </p>
-  `;
+    const subject = "Modification à propos la publication des choix de sujets PFA";
+    const html = `
+      <p>Les choix ont été publiés de nouveau ! </p>
+      <p>Vous pouvez les consulter </p>
+    `;
 
     for (const email of emails) {
-      await sendMail(email, subject, html);
+      await sendMail(email, subject, html); // Ensure sendEmail is correctly defined
     }
 
     console.log("Envoi modifié effectué avec succès.");
@@ -771,34 +799,6 @@ export const modifiedSend = async () => {
     console.error("Error during modified send:", error);
   }
 };
-
-// Envoyer un e-mail à tous les étudiants pour les informer de l'affectation des sujets PFA
-export const sendMail = async (req, res) => {
-  try {
-    // Vérifier si des sujets ont déjà été publiés
-    const previouslyValidChoices = await Choice.find({
-      isAffectationVisible: true,
-    });
-    console.log("Previously visible choices :", previouslyValidChoices);
-
-        // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
-        if (previouslyValidChoices.length === 0) {
-          await firstSend();
-        } else {
-          await modifiedSend();
-        }
-  } catch (error)
-   {
-    console.log(error.message);
-    res.status(500).json({ message: error.message });
-  }
-
-} 
-
-
-
-
-
 
 
 // Supprimer les choix de tous les étudiants

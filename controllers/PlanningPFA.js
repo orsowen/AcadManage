@@ -1,9 +1,9 @@
 import Subject_PFA from "../models/Subject_PFA.js";
 import Teacher from "../models/Teachers.js";
-import SoutenancePFA from "../models/SoutenancePFA.js"; // Modèle Soutenance
 import dotenv from "dotenv";
 import User from "../models/User.js";
 import { sendMail } from "./mailer.js";
+import PlanningPFA from "../models/SoutenancePFA.js";
 
 dotenv.config();
 
@@ -442,5 +442,77 @@ export const sendEmail = async (req, res) => {
     res
       .status(500)
       .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
+  }
+};
+
+export const getSoutenancesForTeacher = async (req, res) => {
+  try {
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+
+    // Find soutenances where the authenticated teacher is either the teacher or the rapporteur
+    const soutenances = await PlanningPFA.find({
+      $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+    }).populate("subject", "title"); // Populate subject with specific fields
+
+    if (!soutenances.length) {
+      return res.status(404).json({
+        message: "No soutenances found for this teacher",
+      });
+    }
+    // Extract and return only the subject field from each soutenance
+    const subjects = soutenances.map((soutenance) => soutenance.subject);
+    res.status(200).json(subjects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// details of a specific subject for the authenticated teacher
+export const getSubjectByIdForTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+
+    const soutenanceSubject = await PlanningPFA.findOne({
+      _id: id,
+      $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
+    }) .select('-status -__v -teacher') // Exclude status, __v, and teacher fields
+    .populate({
+      path: "subject",
+      model: "Subject_PFA",
+      select: "title description technologies binome monome", // Sélectionner uniquement les champs spécifiés
+      populate: {
+        path: "binome",
+        model: "Student",
+        select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+      },
+      populate: {
+        path: "binome",
+        model: "Student",
+        select: "firstName lastName email",
+      },
+      populate: {
+        path: "monome",
+        model: "Student",
+        select: "firstName lastName email",
+      },
+      
+    })
+    .populate({
+      path: "rapporteur",
+      model: "Teacher",
+      select: "firstName lastName email", // Champs spécifiques pour le rapporteur
+    });
+
+    if (!soutenanceSubject) {
+      return res.status(404).json({
+        message:
+          "Subject not found or you do not have permission to view this subject",
+      });
+    }
+
+    res.status(200).json(soutenanceSubject);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

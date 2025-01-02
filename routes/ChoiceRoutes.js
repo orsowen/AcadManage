@@ -5,6 +5,7 @@ import {
   updatePriority,
   updateTeacherAcceptance,
   getChoiceById,
+  getSubjectByIdForTeacher
 } from "../controllers/ChoiceController.js";
 
 import { isStudent } from "../middlewares/authentication.js";

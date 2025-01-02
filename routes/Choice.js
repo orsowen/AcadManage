@@ -1,5 +1,5 @@
 import express from 'express';
-import { addChoice, getChoices , updatePriority , updateTeacherAcceptance , getChoiceById, getStudentChoices ,clearAllStudentChoices,autoAssignChoices,assignPFAtoStudent, publishHidePFAChoice } from '../controllers/Choice.js';
+import { addChoice, getChoices , updatePriority , updateTeacherAcceptance , getChoiceById, getStudentChoices ,clearAllStudentChoices,autoAssignChoices,assignPFAtoStudent, publishHidePFAChoice, sendMailTo } from '../controllers/Choice.js';
 
 import { isAdmin, isStudent } from '../middlewares/authentication.js';
 
@@ -32,6 +32,9 @@ router.patch('/PFA/choices/:id/assign/student/:studentId',isAdmin, assignPFAtoSt
 
 // Route to publish or hide assignment
 router.post('/PFA/publish/:response', isAdmin, publishHidePFAChoice);
+
+// Route to publish or hide assignment
+router.post('/PFA/sendMail', isAdmin, sendMailTo);
 
 // Route pour supprimer les choix de tous les étudiants
 router.post('/clearChoices', clearAllStudentChoices);
