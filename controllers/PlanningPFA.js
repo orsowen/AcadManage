@@ -476,7 +476,7 @@ export const getSubjectByIdForTeacher = async (req, res) => {
     const soutenanceSubject = await PlanningPFA.findOne({
       _id: id,
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
-    }) .select('-status -__v -teacher') // Exclude status, __v, and teacher fields
+    }) .select('-status -__v -teacher -date -startTime -endTime -room')// Exclude status, __v, and teacher fields
     .populate({
       path: "subject",
       model: "Subject_PFA",
