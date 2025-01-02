@@ -31,7 +31,6 @@ const checkForOverlap = async (salle, date, heure, enseignantId, type) => {
 
 // Controller to assign or update a teacher's role in a DefensePFE
 export const CreateOrUpdateDefensePFE = async (req, res) => {
-
     try {
         const { id } = req.params; // PFE ID
         const { enseignantId, salle, date, heure, type } = req.body;
@@ -101,7 +100,6 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
         res.status(500).json({ message: "An error occurred.", error: error.message });
     }
 };
-
 
 
 

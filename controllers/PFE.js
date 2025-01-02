@@ -1,3 +1,4 @@
+import { populate } from 'dotenv';
 import DefensePFE from '../models/DefensePFE.js';
 import PFE from '../models/PFE.js';
 import { sendMail } from './mailer.js';
@@ -488,22 +489,26 @@ export const getTeacherDefenses = async (req, res) => {
         })
             .populate({
                 path: "PresidentJury",
-                select: "firstName lastName email",
+                select: "firstName lastName ",
             })
             .populate({
                 path: "Rapporteur",
-                select: "firstName lastName email",
+                select: "firstName lastName ",
             })
             .populate({
                 path: "Encadrent",
-                select: "firstName lastName email",
+                select: "firstName lastName ",
             })
             .populate({
                 path: "PFE",
                 populate: {
                     path: "student",
-                    select: "firstName lastName email",
-                },
+                    select: "firstName lastName",
+                    populate: {
+                        path: "user",
+                        select: "email"
+                    }
+                }
             });
 
         if (!defenses || defenses.length === 0) {
@@ -541,5 +546,56 @@ export const getTeacherDefenses = async (req, res) => {
             message: "An error occurred while fetching defenses.",
             error: error.message,
         });
+    }
+};
+export const getStudentPFE = async (req, res) => {
+    try {
+        const student = req.user?.idRole;
+        const pfeData = await PFE.findOne({ student: student })
+            .populate({
+                path: 'student',
+                select: 'lastName firstName',
+                populate: {
+                    path: 'user', // Populate the user field
+                    select: 'email' // Select the email field from the user model
+                }
+            }).populate({
+                path: 'Defense',
+                populate: [
+                    {
+                        path: 'PresidentJury',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    },
+                    {
+                        path: 'Rapporteur',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    },
+                    {
+                        path: 'Encadrent',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    }
+                ]
+            });
+
+        if (!pfeData) {
+            console.log('No PFE project found for the student.');
+            return;
+        }
+
+        console.log('PFE Data:', pfeData);
+    } catch (error) {
+        console.error("Error fetching PFE project:", error);
     }
 };
