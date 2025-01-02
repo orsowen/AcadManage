@@ -13,7 +13,7 @@ import teacherRoutes from "./TeacherRoutes.js";
 import yearsRoutes from "./YearsRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
-
+import DefensePFE from "./DefensePFE.js";
 const router = express.Router();
 
 // ROUTES --------------------------------
@@ -24,6 +24,7 @@ router.use("/users", UserConnexionRoutes);
 router.use("/teachers", teacherRoutes);
 router.use("/students", studentRoutes);
 router.use("/PFE", PFE);
+router.use("/PFE", DefensePFE);
 router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);

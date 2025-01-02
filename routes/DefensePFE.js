@@ -7,9 +7,9 @@ import { CreateOrUpdateDefensePFE, publishOrHideDefense } from '../controllers/D
 
 const router = express.Router();
 
-router.post('/PFE/:id/soutenances', isAdmin, CreateOrUpdateDefensePFE);
+router.post('/:id/soutenances', isAdmin, CreateOrUpdateDefensePFE);
 
-router.post('/PFE/soutenances/publish/:response', isAdmin, publishOrHideDefense);
+router.post('/soutenances/publish/:response', isAdmin, publishOrHideDefense);
 
 
 
