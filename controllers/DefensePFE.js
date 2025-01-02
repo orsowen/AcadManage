@@ -30,69 +30,79 @@ const checkForOverlap = async (salle, date, heure, enseignantId, type) => {
 };
 
 // Controller to assign or update a teacher's role in a DefensePFE
-export const CreateorUpdateDefensePFE = async (req, res) => {
+export const CreateOrUpdateDefensePFE = async (req, res) => {
+
     try {
         const { id } = req.params; // PFE ID
         const { enseignantId, salle, date, heure, type } = req.body;
 
-        // Check if the PFE exists
-        const pfe = await PFE.findById(id);
-        if (!pfe) {
-            return res.status(404).json({ message: 'PFE not found.' });
-        }
-
-        // Check if the teacher exists
-        const enseignant = await Teacher.findById(enseignantId);
-        if (!enseignant) {
-            return res.status(404).json({ message: 'Teacher not found.' });
-        }
-
-        // Validate the 'Heure' format (HH:mm)
+        // Validate `heure` format (HH:mm)
         const heureRegex = /^([01]?[0-9]|2[0-3]):([0-5]?[0-9])$/;
         if (!heureRegex.test(heure)) {
-            return res.status(400).json({ message: 'Invalid time format. Please use HH:mm format.' });
+            return res.status(400).json({ message: "Invalid time format. Use HH:mm." });
         }
 
-        // Find existing DefensePFE for this PFE and type
+        // Check if the PFE exists
+        const pfe = await PFE.findById(id).populate('teacher'); // Populate `teacher` for auto-assigning Encadrent
+        if (!pfe) {
+            return res.status(404).json({ message: "PFE not found." });
+        }
+
+        // Check if the teacher exists (if `enseignantId` is provided)
+        if (enseignantId) {
+            const enseignant = await Teacher.findById(enseignantId);
+            if (!enseignant) {
+                return res.status(404).json({ message: "Teacher not found." });
+            }
+        }
+
+        // Find or create the `DefensePFE` for this PFE
         let defensePFE = await DefensePFE.findOne({ PFE: id });
 
-        // If DefensePFE exists, update the teacher's role based on type
         if (defensePFE) {
-            if (type === 'president') {
+            // Update the teacher's role in the existing `DefensePFE`
+            if (type === "president") {
                 defensePFE.PresidentJury = enseignantId;
-            } else if (type === 'rapporteur') {
+            } else if (type === "rapporteur") {
                 defensePFE.Rapporteur = enseignantId;
-            } else if (type === 'encadrant') {
-                defensePFE.Encadrent = enseignantId;
             }
+
+            // Update general fields
+            defensePFE.Salle = salle;
+            defensePFE.Date = date;
+            defensePFE.Heure = heure;
         } else {
-            // If no existing DefensePFE, create a new one
+            // Create a new `DefensePFE`
             defensePFE = new DefensePFE({
                 PFE: id,
                 Salle: salle,
                 Date: date,
                 Heure: heure,
                 Publisher: false,
+                PresidentJury: type === "president" ? enseignantId : undefined,
+                Rapporteur: type === "rapporteur" ? enseignantId : undefined,
+                Encadrent: pfe.teacher?._id, // Automatically assign the PFE's teacher as Encadrent
             });
-
-            // Set the teacher's role based on type
-            if (type === 'president') {
-                defensePFE.PresidentJury = enseignantId;
-            } else if (type === 'rapporteur') {
-                defensePFE.Rapporteur = enseignantId;
-            } else if (type === 'encadrant') {
-                defensePFE.Encadrent = enseignantId;
-            }
         }
 
-        // Save the updated DefensePFE document
+        // Save the DefensePFE document
         await defensePFE.save();
 
-        res.status(200).json({ message: `Teacher assigned as ${type} successfully.`, defensePFE });
+        // Update the `Defense` reference in the `PFE` document
+        pfe.Defense = defensePFE._id;
+        await pfe.save();
+
+        res.status(200).json({
+            message: `Teacher assigned as ${type} successfully.`,
+            defensePFE,
+        });
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        console.error("Error in DefensePFE:", error);
+        res.status(500).json({ message: "An error occurred.", error: error.message });
     }
 };
+
+
 
 
 // Controller to publish or hide all defense schedules
