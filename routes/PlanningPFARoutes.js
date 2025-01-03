@@ -10,7 +10,11 @@ import {
   getSoutenanceDetailsForStudent,
   getSubjectByIdForTeacher,
 } from "../controllers/PlanningPFA.js";
-import { isAdmin, isTeacher, isStudent } from "../middlewares/authentication.js";
+import {
+  isAdmin,
+  isTeacher,
+  isStudent,
+} from "../middlewares/authentication.js";
 const router = express.Router();
 
 // POST /planning-PFA - Create a new planning PFA
@@ -21,10 +25,9 @@ router.get("/planning/teacher/:teacherId", isAdmin, getPlanningByTeacher);
 router.get("/planning/student/:studentId", isAdmin, getPlanningByStudent);
 // update pfa soutenance
 router.patch("/:id/soutenances", isAdmin, updateSoutenance);
-// Route pour publier/masquer les soutenances
-router.post("/publish/:response", isAdmin, publishSoutenance);
+
 // Route pour envoyer les emails
-router.post("/list/send/:option", sendEmail);
+router.post("/list/send", sendEmail);
 // Route pour recuperer les soutenance par etudiant
 router.get(
   "/student/:studentId/soutenance",
@@ -37,5 +40,7 @@ router.get("/soutenances/teacher", isTeacher, getSoutenancesForTeacher);
 
 // Route to get soutenances details for the authenticated teacher
 router.get("/soutenances/:id/teacher", isTeacher, getSubjectByIdForTeacher);
+// Route pour publier/masquer les soutenances
+router.post("/PublishSoutenance/:response", isAdmin, publishSoutenance);
 
 export default router;

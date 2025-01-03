@@ -366,19 +366,14 @@ export const updateSoutenance = async (req, res) => {
 
 //8.4 Publish /mask
 export const publishSoutenance = async (req, res) => {
-  const { response } = req.params;
-  if (!["publier", "masquer"].includes(response)) {
-    return res.status(400).json({ error: "Valeur de response invalide." });
-  }
-
   try {
-    // const PublishedSoutenance = await SoutenancePFA.find({
-    //   status: "publier",
-    // });
-    //console.log("Previously published soutenances:", PublishedSoutenance);
+    const { response } = req.params;
+    if (!["publier", "masquer"].includes(response)) {
+      return res.status(400).json({ error: "Valeur de response invalide." });
+    }
     // Mettre à jour toutes les soutenances
     const result = await SoutenancePFA.updateMany({}, { status: response });
-
+    await SoutenancePFA.updateMany({}, { FirstPublication: false });
     res.status(200).json({
       message: `Les soutenances ont été ${
         response === "publier" ? "publiées" : "masquées"
@@ -386,11 +381,6 @@ export const publishSoutenance = async (req, res) => {
       modifiedCount: result.nModified,
     });
     // // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
-    // if (PublishedSoutenance.length === 0) {
-    //   await firstSend();
-    // } else {
-    //   await modifiedSend();
-    // }
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -467,20 +457,25 @@ export const modifiedSend = async () => {
 
 // // Contrôleur pour gérer l'envoi d'emails
 export const sendEmail = async (req, res) => {
-  const { option } = req.params; // `option` est soit "first" soit "modified"
-
   try {
-    if (option === "first") {
+    // Vérifier si c'est la première publication
+    const firstPublication = await SoutenancePFA.findOne({
+      FirstPublication: true,
+    });
+    console.log("First publication:", firstPublication);
+    // await Choice.updateMany({}, { isFirstPublication: false });
+    // Envoyer la réponse après l'envoi des emails
+    res.status(200).json({ message: "Emails sent successfully" });
+
+    // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
+    if (!firstPublication) {
+      await SoutenancePFA.updateMany({}, { FirstPublication: true });
       await firstSend();
-      return res.status(200).json({ message: "Premier envoi effectué." });
-    } else if (option === "modified") {
-      await modifiedSend();
-      return res.status(200).json({ message: "Envoi modifié effectué." });
     } else {
-      return res.status(400).json({
-        error: "Option invalide. Choisissez entre 'first' ou 'modified'.",
-      });
+      await modifiedSend();
     }
+    // Envoyer la réponse après l'envoi des emails
+    res.status(200).json({ message: "Emails sent successfully" });
   } catch (error) {
     console.error("Erreur lors de l'envoi :", error);
     res

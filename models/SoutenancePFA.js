@@ -37,6 +37,7 @@ const SoutenancePFASchema = new mongoose.Schema({
     enum: ["publier", "masquer"],
     default: "masquer",
   },
+  FirstPublication: { type: Boolean, default: true },
 });
 
 export default mongoose.model("SoutenancePFA", SoutenancePFASchema);
