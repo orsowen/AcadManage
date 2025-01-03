@@ -12,11 +12,10 @@ const DefensePFESchema = new Schema({
         type: Date,
         required: true,
     },
-    heure: {
-        type: Number,
+    Heure: {
+        type: String,  // Changement de Number à String
         required: true,
-        min: 0, // Ensure time is non-negative
-        max: 23, // Assume the hour field is in 24-hour format
+        match: /^([01]?[0-9]|2[0-3]):([0-5]?[0-9])$/, // Validation du format HH:mm
     },
     PresidentJury: {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,6 +23,10 @@ const DefensePFESchema = new Schema({
         required: true,
     },
     Rapporteur: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Teacher', // Model name for reference
+        required: true,
+    }, Encadrent: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Model name for reference
         required: true,
@@ -36,7 +39,8 @@ const DefensePFESchema = new Schema({
     Publisher: {
         type: Boolean,
         default: false,
-    },
+    }, emailStatus: { type: String, enum: ["none", "first", "second"], default: "none" },
+
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // Create and export the SoutenancePFe model
