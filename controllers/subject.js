@@ -85,7 +85,7 @@ export const getAllSubjects = async (req, res) => {
             .populate('skills', 'name')
             .populate('teachers', 'firstName lastName')
             .populate('students', 'firstName lastName')
-        
+
         res.status(200).json(subjects);
     } catch (error) {
         res.status(500).json({ message: 'Erreur lors de la récupération des matières.', error: error.message });
@@ -351,6 +351,58 @@ export const updateAvancement = async (req, res) => {
             utilisateur: req.user.id,
         });
 
+        // Test de l'envoi de l'email à l'administrateur
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+
+        const admin = await User.findOne({ role: "admin" });
+        if (admin) {
+            try {
+                console.log(`Tentative d'envoi d'email à l'administrateur ${admin.email}...`);
+                await transporter.sendMail({
+                    from: { name: "acadManager", address: process.env.EMAIL_USER },
+                    to: admin.email, // Assurez-vous que l'admin a un champ 'email'
+                    subject: `Mise à jour de l'avancement de "${subject.title}"`,
+                    text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
+                });
+                console.log(`Email envoyé à l'administrateur ${admin.email}`);
+            } catch (error) {
+                console.error("Erreur lors de l'envoi de l'email à l'administrateur :", error);
+            }
+        } else {
+            console.log("Aucun administrateur trouvé.");
+        }
+
+
+        // // Envoi d'un email aux étudiants concernés
+        // const students = await User.find({ role: "student"});
+        // Envoi d'un email aux étudiants concernés 
+        const students = await User.find({ student: { $in: subject.students } });
+        console.log(students);
+
+        for (const student of students) {
+            try {
+                if (student.email) {
+                    console.log(`Tentative d'envoi d'email à l'étudiant ${student.email}...`);
+                    await transporter.sendMail({
+                        from: { name: "acadManager", address: process.env.EMAIL_USER },
+                        to: student.email,
+                        subject: `Mise à jour de l'avancement dans "${subject.title}"`,
+                        text: `L'état du chapitre "${chapterName}" a été mis à jour à "${status}".`,
+                    });
+                    console.log(`Email envoyé à l'étudiant ${student.email}`);
+                } else {
+                    console.warn(`L'étudiant avec l'ID ${student._id} n'a pas d'email.`);
+                }
+            } catch (error) {
+                console.error(`Erreur lors de l'envoi d'un email à ${student.email}:`, error);
+            }
+        }
         await subject.save();
 
         res.status(200).json({
@@ -444,8 +496,8 @@ export const assignStudentToSubject = async (req, res) => {
 export const proposeModification = async (req, res) => {
     try {
         const { id } = req.params;
-        const { curriculum, raison } = req.body; 
-        const userId = req.user.id; 
+        const { curriculum, raison } = req.body;
+        const userId = req.user.id;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "ID de la matière invalide." });
@@ -534,6 +586,187 @@ export const validateModification = async (req, res) => {
         res.status(500).json({
             message: "Erreur lors de la validation de la proposition.",
             error: error.message
+        });
+    }
+};
+
+export const notifyStudentsForEvaluation = async (req, res) => {
+    try {
+        const subject = await Subject.findById(req.params.id)
+
+        // Vérifier si la matière existe
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        // Récupération des étudiants inscrits à la matière
+        const students = await User.find({ student: { $in: subject.students } });
+        console.log(students);
+
+        if (students.length === 0) {
+            return res.status(404).json({ message: "Aucun étudiant inscrit pour cette matière." });
+        }
+
+        // Configuration du transporteur d'e-mails (Nodemailer)
+        const transporter = nodemailer.createTransport({
+            service: 'Gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            }
+        });
+
+        // Envoi des notifications par e-mail
+        for (const student of students) {
+            try {
+                await transporter.sendMail({
+                    from: { name: "acadManager", address: process.env.EMAIL_USER },
+                    to: student.email,
+                    subject: `Évaluation de la matière "${subject.title}"`,
+                    text: `Bonjour, Cher Etudiant, Veuillez remplir le formulaire d'évaluation pour votre matière : ${subject.title}.         Merci pour votre participation.`
+                });
+                console.log(`Notification envoyée à ${student.email}`);
+            } catch (error) {
+                console.error(`Échec d'envoi à ${student.email}: ${error.message}`);
+            }
+        }
+
+        res.status(200).json({ message: "Les notifications ont été envoyées avec succès." });
+    } catch (error) {
+        console.error("Erreur serveur :", error);
+        res.status(500).json({ message: "Erreur lors de l'envoi des notifications.", error: error.message });
+    }
+};
+
+export const AllSubjectnotifyStudentsForEvaluation = async (req, res) => {
+    try {
+        const subjects = await Subject.find({});
+        if (subjects.length === 0) {
+            return res.status(404).json({ message: "Aucune matière disponible." });
+        }
+
+        const results = [];
+
+        for (const subject of subjects) {
+
+            // Récupération des étudiants inscrits à la matière
+            const students = await User.find({ student: { $in: subject.students } });
+            console.log(students);
+
+            if (students.length === 0) {
+                results.push({ subject: subject.title, message: "Aucun étudiant inscrit pour cette matière." });
+                continue;
+            }
+
+            // Configuration du transporteur d'e-mails (Nodemailer)
+            const transporter = nodemailer.createTransport({
+                service: 'Gmail',
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                }
+            });
+
+            // Envoi des notifications par e-mail
+            for (const student of students) {
+                try {
+                    await transporter.sendMail({
+                        from: { name: "acadManager", address: process.env.EMAIL_USER },
+                        to: student.email,
+                        subject: `Évaluation de la matière "${subject.title}"`,
+                        text: `Bonjour, Cher Etudiant, Veuillez remplir le formulaire d'évaluation pour votre matière : ${subject.title}.         Merci pour votre participation.`
+                    });
+                    results.push({ subject: subject.title, student: student.email, message: "Notification envoyée avec succès." });
+                } catch (error) {
+                    results.push({ subject: subject.title, student: student.email, message: `Échec d'envoi : ${error.message}` });
+                }
+            }
+        }
+        res.status(200).json({ message: "Les notifications ont été envoyées avec succès.", results });
+
+    } catch (error) {
+        console.error("Erreur serveur :", error);
+        res.status(500).json({ message: "Erreur lors de l'envoi des notifications.", error: error.message });
+    }
+};
+
+export const submitEvaluation = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la matière
+        const { feedback, rating } = req.body; // Contenu de l'évaluation
+        const userId = req.user.id;
+
+        const subject = await Subject.findById(id);
+
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        // Vérifier si l'utilisateur a déjà évalué la matière
+        const alreadyEvaluated = subject.evaluations.some(
+            (evaluation) => evaluation.userId === userId
+        );
+
+        if (alreadyEvaluated) {
+            return res.status(400).json({ message: "Vous avez déjà évalué cette matière." });
+        }
+
+        // Ajouter une évaluation anonyme
+        subject.evaluations.push({
+            feedback,
+            rating,
+            userId, // Utilisé uniquement pour vérification et supprimé après sauvegarde
+        });
+
+        await subject.save();
+
+        // Supprimer l'identité après la sauvegarde pour garantir l'anonymat
+        subject.evaluations = subject.evaluations.map((evaluation) => {
+            const { userId, ...rest } = evaluation.toObject();
+            return rest;
+        });
+        await subject.save();
+
+        res.status(201).json({ message: "Évaluation enregistrée avec succès." });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de l'ajout de l'évaluation.", error: error.message });
+    }
+};
+
+export const getEvaluations = async (req, res) => {
+    try {
+        const { id } = req.params; 
+        const userId = req.user.userId; 
+        const userRole = req.user.role; 
+
+        console.log(`Matière ID: ${id}, Utilisateur ID: ${userId}, Rôle: ${userRole}`);
+
+        // Vérifier si la matière existe
+        const subject = await Subject.findById(id);
+        if (!subject) {
+            return res.status(404).json({ message: "Matière introuvable." });
+        }
+
+        // Vérification pour les enseignants
+        if (userRole === "teacher") {
+            // Récupérer l'enseignant associé à l'utilisateur
+            const teacher = await Teacher.findOne({ user: userId });
+            if (!teacher) {
+                return res.status(403).json({ message: "Vous ne pouvez voir que vos matières." });
+            }
+
+            const isTeacherOfSubject = subject.teachers.includes(teacher._id.toString());
+            if (!isTeacherOfSubject) {
+                return res.status(403).json({ message: "Vous ne pouvez voir que vos matières." });
+            }
+        }
+
+        // Renvoyer les évaluations de la matière
+        res.status(200).json({ evaluations: subject.evaluations });
+    } catch (error) {
+        res.status(500).json({
+            message: "Erreur lors de la récupération des évaluations.",
+            error: error.message,
         });
     }
 };
