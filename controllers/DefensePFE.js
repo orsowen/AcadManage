@@ -4,7 +4,7 @@ import Teacher from '../models/Teachers.js'; // Import the Teacher model
 import { sendMail } from './mailer.js';
 
 // Function to check for overlaps
-const checkForOverlap = async (salle, date, heure, enseignantId, type) => {
+const checkForOverlap = async (salle, date, heure, enseignantId) => {
     // Check if the room is already booked at the same date and time
     const overlapSalle = await DefensePFE.findOne({
         Salle: salle,
@@ -18,14 +18,17 @@ const checkForOverlap = async (salle, date, heure, enseignantId, type) => {
 
     // Check if the teacher is already assigned to a defense at the same time
     const overlapEnseignant = await DefensePFE.findOne({
-        Enseignant: enseignantId,
+        $or: [
+            { PresidentJury: enseignantId },
+            { Rapporteur: enseignantId },
+            { Encadrent: enseignantId },
+        ],
         Date: date,
         Heure: heure,
-        Type: type, // Check the type of the teacher (encadrant, rapporteur, président)
     });
 
     if (overlapEnseignant) {
-        throw new Error(`The teacher is already assigned as a ${type} at this date and time.`);
+        throw new Error(`The teacher is already assigned at this date and time.`);
     }
 };
 
@@ -54,7 +57,7 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                 return res.status(404).json({ message: "Teacher not found." });
             }
         }
-
+        checkForOverlap(salle, date, heure, enseignantId)
         // Find or create the `DefensePFE` for this PFE
         let defensePFE = await DefensePFE.findOne({ PFE: id });
 
@@ -65,7 +68,9 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
             } else if (type === "rapporteur") {
                 defensePFE.Rapporteur = enseignantId;
             }
-
+            else if (type === "Encadrent") {
+                defensePFE.Encadrent = enseignantId;
+            }
             // Update general fields
             defensePFE.Salle = salle;
             defensePFE.Date = date;
