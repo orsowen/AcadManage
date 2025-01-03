@@ -106,6 +106,7 @@ export const addNewAcademicYear = async (req, res) => {
     const internships = await Internship.find(); // Retrieve all students
     const archivedSubjects= [];
 
+    console.log("*******student***********")
     for (const student of students) {
         // Check if the year already exists in the academicHistory
         const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
@@ -128,11 +129,12 @@ export const addNewAcademicYear = async (req, res) => {
             updatedAcademicHistory: student.academicHistory,
         });
     }
-
+    console.log("*******pfe***********")
     for (const pfe of pfes) {
       // Check if the year already exists in the academicHistory
       if (!pfe.isArchived) 
       {
+        console.warn(`pfe ${pfe._id} already archived. Skipping.`)
         continue
       }
 
@@ -154,10 +156,12 @@ export const addNewAcademicYear = async (req, res) => {
       });
     }
 
-    for (const pfa of pfas) {
+    console.log("*******pfa***********")
+    /*for (const pfa of pfas) {
       // Check if the year already exists in the academicHistory
       if (!pfa.isArchived) 
       {
+        console.warn(`pfe ${pfa._id} already archived. Skipping.`)
         continue
       }
 
@@ -177,12 +181,14 @@ export const addNewAcademicYear = async (req, res) => {
         title: pfa.title,
         message: "archived with success",
       });
-    }
+    }*/
 
+    console.log("*******internship***********")
     for (const internship of internships) {
       // Check if the year already exists in the academicHistory
       if (!internship.isArchived) 
       {
+        console.warn(`pfe ${internship._id} already archived. Skipping.`)
         continue
       }
 
@@ -207,6 +213,7 @@ export const addNewAcademicYear = async (req, res) => {
     res.status(200).json({
         message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
         updatedStudents,
+        archivedSubjects
     });
 
 } catch (error) {
@@ -215,7 +222,7 @@ export const addNewAcademicYear = async (req, res) => {
 }
 };
 
-export const sendNotification = async (req, res) => {
+export const NotifiGraduatedStudent = async (req, res) => {
   try {
 
     // get all students
@@ -223,12 +230,14 @@ export const sendNotification = async (req, res) => {
     const notifiedtudents = [];
 
     for (const student of students) {
-      user = User.findById(student._id)
+      const user = await User.findById(student.user);
       if (!student.isGraduated) {
+        //console.warn(`Student ${student._id} is not graduated.`)
         continue
       }
 
-      sendCreds(user.email);
+      sendNotification(user.email);
+      console.warn(`send email to student ${student._id}.`)
 
       notifiedtudents.push({
         id: student._id,
@@ -241,7 +250,7 @@ export const sendNotification = async (req, res) => {
         student: notifiedtudents,
       })
   }
-  } catch {
+  } catch(error) {
     console.error('Error sendng notification :', error.message);
     res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
   }
