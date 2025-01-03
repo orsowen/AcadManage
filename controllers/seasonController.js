@@ -1,9 +1,37 @@
 import Student from "../models/Student.js"
-import Subject from "../models/Subject.js"
+import Internship from "../models/Internship.js"
 import PFE from "../models/PFE.js"
 import PFA from "../models/Subject_PFA.js"
 import Teachers from "../models/Teachers.js";
-import { generateRandomPassword, sendCreds } from "./UserController.js";
+import {sendCreds } from "./UserController.js";
+import { sendMail } from './mailer.js';
+import User from "../models/User.js";
+
+
+export async function sendNotification(email) {
+    if (!email) {
+        console.warn("Email address is required to send credentials.");
+        return;
+    }
+
+    const subject = "Rappel de mettre à jour vos info";
+
+    const message = `
+        <p>Bonjour,</p>
+        <p>Nous espérons que vous allez bien. En tant qu'ancien(ne) diplômé(e) de l'ISAMM, nous vous contactons pour vous rappeler de mettre à jour vos informations personnelles dans notre base de données. </p>
+        <p>Nous vous rappelons qu'il est important de mettre à jour vos informations personnelles afin de garantir la bonne gestion de votre compte et de continuer à bénéficier de nos services sans interruption.</p>
+        <b>NB : utilisez votre CIN comme login</b>
+        <p>Cordialement,</p>
+        <p>L'équipe de gestion.</p>
+    `;
+
+    try {
+        await sendMail(email, subject, message);
+        console.log(`notification sent to ${email}`);
+    } catch (error) {
+        console.error(`Failed to send notification email to ${email}:`, error);
+    }
+}
 
 export const updateGraduationdByID = async (req, res) => {
   try {
@@ -75,7 +103,7 @@ export const addNewAcademicYear = async (req, res) => {
     // get all students
     const pfes = await PFE.find(); // Retrieve all students
     const pfas = await PFA.find(); // Retrieve all students
-    const subjects = await Subject.find(); // Retrieve all students
+    const internships = await Internship.find(); // Retrieve all students
     const archivedSubjects= [];
 
     for (const student of students) {
@@ -124,7 +152,7 @@ export const addNewAcademicYear = async (req, res) => {
         title: pfe.title,
         message: "archived with success",
       });
-      }
+    }
 
     for (const pfa of pfas) {
       // Check if the year already exists in the academicHistory
@@ -149,19 +177,72 @@ export const addNewAcademicYear = async (req, res) => {
         title: pfa.title,
         message: "archived with success",
       });
+    }
+
+    for (const internship of internships) {
+      // Check if the year already exists in the academicHistory
+      if (!internship.isArchived) 
+      {
+        continue
       }
+
+      if (internship.isValid) {
+        internship.isArchived = true
+      }else
+      {
+        console.warn(`internship ${internship._id} is not validated. Skipping.`)
+        continue
+      }
+
+      // Save the internship
+      await internship.save();
+      archivedSubjects.push({
+        type : "internship",
+        id: internship._id,
+        title: internship.title,
+        message: "archived with success",
+      });
+    }
 
     res.status(200).json({
         message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
         updatedStudents,
     });
+
 } catch (error) {
-    console.error('Error adding academic year to all students:', error.message);
+    console.error('Error adding academic year:', error.message);
     res.status(500).json({ message: 'Server error while updating academic history.', error: error.message });
 }
 };
 
 export const sendNotification = async (req, res) => {
   try {
-  } catch {}
+
+    // get all students
+    const students = await Student.find(); // Retrieve all students
+    const notifiedtudents = [];
+
+    for (const student of students) {
+      user = User.findById(student._id)
+      if (!student.isGraduated) {
+        continue
+      }
+
+      sendCreds(user.email);
+
+      notifiedtudents.push({
+        id: student._id,
+        name: `${student.firstName} ${student.lastName}`,
+        email: user.email
+      });
+
+      res.status(200).json({
+        message: "notifications send successfully.",
+        student: notifiedtudents,
+      })
+  }
+  } catch {
+    console.error('Error sendng notification :', error.message);
+    res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
+  }
 };
