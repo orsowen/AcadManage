@@ -557,18 +557,6 @@ export const autoAssignChoices = async (req, res) => {
         await choice.save();
       }
 
-      // Mettre à jour les choix de l'étudiant pour ne conserver que ceux avec valid: true
-      // student.choices = student.choices.filter(choice => choice.valid);
-      // await student.save();
-
-      // Mettre à jour les choix du binôme pour ne conserver que ceux avec valid: true
-      // if (student.binome) {
-      //   const binome = await Student.findById(student.binome).populate("choices");
-      //   if (binome) {
-      //     binome.choices = binome.choices.filter(choice => choice.valid);
-      //     await binome.save();
-      //   }
-      // }
     }
 
     res
@@ -697,6 +685,7 @@ export const publishHidePFAChoice = async (req, res) => {
       student.choices = student.choices.filter((choice) => choice.isAffectationVisible);
       await student.save();
     }
+    await Choice.updateMany({}, { isFirstPublication: false });
 
     res.status(200).json({
       message: `Assignment ${response === "publish" ? "published" : "hidden"} successfully`,
@@ -712,19 +701,17 @@ export const publishHidePFAChoice = async (req, res) => {
 
 export const sendMailTo = async (req, res) => {
   try {
-    // Vérifier si des sujets ont déjà été publiés
-    const previouslyValidChoices = await Choice.find({
-      isAffectationVisible: true,
-    });
-    console.log("Previously visible choices:", previouslyValidChoices);
-
+    // Vérifier si c'est la première publication
+    const firstPublication = await Choice.findOne({ isFirstPublication: true });
+    console.log("First publication:", firstPublication);
+    // await Choice.updateMany({}, { isFirstPublication: false });
     // Envoyer la réponse après l'envoi des emails
     res.status(200).json({ message: "Emails sent successfully" });
 
-
     // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
-    if (previouslyValidChoices.length === 0) {
-      await firstSend();
+    if (!firstPublication) {
+      await Choice.updateMany({}, { isFirstPublication: true });
+      await firstSend();  
     } else {
       await modifiedSend();
     }
