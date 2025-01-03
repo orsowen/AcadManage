@@ -20,16 +20,13 @@ const DefensePFESchema = new Schema({
     PresidentJury: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Model name for reference
-        required: true,
     },
     Rapporteur: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Model name for reference
-        required: true,
     }, Encadrent: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher', // Model name for reference
-        required: true,
     },
     PFE: {
         type: mongoose.Schema.Types.ObjectId,
