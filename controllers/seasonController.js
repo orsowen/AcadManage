@@ -1,4 +1,7 @@
-import Student from "../models/Student.js";
+import Student from "../models/Student.js"
+import Subject from "../models/Subject.js"
+import PFE from "../models/PFE.js"
+import PFA from "../models/Subject_PFA.js"
 import Teachers from "../models/Teachers.js";
 import { generateRandomPassword, sendCreds } from "./UserController.js";
 
@@ -57,7 +60,7 @@ export const updateGraduationdByID = async (req, res) => {
   }
 };
 
-export const addAcademicYearToAllStudents = async (req, res) => {
+export const addNewAcademicYear = async (req, res) => {
   try {
     // Get the current academic year
     const currentDate = new Date();
@@ -68,6 +71,12 @@ export const addAcademicYearToAllStudents = async (req, res) => {
     // get all students
     const students = await Student.find(); // Retrieve all students
     const updatedStudents = [];
+
+    // get all students
+    const pfes = await PFE.find(); // Retrieve all students
+    const pfas = await PFA.find(); // Retrieve all students
+    const subjects = await Subject.find(); // Retrieve all students
+    const archivedSubjects= [];
 
     for (const student of students) {
         // Check if the year already exists in the academicHistory
@@ -92,8 +101,58 @@ export const addAcademicYearToAllStudents = async (req, res) => {
         });
     }
 
+    for (const pfe of pfes) {
+      // Check if the year already exists in the academicHistory
+      if (!pfe.isArchived) 
+      {
+        continue
+      }
+
+      if (pfe.isValid) {
+        pfe.isArchived = true
+      }else
+      {
+        console.warn(`pfe ${pfe._id} is not validated. Skipping.`)
+        continue
+      }
+
+      // Save the pfe
+      await pfe.save();
+      archivedSubjects.push({
+        type : "pfe",
+        id: pfe._id,
+        title: pfe.title,
+        message: "archived with success",
+      });
+      }
+
+    for (const pfa of pfas) {
+      // Check if the year already exists in the academicHistory
+      if (!pfa.isArchived) 
+      {
+        continue
+      }
+
+      if (pfa.status === "Approved") {
+        pfa.isArchived = true
+      }else
+      {
+        console.warn(`pfa ${pfa._id} is ${pfa.status}. Skipping.`)
+        continue
+      }
+
+      // Save the pfa
+      await pfa.save();
+      archivedSubjects.push({
+        type : "pfa",
+        id: pfa._id,
+        title: pfa.title,
+        message: "archived with success",
+      });
+      }
+
     res.status(200).json({
-        message: `Academic year ${academicYear} added to all students successfully.`,
+        message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
         updatedStudents,
     });
 } catch (error) {
