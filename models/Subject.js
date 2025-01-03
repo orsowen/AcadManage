@@ -93,13 +93,21 @@ const SubjectSchema = new mongoose.Schema({
             date: { type: Date, default: Date.now },
             action: String,
             utilisateur: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-            
+
             raison: String,
-            proposition: Object, 
+            proposition: Object,
             ancienCurriculum: Object,
             validée: { type: Boolean, default: false }
         }
-    ]
+    ],
+
+    evaluations: [
+        {
+            feedback: { type: String, required: true },
+            rating: { type: Number, required: true, min: 1, max: 5 },
+            createdAt: { type: Date, default: Date.now },
+        },
+    ],
 
 });
 

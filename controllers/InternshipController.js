@@ -832,3 +832,22 @@ export const getInternshipByStudentForPV = async (req, res) => {
         });
     }
 };
+
+export const archiveInternshipsByYear = async (annee) => {
+    try {
+        // Perform bulk update
+        const result = await Internship.updateMany(
+            { anneYear: annee },
+            { $set: { isArchived: true } }
+        );
+
+        // Return the result of the update operation
+        return {
+            message: `Updated ${result.modifiedCount} internship(s) for year ${annee}.`,
+            result,
+        };
+    } catch (error) {
+        console.error('Error archiving internships:', error.message);
+        throw new Error(`Failed to archive internships for year ${annee}: ${error.message}`);
+    }
+};
