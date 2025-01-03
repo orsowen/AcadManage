@@ -33,6 +33,7 @@ const DefensePFESchema = new Schema({
         ref: 'PFE', // Model name for reference
         required: true,
     },
+    isArchived: { type: Boolean, default: false },
     Publisher: {
         type: Boolean,
         default: false,

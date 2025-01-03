@@ -4,9 +4,10 @@ import Teacher from '../models/Teachers.js'; // Import the Teacher model
 import { sendMail } from './mailer.js';
 
 // Function to check for overlaps
-const checkForOverlap = async (salle, date, heure, enseignantId) => {
-    // Check if the room is already booked at the same date and time
+const checkForOverlap = async (salle, date, heure, enseignantId, id) => {
+    // Check if the room is already booked at the same date and time, excluding the current defense
     const overlapSalle = await DefensePFE.findOne({
+        _id: { $ne: id }, // Exclude the current defense by ID
         Salle: salle,
         Date: date,
         Heure: heure,
@@ -16,8 +17,9 @@ const checkForOverlap = async (salle, date, heure, enseignantId) => {
         throw new Error('The room is already booked for this date and time.');
     }
 
-    // Check if the teacher is already assigned to a defense at the same time
+    // Check if the teacher is already assigned to a defense at the same date and time, excluding the current defense
     const overlapEnseignant = await DefensePFE.findOne({
+        _id: { $ne: id }, // Exclude the current defense by ID
         $or: [
             { PresidentJury: enseignantId },
             { Rapporteur: enseignantId },
@@ -31,6 +33,7 @@ const checkForOverlap = async (salle, date, heure, enseignantId) => {
         throw new Error(`The teacher is already assigned at this date and time.`);
     }
 };
+
 
 // Controller to assign or update a teacher's role in a DefensePFE
 export const CreateOrUpdateDefensePFE = async (req, res) => {
@@ -57,25 +60,43 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                 return res.status(404).json({ message: "Teacher not found." });
             }
         }
-        checkForOverlap(salle, date, heure, enseignantId)
         // Find or create the `DefensePFE` for this PFE
         let defensePFE = await DefensePFE.findOne({ PFE: id });
-
+        if (defensePFE.isArchived === true) {
+            return res.status(400).json({
+                message: "This Pfe  is for previous years",
+            });
+        }
         if (defensePFE) {
-            // Update the teacher's role in the existing `DefensePFE`
-            if (type === "president") {
-                defensePFE.PresidentJury = enseignantId;
-            } else if (type === "rapporteur") {
-                defensePFE.Rapporteur = enseignantId;
+            checkForOverlap(salle, date, heure, enseignantId, defensePFE._id);
+            if (
+                (defensePFE.PresidentJury && defensePFE.PresidentJury.toString() === enseignantId) ||
+                (defensePFE.Rapporteur && defensePFE.Rapporteur.toString() === enseignantId) ||
+                (defensePFE.Encadrent && defensePFE.Encadrent.toString() === enseignantId)
+            ) {
+                return res.status(400).json({
+                    message: "This teacher is already assigned to a different role for this defense.",
+                });
             }
-            else if (type === "Encadrent") {
+            // Update the teacher's role in the existing `DefensePFE`
+            if (type === "President") {
+                defensePFE.PresidentJury = enseignantId;
+            } else if (type === "Rapporteur") {
+                defensePFE.Rapporteur = enseignantId;
+            } else if (type === "Encadrent") {
                 defensePFE.Encadrent = enseignantId;
+            } else {
+                return res.status(400).json({
+                    message: `Error: Invalid role type '${type}'`,
+                });
             }
             // Update general fields
             defensePFE.Salle = salle;
             defensePFE.Date = date;
             defensePFE.Heure = heure;
         } else {
+            checkForOverlap(salle, date, heure, enseignantId);
+
             // Create a new `DefensePFE`
             defensePFE = new DefensePFE({
                 PFE: id,
@@ -101,7 +122,6 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
             defensePFE,
         });
     } catch (error) {
-        console.error("Error in DefensePFE:", error);
         res.status(500).json({ message: "An error occurred.", error: error.message });
     }
 };
@@ -119,9 +139,12 @@ export const publishOrHideDefense = async (req, res) => {
 
         // Set the Publisher flag based on the response
         const publisherStatus = response === 'publish' ? true : false;
-
+        let defensePFE = await DefensePFE.find({ isArchived: false });
+        if (defensePFE.length == 0) {
+            return res.status(400).json({ message: 'there is no Defense PFE Created this Year' });
+        }
         // Update the Publisher field for all DefensePFE documents
-        await DefensePFE.updateMany({}, { Publisher: publisherStatus });
+        await DefensePFE.updateMany({ isArchived: false }, { Publisher: publisherStatus });
 
         res.status(200).json({ message: `All defense schedules have been ${response === 'publish' ? 'published' : 'hidden'} successfully.` });
     } catch (error) {
@@ -135,7 +158,7 @@ export const publishOrHideDefense = async (req, res) => {
 export const sendDefensePlanningEmail = async (req, res) => {
     try {
         // Find all DefensePFE sessions where emailStatus is 'none' or 'first' (not yet sent or first sent)
-        const defensePFEs = await DefensePFE.find({ emailStatus: { $in: ['none', 'first'] } })
+        const defensePFEs = await DefensePFE.find({ isArchived: false })
             .populate({
                 path: 'PFE',
                 populate: {
@@ -148,15 +171,24 @@ export const sendDefensePlanningEmail = async (req, res) => {
             })
             .populate({
                 path: 'PresidentJury',
-                select: 'user firstName lastName email'
+                populate: {
+                    path: 'user',
+                    select: 'email firstName lastName'
+                }
             })
             .populate({
                 path: 'Rapporteur',
-                select: 'user firstName lastName email'
+                populate: {
+                    path: 'user',
+                    select: 'email firstName lastName'
+                }
             })
             .populate({
                 path: 'Encadrent',
-                select: 'user firstName lastName email'
+                populate: {
+                    path: 'user',
+                    select: 'email firstName lastName'
+                }
             });
 
         if (!defensePFEs.length) {
@@ -171,13 +203,11 @@ export const sendDefensePlanningEmail = async (req, res) => {
             }
 
             // Check if the teachers have emails
-            const teachers = [defensePFE.PresidentJury, defensePFE.Rapporteur, defensePFE.Encadrent];
-            for (let teacher of teachers) {
-                if (teacher && (!teacher.user || !teacher.user.email)) {
-                    console.warn(`No email found for teacher with ID ${teacher}`);
-                    continue;
-                }
-            }
+            const teachers = [
+                { role: 'President of Jury', person: defensePFE.PresidentJury },
+                { role: 'Rapporteur', person: defensePFE.Rapporteur },
+                { role: 'Encadrent', person: defensePFE.Encadrent }
+            ];
 
             let subject = '';
             let status = defensePFE.emailStatus;
@@ -188,50 +218,114 @@ export const sendDefensePlanningEmail = async (req, res) => {
                 subject = 'Your Defense Planning Link Modified';
                 status = 'second';
             } else {
-                continue; // Skip sending email if already sent twice
+                subject = 'Your Defense Planning Link Modified';
             }
 
             const studentEmailContent = `
-                <p>Dear ${defensePFE.PFE.student.firstName} ${defensePFE.PFE.student.lastName},</p>
-                <p>Your Defense session details:</p>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+            .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .header { background-color:rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .header img {
+                float: left;
+                height: 50px;
+                margin-right: 15px;
+            }
+            .content { padding: 20px; }
+            .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+            .content ul { padding-left: 20px; margin: 15px 0; }
+            .content ul li { margin-bottom: 10px; color: #333; }
+            .cta-button { display: inline-block; background-color:rgb(102, 90, 228); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="header">
+                <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+                <h1>Defense Session Details</h1>
+            </div>
+            <div class="content">
+                <p>Dear <strong>${defensePFE.PFE.student.firstName} ${defensePFE.PFE.student.lastName}</strong>,</p>
+                <p>Your Defense session details are as follows:</p>
                 <ul>
-                    <li>Title: ${defensePFE.PFE.title}</li>
-                    <li>Supervisor: ${defensePFE.PFE.teacher ? `${defensePFE.PFE.teacher.firstName} ${defensePFE.PFE.teacher.lastName}` : '<strong>No supervisor assigned</strong>'}</li>
-                    <li>Date: ${defensePFE.Date.toDateString()}</li>
-                    <li>Time: ${defensePFE.Heure}</li>
-                    <li>Room: ${defensePFE.Salle}</li>
+                    <li><strong>Title:</strong> ${defensePFE.PFE.title}</li>
+                    <li><strong>Supervisor:</strong> ${defensePFE.PFE.teacher ? `${defensePFE.PFE.teacher.firstName} ${defensePFE.PFE.teacher.lastName}` : '<strong>No supervisor assigned</strong>'}</li>
+                    <li><strong>Date:</strong> ${defensePFE.Date.toDateString()}</li>
+                    <li><strong>Time:</strong> ${defensePFE.Heure}</li>
+                    <li><strong>Room:</strong> ${defensePFE.Salle}</li>
                 </ul>
-                ${status === 'none' ? '<p>This is your first email with planning details. Please confirm the information.</p>' : '<p>This is an updated version of your planning details.</p>'}
-                <p>Best regards,<br>Admin Team</p>
-            `;
+                <p>${status === 'none' ? 'This is your first email with planning details. Please confirm the information.' : 'This is an updated version of your planning details.'}</p>
+                <p>Best regards,<br>Isamm</p>
+                <a href="#" class="cta-button">Confirm Details</a>
+            </div>
+            <div class="footer">
+                <p>© 2025 Isamm. All Rights Reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+`;
 
-            const teacherEmailContent = `
-                <p>Dear ${defensePFE.PresidentJury.firstName} ${defensePFE.PresidentJury.lastName},</p>
-                <p>As part of the PFE defense session, you have been assigned the role of President of Jury. The details are as follows:</p>
-                <ul>
-                    <li>Student: ${defensePFE.PFE.student.firstName} ${defensePFE.PFE.student.lastName}</li>
-                    <li>Title: ${defensePFE.PFE.title}</li>
-                    <li>Room: ${defensePFE.Salle}</li>
-                    <li>Date: ${defensePFE.Date.toDateString()}</li>
-                    <li>Time: ${defensePFE.Heure}</li>
-                </ul>
-                ${status === 'none' ? '<p>This is your first email with planning details. Please confirm the information.</p>' : '<p>This is an updated version of your planning details.</p>'}
-                <p>Best regards,<br>Admin Team</p>
-            `;
+            // Send email to the teachers
+            for (let teacher of teachers) {
+                if (teacher.person && teacher.person.user && teacher.person.user.email) {
+                    const teacherEmailContent = `
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+                .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .header { background-color:rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+                .header h1 { margin: 0; font-size: 24px; }
+                .header img {
+                    float: left;
+                    height: 50px;
+                    margin-right: 15px;
+                }
+                .content { padding: 20px; }
+                .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+                .content ul { padding-left: 20px; margin: 15px 0; }
+                .content ul li { margin-bottom: 10px; color: #333; }
+                .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+                    <h1>Jury Role Assignment</h1>
+                </div>
+                <div class="content">
+                    <p>Dear <strong>${teacher.person.user.firstName} ${teacher.person.user.lastName}</strong>,</p>
+                    <p>As part of the PFE defense session, you have been assigned the role of <strong style="color: darkblue;">${teacher.role}</strong>. The details are as follows:</p>
+                    <ul>
+                        <li><strong>Student:</strong> ${defensePFE.PFE.student.firstName} ${defensePFE.PFE.student.lastName}</li>
+                        <li><strong>Title:</strong> ${defensePFE.PFE.title}</li>
+                        <li><strong>Room:</strong> ${defensePFE.Salle}</li>
+                        <li><strong>Date:</strong> ${defensePFE.Date.toDateString()}</li>
+                        <li><strong>Time:</strong> ${defensePFE.Heure}</li>
+                    </ul>
+                    <p>${status === 'none' ? 'This is your first email with planning details. Please confirm the information.' : 'This is an updated version of your planning details.'}</p>
+                    <p>Best regards,<br>Isamm</p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 Isamm. All Rights Reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+
+                    await sendMail(teacher.person.user.email, subject, teacherEmailContent);
+                }
+            }
 
             // Send email to the student
             await sendMail(defensePFE.PFE.student.user.email, subject, studentEmailContent);
-
-            // Send email to the teachers
-            if (defensePFE.PresidentJury?.user.email) {
-                await sendMail(defensePFE.PresidentJury.user.email, subject, teacherEmailContent);
-            }
-            if (defensePFE.Rapporteur?.user.email) {
-                await sendMail(defensePFE.Rapporteur.user.email, subject, teacherEmailContent);
-            }
-            if (defensePFE.Encadrent?.user.email) {
-                await sendMail(defensePFE.Encadrent.user.email, subject, teacherEmailContent);
-            }
 
             // Update the DefensePFE document with the new email status
             defensePFE.emailStatus = status;
@@ -246,3 +340,4 @@ export const sendDefensePlanningEmail = async (req, res) => {
         return res.status(500).json({ message: 'Error sending emails.' });
     }
 };
+
