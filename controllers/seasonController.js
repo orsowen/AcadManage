@@ -1,22 +1,20 @@
-import Student from "../models/Student.js"
-import Internship from "../models/Internship.js"
-import PFE from "../models/PFE.js"
-import PFA from "../models/Subject_PFA.js"
-import Teachers from "../models/Teachers.js";
-import {sendCreds } from "./UserController.js";
-import { sendMail } from './mailer.js';
+import PFE from "../models/PFE.js";
+import Student from "../models/Student.js";
+import PFA from "../models/Subject_PFA.js";
 import User from "../models/User.js";
+import { archiveInternshipsByYear } from "./internshipController.js";
+import { sendMail } from './mailer.js';
 
 
 export async function sendNotification(email) {
-    if (!email) {
-        console.warn("Email address is required to send credentials.");
-        return;
-    }
+  if (!email) {
+    console.warn("Email address is required to send credentials.");
+    return;
+  }
 
-    const subject = "Rappel de mettre à jour vos info";
+  const subject = "Rappel de mettre à jour vos info";
 
-    const message = `
+  const message = `
         <p>Bonjour,</p>
         <p>Nous espérons que vous allez bien. En tant qu'ancien(ne) diplômé(e) de l'ISAMM, nous vous contactons pour vous rappeler de mettre à jour vos informations personnelles dans notre base de données. </p>
         <p>Nous vous rappelons qu'il est important de mettre à jour vos informations personnelles afin de garantir la bonne gestion de votre compte et de continuer à bénéficier de nos services sans interruption.</p>
@@ -25,12 +23,12 @@ export async function sendNotification(email) {
         <p>L'équipe de gestion.</p>
     `;
 
-    try {
-        await sendMail(email, subject, message);
-        console.log(`notification sent to ${email}`);
-    } catch (error) {
-        console.error(`Failed to send notification email to ${email}:`, error);
-    }
+  try {
+    await sendMail(email, subject, message);
+    console.log(`notification sent to ${email}`);
+  } catch (error) {
+    console.error(`Failed to send notification email to ${email}:`, error);
+  }
 }
 
 export const updateGraduationdByID = async (req, res) => {
@@ -40,8 +38,8 @@ export const updateGraduationdByID = async (req, res) => {
     let savedstatus;
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-    const nextYear = currentDate.getMonth() < 8 ? currentYear : currentYear+1;
-    const academicYear = `${nextYear-1}-${nextYear}`;
+    const nextYear = currentDate.getMonth() < 8 ? currentYear : currentYear + 1;
+    const academicYear = `${nextYear - 1}-${nextYear}`;
 
     // Find the student by ID
     const student = await Student.findById(id);
@@ -49,20 +47,19 @@ export const updateGraduationdByID = async (req, res) => {
       return res.status(404).json({ message: "Student not found." });
     }
 
-    if (student.isGraduated){
+    if (student.isGraduated) {
       return res.status(404).json({ message: "the Student is already graduated" });
     }
 
     // Validate input
     const validstatuss = ["Success", "Failure", "Pending"];
     if (!status || !validstatuss.includes(status)) {
-      return res.status(400).json({message: 'Invalid status. Use "Success", "Failure", "Pending". the first character must be uppercase'});
+      return res.status(400).json({ message: 'Invalid status. Use "Success", "Failure", "Pending". the first character must be uppercase' });
     }
 
     // Update the student status
-    student.academicHistory.forEach(entry => { 
-      if (entry.year === academicYear)
-      {
+    student.academicHistory.forEach(entry => {
+      if (entry.year === academicYear) {
         entry.status = status;
         savedstatus = entry.status
       }
@@ -95,6 +92,7 @@ export const addNewAcademicYear = async (req, res) => {
     const currentYear = currentDate.getFullYear();
     const nextYear = currentDate.getMonth() >= 8 ? currentYear + 1 : currentYear;
     const academicYear = `${nextYear - 1}-${nextYear}`
+    const oldAcademicYear = `${nextYear - 2}-${nextYear - 1}`
 
     // get all students
     const students = await Student.find(); // Retrieve all students
@@ -103,45 +101,43 @@ export const addNewAcademicYear = async (req, res) => {
     // get all students
     const pfes = await PFE.find(); // Retrieve all students
     const pfas = await PFA.find(); // Retrieve all students
-    const internships = await Internship.find(); // Retrieve all students
-    const archivedSubjects= [];
+    // const internships = await Internship.find(); // Retrieve all students
+    const archivedSubjects = [];
 
     console.log("*******student***********")
     for (const student of students) {
-        // Check if the year already exists in the academicHistory
-        const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
-        if (yearExists || student.isGraduated ) {
-          yearExists? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`):console.warn(`Student ${student._id} already graduated. Skipping.`);
-          continue;
-        }
+      // Check if the year already exists in the academicHistory
+      const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
+      if (yearExists || student.isGraduated) {
+        yearExists ? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`) : console.warn(`Student ${student._id} already graduated. Skipping.`);
+        continue;
+      }
 
-        // Add the new year to the academicHistory
-        student.academicHistory.push({
-            year : academicYear,
-            status: 'Pending', // Default status
-        });
+      // Add the new year to the academicHistory
+      student.academicHistory.push({
+        year: academicYear,
+        status: 'Pending', // Default status
+      });
 
-        // Save the student
-        await student.save();
-        updatedStudents.push({
-            id: student._id,
-            name: `${student.firstName} ${student.lastName}`,
-            updatedAcademicHistory: student.academicHistory,
-        });
+      // Save the student
+      await student.save();
+      updatedStudents.push({
+        id: student._id,
+        name: `${student.firstName} ${student.lastName}`,
+        updatedAcademicHistory: student.academicHistory,
+      });
     }
     console.log("*******pfe***********")
     for (const pfe of pfes) {
       // Check if the year already exists in the academicHistory
-      if (!pfe.isArchived) 
-      {
+      if (!pfe.isArchived) {
         console.warn(`pfe ${pfe._id} already archived. Skipping.`)
         continue
       }
 
       if (pfe.isValid) {
         pfe.isArchived = true
-      }else
-      {
+      } else {
         console.warn(`pfe ${pfe._id} is not validated. Skipping.`)
         continue
       }
@@ -149,7 +145,7 @@ export const addNewAcademicYear = async (req, res) => {
       // Save the pfe
       await pfe.save();
       archivedSubjects.push({
-        type : "pfe",
+        type: "pfe",
         id: pfe._id,
         title: pfe.title,
         message: "archived with success",
@@ -184,42 +180,47 @@ export const addNewAcademicYear = async (req, res) => {
     }*/
 
     console.log("*******internship***********")
-    for (const internship of internships) {
-      // Check if the year already exists in the academicHistory
-      if (!internship.isArchived) 
-      {
-        console.warn(`pfe ${internship._id} already archived. Skipping.`)
-        continue
-      }
-
-      if (internship.isValid) {
-        internship.isArchived = true
-      }else
-      {
-        console.warn(`internship ${internship._id} is not validated. Skipping.`)
-        continue
-      }
-
-      // Save the internship
-      await internship.save();
-      archivedSubjects.push({
-        type : "internship",
-        id: internship._id,
-        title: internship.title,
-        message: "archived with success",
-      });
-    }
-
-    res.status(200).json({
-        message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
-        updatedStudents,
-        archivedSubjects
+    // bulk update
+    let result = archiveInternshipsByYear(oldAcademicYear);
+    archivedSubjects.push({
+      type: "internship",
+      result
     });
 
-} catch (error) {
+    // for (const internship of internships) {
+    //   // Check if the year already exists in the academicHistory
+    //   if (!internship.isArchived) {
+    //     console.warn(`pfe ${internship._id} already archived. Skipping.`)
+    //     continue
+    //   }
+
+    //   if (internship.isValid) {
+    //     internship.isArchived = true
+    //   } else {
+    //     console.warn(`internship ${internship._id} is not validated. Skipping.`)
+    //     continue
+    //   }
+
+    //   // Save the internship
+    //   await internship.save();
+    //   archivedSubjects.push({
+    //     type: "internship",
+    //     id: internship._id,
+    //     title: internship.title,
+    //     message: "archived with success",
+    //   });
+    // }
+
+    res.status(200).json({
+      message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
+      updatedStudents,
+      archivedSubjects
+    });
+
+  } catch (error) {
     console.error('Error adding academic year:', error.message);
     res.status(500).json({ message: 'Server error while updating academic history.', error: error.message });
-}
+  }
 };
 
 export const NotifiGraduatedStudent = async (req, res) => {
@@ -249,8 +250,8 @@ export const NotifiGraduatedStudent = async (req, res) => {
         message: "notifications send successfully.",
         student: notifiedtudents,
       })
-  }
-  } catch(error) {
+    }
+  } catch (error) {
     console.error('Error sendng notification :', error.message);
     res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
   }
