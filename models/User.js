@@ -24,7 +24,6 @@ const UserSchema = new Schema(
       unique: true, // Email should be unique
       match: /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/, // Validate email format
     },
-
     phone: {
       type: String,
       required: false,

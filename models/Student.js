@@ -11,7 +11,6 @@ const StudentSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-
     arabicLastName: {
         type: String,
         // required: true
@@ -19,10 +18,6 @@ const StudentSchema = new mongoose.Schema({
     arabicFirstName: {
         type: String,
         // required: true
-    },
-    cin: {
-        type: Number,
-        required: true
     },
     birthDate: {
         type: Date,

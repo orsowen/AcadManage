@@ -1,7 +1,7 @@
-import DefensePFE from '../models/DefensePFE';
-import PFE from '../models/PFE'; // Import the PFE model
-import Teacher from '../models/Teacher'; // Import the Teacher model
-import { sendMail } from './mailer';
+import DefensePFE from '../models/DefensePFE.js';
+import PFE from '../models/PFE.js'; // Import the PFE model
+import Teacher from '../models/Teachers.js'; // Import the Teacher model
+import { sendMail } from './mailer.js';
 
 // Function to check for overlaps
 const checkForOverlap = async (salle, date, heure, enseignantId, type) => {
