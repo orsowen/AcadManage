@@ -1,6 +1,6 @@
 import express from "express";
 import {
-    // createUser,
+    createUser,
     createAdmin,
     deleteUser,
     getUserByCin,
@@ -12,7 +12,6 @@ import {
 } from '../controllers/UserController.js';
 import { isAdmin } from "../middlewares/authentication.js";
 
-
 const router = express.Router();
 
 
@@ -23,7 +22,7 @@ router.get('/:id', isAdmin, getUserById);
 router.get('/cin/:cin', isAdmin, getUserByCin);
 
 // create a new user
-// router.post('/register', isAdmin, createUser); 
+router.post('/', isAdmin, createUser); 
 
 // create a new ADmin
 router.post('/register', createAdmin);

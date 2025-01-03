@@ -10,9 +10,10 @@ import skillRoutes from "./skill.js";
 import studentRoutes from "./StudentRoutes.js";
 import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
+import yearsRoutes from "./SeasonRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
-
+import DefensePFE from "./DefensePFE.js";
 const router = express.Router();
 
 // ROUTES --------------------------------
@@ -23,11 +24,13 @@ router.use("/users", UserConnexionRoutes);
 router.use("/teachers", teacherRoutes);
 router.use("/students", studentRoutes);
 router.use("/PFE", PFE);
+router.use("/PFE", DefensePFE);
 router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
 router.use("/PFAChoices", choicePFA);
+router.use("/years", yearsRoutes);
 
 // TEST MAIL NOTIFICATION
 router.get("/test-notif-late-depot-satge", async (req, res) => {

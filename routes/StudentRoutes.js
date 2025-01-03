@@ -7,15 +7,25 @@ import {
     getStudentById,
     getStudentProfile,
     updateStudent,
-    updateStudentProfile
+    updateStudentProfile,
+    createStudentFromFile,
+    getCvMe,
+    getCvByID,
+    updateCV
 } from '../controllers/StudentController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isAdminOrTeacher, isStudent } from "../middlewares/authentication.js";
+import multer from "multer"
+
+const upload = multer({ dest: 'uploads/' });
 const router = express.Router();
 
 
 // get Own profile for student
 router.get('/me', isStudent, getStudentProfile);
+
+// create a new user from ewel file
+router.post('/file', isAdmin,upload.single('file'), createStudentFromFile); 
 
 // Create a new student
 router.post('/', createStudent);
@@ -38,15 +48,19 @@ router.patch('/:id/password', isAdmin, updatePassword("student"));
 // Delete a student by ID
 router.delete('/:id', isAdmin, deleteStudent);
 
-// Archive a teacher
-router.put('/:id', isAdmin, toggleArchiveUser("student"));
+// Archive a student
+router.put('/:id', isAdmin, toggleArchiveUser("student")); 
 
-// Route to Archive user
-router.post('/CV/me', isStudent, createCV);
-// Route to Archive user
-//router.get('/CV/me', isStudent, getCvMe); 
-// get studiant/CV/me - get all professionel information of the studiant
-//router.get('/CV', isStudent, getCvStudent); 
-// get /cv - get student/cv - get all information of the student
+// Route to creat Student CV
+router.post('/CV/me', isStudent, createCV); 
+
+// Route to get Student CV
+router.get('/CV/me', isStudent, getCvMe); 
+
+// get studiant/:id/CV - get student cv by his ID
+router.get('/:id/CV', isAdminOrTeacher, getCvByID);
+
+// patch studiant CV
+router.get('/:id/CV', isStudent, updateCV);
 
 export default router;
