@@ -309,7 +309,7 @@ export const getPlanningStageByStudent = async (req, res) => {
         }
 
         // Fetch planning stages for the student
-        const planningStages = await PlanningStage.find({ isPublished: true })
+        const planningStages = await PlanningStage.find({ isPublished: true, isArchived: false })
             .populate({
                 path: 'internship', // Populate internship field
                 match: { student: studentId }, // Ensure the student matches
@@ -584,5 +584,29 @@ export const sendMailPlanning = async (req, res) => {
     } catch (error) {
         console.error("Error during email sending:", error.message);
         res.status(500).json({ message: "Échec de l'envoi des emails.", error: error.message });
+    }
+};
+
+
+export const archivePlanningStages = async (internshipIds) => {
+    try {
+        if (!Array.isArray(internshipIds) || internshipIds.length === 0) {
+            throw new Error('No internship IDs provided for archiving planning stages.');
+        }
+
+        // Perform bulk update
+        const result = await PlanningStage.updateMany(
+            { internship: { $in: internshipIds }, isArchived: false },
+            { $set: { isArchived: true } }
+        );
+
+        // Return the result of the update operation
+        return {
+            message: `Archived ${result.modifiedCount} planning stage(s) for the provided internships.`,
+            modifiedCount: result.modifiedCount,
+        };
+    } catch (error) {
+        console.error('Error archiving planning stages:', error.message);
+        throw new Error(`Failed to archive planning stages: ${error.message}`);
     }
 };

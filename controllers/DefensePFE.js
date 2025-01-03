@@ -70,6 +70,7 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                     message: "This Pfe  is for previous years",
                 });
             }
+
             checkForOverlap(salle, date, heure, enseignantId, defensePFE._id);
             if (
                 (defensePFE.PresidentJury && defensePFE.PresidentJury.toString() === enseignantId) ||
@@ -143,7 +144,6 @@ export const publishOrHideDefense = async (req, res) => {
         // Set the Publisher flag based on the response
         const publisherStatus = response === 'publish' ? true : false;
         let defensePFE = await DefensePFE.find({ isArchived: false });
-        console.log(defensePFE)
         if (defensePFE.length == 0) {
             return res.status(400).json({ message: 'there is no Defense PFE Created this Year' });
         }

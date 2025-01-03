@@ -181,7 +181,7 @@ export const addNewAcademicYear = async (req, res) => {
 
     console.log("*******internship***********")
     // bulk update
-    let result = archiveInternshipsByYear(oldAcademicYear);
+    let result = archiveInternshipsByYear(oldAcademicYear, true);
     archivedSubjects.push({
       type: "internship",
       result
