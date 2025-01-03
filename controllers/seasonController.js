@@ -100,120 +100,53 @@ export const addNewAcademicYear = async (req, res) => {
     const students = await Student.find(); // Retrieve all students
     const updatedStudents = [];
 
-    // get all students
-    const pfes = await PFE.find(); // Retrieve all students
-    const pfas = await PFA.find(); // Retrieve all students
-    const internships = await Internship.find(); // Retrieve all students
-    const archivedSubjects= [];
-
-    console.log("*******student***********")
     for (const student of students) {
-        // Check if the year already exists in the academicHistory
-        const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
-        if (yearExists || student.isGraduated ) {
-          yearExists? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`):console.warn(`Student ${student._id} already graduated. Skipping.`);
-          continue;
-        }
-
-        // Add the new year to the academicHistory
-        student.academicHistory.push({
-            year : academicYear,
-            status: 'Pending', // Default status
-        });
-
-        // Save the student
-        await student.save();
-        updatedStudents.push({
-            id: student._id,
-            name: `${student.firstName} ${student.lastName}`,
-            updatedAcademicHistory: student.academicHistory,
-        });
-    }
-    console.log("*******pfe***********")
-    for (const pfe of pfes) {
       // Check if the year already exists in the academicHistory
-      if (!pfe.isArchived) 
-      {
-        console.warn(`pfe ${pfe._id} already archived. Skipping.`)
-        continue
+      const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
+      if (yearExists || student.isGraduated ) {
+        yearExists? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`):console.warn(`Student ${student._id} already graduated. Skipping.`);
+        continue;
       }
 
-      if (pfe.isValid) {
-        pfe.isArchived = true
-      }else
-      {
-        console.warn(`pfe ${pfe._id} is not validated. Skipping.`)
-        continue
-      }
-
-      // Save the pfe
-      await pfe.save();
-      archivedSubjects.push({
-        type : "pfe",
-        id: pfe._id,
-        title: pfe.title,
-        message: "archived with success",
+      // Add the new year to the academicHistory
+      student.academicHistory.push({
+          year : academicYear,
+          status: 'Pending', // Default status
       });
-    }
 
-    console.log("*******pfa***********")
-    /*for (const pfa of pfas) {
-      // Check if the year already exists in the academicHistory
-      if (!pfa.isArchived) 
-      {
-        console.warn(`pfe ${pfa._id} already archived. Skipping.`)
-        continue
-      }
-
-      if (pfa.status === "Approved") {
-        pfa.isArchived = true
-      }else
-      {
-        console.warn(`pfa ${pfa._id} is ${pfa.status}. Skipping.`)
-        continue
-      }
-
-      // Save the pfa
-      await pfa.save();
-      archivedSubjects.push({
-        type : "pfa",
-        id: pfa._id,
-        title: pfa.title,
-        message: "archived with success",
+      // Save the student
+      await student.save();
+      updatedStudents.push({
+          id: student._id,
+          name: `${student.firstName} ${student.lastName}`,
+          updatedAcademicHistory: student.academicHistory,
       });
-    }*/
+  }
 
-    console.log("*******internship***********")
-    for (const internship of internships) {
-      // Check if the year already exists in the academicHistory
-      if (!internship.isArchived) 
-      {
-        console.warn(`pfe ${internship._id} already archived. Skipping.`)
-        continue
-      }
-
-      if (internship.isValid) {
-        internship.isArchived = true
-      }else
-      {
-        console.warn(`internship ${internship._id} is not validated. Skipping.`)
-        continue
-      }
-
-      // Save the internship
-      await internship.save();
-      archivedSubjects.push({
-        type : "internship",
-        id: internship._id,
-        title: internship.title,
-        message: "archived with success",
-      });
-    }
+    // update all pfes
+    const pfes = await PFE.updateMany(
+      {isArchived : false, isValid : true },
+      {$set: {isArchived : true}}
+    ) 
+    
+    /*// update all pfas
+    const pfas = await PFA.updateMany(
+      {isArchived : false, status : "Approved" },
+      {$set: {isArchived : true}}
+    ) */
+    
+    // update all internships
+    const internships = await Internship.updateMany(
+      {isArchived : false, isValid : true },
+      {$set: {isArchived : true}}
+    )
 
     res.status(200).json({
         message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
         updatedStudents,
-        archivedSubjects
+        pfes,
+        pfas,
+        internships
     });
 
 } catch (error) {
