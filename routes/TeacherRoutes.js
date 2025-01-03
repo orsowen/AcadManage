@@ -6,11 +6,14 @@ import {
   getTeacherById,
   getTeacherProfile,
   updateTeacher,
-  updateTeacherByToken
+  updateTeacherByToken,
+  createTeacherFromFile
 } from '../controllers/TeacherController.js';
 import { toggleArchiveUser, updatePassword } from '../controllers/UserController.js';
 import { isAdmin, isTeacher } from "../middlewares/authentication.js";
+import multer from "multer"
 
+const upload = multer({ dest: 'uploads/' });
 const router = express.Router();
 
 
@@ -23,8 +26,12 @@ router.get('/', isAdmin, getAllTeachers);
 // Get a single teacher by ID
 router.get('/:id', isAdmin, getTeacherById);
 
+// create a new user from ewel file
+router.post('/file', isAdmin,upload.single('file'), createTeacherFromFile); 
+
 // Create a new teacher
 router.post('/', createTeacher);
+
 
 // Update a teacher
 router.patch('/:id', isAdmin, updateTeacher);

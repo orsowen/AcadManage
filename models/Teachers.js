@@ -33,5 +33,4 @@ const TeacherSchema = new mongoose.Schema({
   timestamps: true, // Automatically add createdAt and updatedAt fields
 });
 
-// Export the Teacher model
 export default mongoose.model("Teacher", TeacherSchema);

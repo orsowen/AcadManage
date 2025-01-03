@@ -41,7 +41,7 @@ const academicprojects = new mongoose.Schema({
     },
 });
 
-const StudentSchema = new mongoose.Schema({
+const CVSchema = new mongoose.Schema({
     lastName: {
         type: String,
         required: true
@@ -94,7 +94,7 @@ const StudentSchema = new mongoose.Schema({
     },
     academicprojects:{
         type: academicprojects,
-        required:true
+        required:false
     },
     objective: {
         type: String,
@@ -109,8 +109,7 @@ const StudentSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User", // Reference to User model
-        // default: null,
     },
 });
 
-export default mongoose.model('CV', StudentSchema);
+export default mongoose.model('CV', CVSchema);

@@ -11,7 +11,6 @@ const StudentSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-
     arabicLastName: {
         type: String,
         // required: true
@@ -127,6 +126,11 @@ const StudentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Choice',
     }],
+    // Link to CV 
+    cv: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CV", // Reference to CV model
+    },
 });
 
 // Pre-save middleware to populate `academicHistory` with a default value if empty

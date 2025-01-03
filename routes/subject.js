@@ -17,7 +17,7 @@ router.post('/', isAdmin, addSubject);
 router.get('/', isAdminOrTeacher, getAllSubjects);
 router.get('/:id', getSubjectById);
 router.patch('/:id', isAdmin, updateSubject);
-router.post('/publish/:response', isAdmin , toggleSubjectPublish);
+router.post('/publish/:response', isAdmin, toggleSubjectPublish);
 router.patch('/:id/proposition', isTeacher, proposeModification);
 router.get('/:id/validate', isAdmin, validateModification);
 

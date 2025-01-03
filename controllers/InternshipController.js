@@ -433,14 +433,14 @@ export const assignTeachersToInternships = async (req, res) => {
     const validTeacherIds = teacherIds.filter((id) => id.trim() !== "");
 
     if (validTeacherIds.length <= 0) {
-        return res.status(400).json({ message: "Teacher IDs not valid" });
+        return res.status(400).json({ message: "Teacher IDs not valid." });
     }
 
     try {
         // Step 1: Fetch eligible teachers based on provided teacher IDs
-        const teachers = await Teacher.find({ _id: { $in: validTeacherIds }, })
+        const teachers = await Teacher.find({ _id: { $in: validTeacherIds } })
             .populate("assignedInternships", "title")
-            .sort({ subjectCount: -1 });
+            .sort({ subjectCount: -1 }); // Sort teachers by subject count in descending order
 
         if (teachers.length === 0) {
             return res.status(404).json({ message: "No valid teachers found with the provided IDs." });
@@ -453,25 +453,32 @@ export const assignTeachersToInternships = async (req, res) => {
             return res.status(404).json({ message: "No unassigned internships available." });
         }
 
-        // Step 3: Calculate the total number of internships
+        // Step 3: Calculate the total number of subjects and internships
+        const totalSubjects = teachers.reduce((sum, teacher) => sum + teacher.subjectCount, 0);
         const totalInternships = internships.length;
 
-        // Step 4: Calculate how many internships each teacher should receive
-        const internshipsPerTeacher = Math.floor(totalInternships / teachers.length);
-        const remainingInternships = totalInternships % teachers.length; // Handle any remainder
+        if (totalSubjects === 0) {
+            return res.status(400).json({ message: "No subjects available for assignment." });
+        }
+        console.log("total subject", totalSubjects);
+        console.log("total internship", totalInternships);
+
+        // Step 4: Calculate B (internships per subject)
+        const internshipsPerSubject = Math.max(1, Math.floor(totalInternships / totalSubjects)); // Ensure minimum value of 1
+        console.log("internship per subject ", internshipsPerSubject);
 
         let internshipIndex = 0;
         const results = []; // To store assignment details
 
         // Step 5: Assign internships to teachers
-        for (let i = 0; i < teachers.length; i++) {
-            const teacher = teachers[i];
-
+        for (const teacher of teachers) {
             // Determine the number of internships this teacher will receive
-            const internshipsToAssign = internshipsPerTeacher + (i < remainingInternships ? 1 : 0);
+            const internshipsToAssign = Math.floor(internshipsPerSubject * teacher.subjectCount);
+            console.log("internships To Assign", teacher.firstName, ":", internshipsToAssign);
+
             const assignedInternships = [];
 
-            for (let j = 0; j < internshipsToAssign && internshipIndex < totalInternships; j++) {
+            for (let i = 0; i < internshipsToAssign && internshipIndex < totalInternships; i++) {
                 const internship = internships[internshipIndex];
 
                 // Assign the teacher to the internship
@@ -522,6 +529,7 @@ export const assignTeachersToInternships = async (req, res) => {
         res.status(500).json({ error: "Failed to assign internships to teachers.", details: error.message });
     }
 };
+
 
 
 // JUST FOR DEVELOPMENT USE ONLY
@@ -625,7 +633,23 @@ export const validateInternship = async (req, res) => {
 
     try {
         // Find the internship by ID and populate teacher details
-        const internship = await Internship.findById(id).populate('teacher');
+        const internship = await Internship.findById(id)
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName user',
+                populate: {
+                    path: 'user',
+                    select: 'email',
+                },
+            })
+            .populate({
+                path: 'student',
+                select: 'firstName lastName user',
+                populate: {
+                    path: 'user',
+                    select: 'email',
+                },
+            });
 
         // Check if the internship exists
         if (!internship) {
@@ -767,7 +791,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
     try {
         // Fetch internships with pagination and populate relevant fields
         const internships = await Internship.find(filter)
-            .select('-_id -student -isArchived -documents -topic -planning')
+            .select('title typeInternship nomSociete teacher anneYear isValid reasonIfNotValid createdAt StartDate EndDate')
             .skip((currentPage - 1) * currentLimit)
             .limit(currentLimit)
             .populate({
@@ -778,6 +802,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
                     select: 'email', // Populate email of teacher
                 },
             })
+            .sort('-createdAt')
             .exec();
 
         // If no internships are found, return a 404 response
@@ -805,5 +830,24 @@ export const getInternshipByStudentForPV = async (req, res) => {
             message: 'Une erreur est survenue lors de la récupération des stages.',
             error: error.message,
         });
+    }
+};
+
+export const archiveInternshipsByYear = async (annee) => {
+    try {
+        // Perform bulk update
+        const result = await Internship.updateMany(
+            { anneYear: annee },
+            { $set: { isArchived: true } }
+        );
+
+        // Return the result of the update operation
+        return {
+            message: `Updated ${result.modifiedCount} internship(s) for year ${annee}.`,
+            result,
+        };
+    } catch (error) {
+        console.error('Error archiving internships:', error.message);
+        throw new Error(`Failed to archive internships for year ${annee}: ${error.message}`);
     }
 };
