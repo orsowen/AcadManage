@@ -102,12 +102,15 @@ export const updatePFE = async (req, res) => {
     } = req.body;
 
     try {
-        // Check if the current date is within the deposit period for PFE topics
-
-
         if (new Date(StartDate) >= new Date(EndDate)) {
             return res.status(400).json({
                 error: "StartDate must be earlier than EndDate."
+            });
+        }
+        const archipfe = await PFE.find({ _id: id, isArchived: true });
+        if (archipfe) {
+            return res.status(400).json({
+                error: "this pfe cannot be update it"
             });
         }
         const updatedPFE = await PFE.findOneAndUpdate(
@@ -226,7 +229,11 @@ export const choosePFE = async (req, res) => {
                 error: "PFE not found."
             });
         }
-
+        if (pfe.isArchived) {
+            return res.status(404).json({
+                error: "PFE is already archived"
+            });
+        }
         if (pfe.teacher) {
             return res.status(400).json({
                 error: "This PFE is already assigned to another teacher."
@@ -254,7 +261,10 @@ export const validateAssignments = async (req, res) => {
     try {
         const { ids } = req.body;
 
+        // Find all PFEs with the given ids
         const pfes = await PFE.find({ _id: { $in: ids } });
+
+        // Check if any PFE is missing
         if (pfes.length !== ids.length) {
             const missingIds = ids.filter(id => !pfes.some(pfe => pfe._id.toString() === id));
             return res.status(400).json({
@@ -262,8 +272,19 @@ export const validateAssignments = async (req, res) => {
                 missingIds,
             });
         }
-        const errors = pfes.filter(pfe => !pfe.teacher);
 
+        // Check if any PFE is archived
+        const archivedPfes = pfes.filter(pfe => pfe.isArchived === true);
+        if (archivedPfes.length > 0) {
+            const archivedIds = archivedPfes.map(pfe => pfe._id.toString());
+            return res.status(400).json({
+                error: 'Some PFEs are archived and cannot be assigned',
+                archivedIds,
+            });
+        }
+
+        // Check if any PFE is missing a teacher assignment
+        const errors = pfes.filter(pfe => !pfe.teacher);
         if (errors.length > 0) {
             return res.status(400).json({
                 error: 'Some PFEs are missing teacher assignments',
@@ -295,7 +316,11 @@ export const assignPFEToTeacher = async (req, res) => {
         if (!pfe) {
             return res.status(404).json({ error: "PFE not found." });
         }
-
+        if (pfe.isArchived) {
+            return res.status(404).json({
+                error: "PFE is already archived"
+            });
+        }
         // Check if the PFE is already assigned to a teacher
         if (pfe.teacher) {
             if (force) {
@@ -343,7 +368,7 @@ export const publishOrHidePFE = async (req, res) => {
 
         // Update all PFEs to the desired state
         const updatedPFEs = await PFE.updateMany(
-            {},
+            { isArchived: false },
             { $set: { Publisher: isPublished } }
         );
 
@@ -373,7 +398,7 @@ export const publishOrHidePFE = async (req, res) => {
 // Function to send email and update emailStatus for all PFEs
 export const sendPlanningEmail = async (req, res) => {
     try {
-        const pfes = await PFE.find({ emailStatus: { $in: ['none', 'first'] } })
+        const pfes = await PFE.find({ isArchived: false, isPublished: true })
             .populate({
                 path: 'student',
                 populate: {
@@ -413,7 +438,7 @@ export const sendPlanningEmail = async (req, res) => {
                 subject = 'Your Planning Link Modified';
                 status = 'second';
             } else {
-                continue; // Skip sending email if already sent twice
+                subject = 'Your Planning Link Modified';
             }
             const studentEmailContent = `
 <html>
@@ -541,6 +566,8 @@ export const getTeacherDefenses = async (req, res) => {
                 { Rapporteur: teacherId },
                 { Encadrent: teacherId },
             ],
+            isArchived: false,
+            isPublished: true,
         })
             .populate({
                 path: "PresidentJury",
@@ -606,7 +633,7 @@ export const getTeacherDefenses = async (req, res) => {
 export const getStudentPFE = async (req, res) => {
     try {
         const student = req.user?.idRole;
-        const pfeData = await PFE.findOne({ student: student })
+        const pfeData = await PFE.findOne({ student: student, isPublished: true })
             .populate({
                 path: 'student',
                 select: 'lastName firstName',
