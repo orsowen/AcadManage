@@ -144,6 +144,7 @@ export const getPlanningByTeacher = async (req, res) => {
 
     // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur, et sujet validé
     const planning = await SoutenancePFA.find({
+      isArchived: false,
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
       subject: { $in: validSubjectIds },
     })
@@ -183,6 +184,7 @@ export const getPlanningByStudent = async (req, res) => {
     }
 
     const planning = await SoutenancePFA.find({
+      isArchived: false,
       subject: { $in: validSubjectIds },
     })
       .populate("subject", "title teacher")
@@ -332,8 +334,14 @@ export const publishSoutenance = async (req, res) => {
     if (!["publier", "masquer"].includes(response)) {
       return res.status(400).json({ error: "Valeur de response invalide." });
     }
-    const result = await SoutenancePFA.updateMany({}, { status: response });
-    await SoutenancePFA.updateMany({}, { FirstPublication: false });
+    const result = await SoutenancePFA.updateMany(
+      { isArchived: false },
+      { status: response }
+    );
+    await SoutenancePFA.updateMany(
+      { isArchived: false },
+      { FirstPublication: false }
+    );
     res.status(200).json({
       message: `Les soutenances ont été ${
         response === "publier" ? "publiées" : "masquées"
@@ -466,6 +474,7 @@ export const getSoutenanceDetailsForStudent = async (req, res) => {
     }
 
     const soutenance = await SoutenancePFA.findOne({
+      isArchived: false,
       subject: { $in: validSubjectIds },
     })
       .populate("subject", "title")
@@ -526,6 +535,7 @@ export const getSoutenancesForTeacher = async (req, res) => {
 
     // Find soutenances where the authenticated teacher is either the teacher or the rapporteur
     const soutenances = await PlanningPFA.find({
+      isArchived: false,
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
     }).populate("subject", "title"); // Populate subject with specific fields
 
@@ -550,6 +560,7 @@ export const getSubjectByIdForTeacher = async (req, res) => {
     const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
     const soutenanceSubject = await PlanningPFA.findOne({
+      isArchived: false,
       _id: id,
       $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
     })
