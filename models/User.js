@@ -6,22 +6,24 @@ const { Schema } = mongoose;
 const UserSchema = new Schema(
   {
     cin: {
-      type: Number,
+      type: String,
       required: true,
       unique: true, // CIN should be unique
-      minlength: 8, // Password must be at least 8 characters long
+      minlength: 8, // CIN must be at least 8 characters long
       validate: {
-        validator: Number.isInteger, // Ensure CIN is an integer
-        message: 'CIN must be an integer value.',
+        validator: function (value) {
+          // Check if the CIN is composed only of digits
+          return /^[0-9]+$/.test(value); // Ensure CIN contains only digits
+        },
+        message: 'CIN must be a valid number with at least 8 digits.',
       },
     },
     email: {
       type: String,
       required: true,
       unique: true, // Email should be unique
-      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // Validate email format
+      match: /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/, // Validate email format
     },
-
     phone: {
       type: String,
       required: false,

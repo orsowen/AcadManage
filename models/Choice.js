@@ -20,7 +20,7 @@ const ChoiceSchema = new Schema({
   },
   binome: {
     type: Schema.Types.ObjectId,
-    ref: "Student", // Référence à l'étudiant binôme
+    ref: "Student", 
     required: false,
   },
   teacherAcceptance: {
