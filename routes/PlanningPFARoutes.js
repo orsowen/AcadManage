@@ -35,11 +35,15 @@ router.get(
   getSoutenanceDetailsForStudent
 );
 
-// Route to get soutenances  for the authenticated teacher
+// Route to get soutenances  for the authenticated teacher a
 router.get("/soutenances/teacher", isTeacher, getSoutenancesForTeacher);
 
-// Route to get soutenances details for the authenticated teacher
+// Route to get soutenances details for the authenticated teacher a
 router.get("/soutenances/:id/teacher", isTeacher, getSubjectByIdForTeacher);
+
+
+
+
 // Route pour publier/masquer les soutenances
 router.post("/PublishSoutenance/:response", isAdmin, publishSoutenance);
 

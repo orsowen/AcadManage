@@ -38,9 +38,9 @@ const ChoiceSchema = new Schema({
     type: Boolean,
     default: false,
     required: false,
-  }
+  },
+  isFirstPublication: { type: Boolean, default: true }
 });
-
 const Choice = mongoose.model("Choice", ChoiceSchema);
 
 export default Choice;

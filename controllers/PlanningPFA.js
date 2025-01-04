@@ -351,13 +351,16 @@ export const publishSoutenance = async (req, res) => {
 // Sending mail First time
 export const firstSend = async () => {
   try {
-    // Récupérer les emails des étudiants et enseignants
-    const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
-      .exec();
-
-    const emails = users.map((user) => user.email);
+    const users = await User.find().populate("student", "grade").exec();
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email); // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("Aucun destinataire défini.");
@@ -382,13 +385,16 @@ export const firstSend = async () => {
 // send mail second time
 export const modifiedSend = async () => {
   try {
-    // Récupérer les emails des étudiants et enseignants
-    const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
-      .exec();
-
-    const emails = users.map((user) => user.email);
+    const users = await User.find().populate("student", "grade").exec();
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email); // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("Aucun destinataire défini.");
@@ -437,11 +443,13 @@ export const sendEmail = async (req, res) => {
       .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
   }
 };
-// 9.3 Get soutennace details for a student
+
+// Get soutennace details for a student 9.3
 export const getSoutenanceDetailsForStudent = async (req, res) => {
   try {
-    //const { studentId } = req.params;
     const studentId = req.user.idRole;
+
+    // Étape 1 : Trouver les sujets validés liés à l'étudiant
     const validChoices = await Choice.find({
       valid: true,
       $or: [{ student: studentId }, { binome: studentId }],
@@ -526,6 +534,7 @@ export const getSoutenancesForTeacher = async (req, res) => {
         message: "No soutenances found for this teacher",
       });
     }
+
     // Extract and return only the subject field from each soutenance
     const subjects = soutenances.map((soutenance) => soutenance.subject);
     res.status(200).json(subjects);
