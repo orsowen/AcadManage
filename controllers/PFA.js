@@ -177,7 +177,7 @@ export const publishSubjects = async (req, res) => {
     console.log("Previously published subjects:", previouslyPublishedSubjects);
     // Publier les sujets approuvés
     const publishedSubjects = await Subject_PFA.updateMany(
-      { status: "Approved" },
+      { status: "Approved" , isArchived: false},
       { $set: { published: true, hidden: false } } // Publier et rendre visible
     );
     // Cacher les sujets rejeter
@@ -222,21 +222,26 @@ export const publishSubjects = async (req, res) => {
   }
 };
 
+// Send the first email after the first publication
 export const firstSend = async () => {
   try {
-    // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
+      .populate("student", "grade")
       .exec();
 
-    const emails = users.map((user) => user.email);
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email);  // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
-
-    // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject =
       "Publication des sujets et ouverture de la période de choix";
     const html = `
@@ -255,22 +260,25 @@ export const firstSend = async () => {
   }
 };
 
-// Handle modified send option
+// Send the first email after the second publication
 export const modifiedSend = async () => {
   try {
-    // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
+      .populate("student", "grade")
       .exec();
-
-    const emails = users.map((user) => user.email);
+    const emails = users
+      .map((user) => {
+        if (user.role === "student" && user.student?.grade === "ING2") {
+          return user.email;
+        } else if (user.role === "teacher") {
+          return user.email;
+        }
+      })
+      .filter((email) => email);  // Remove undefined values
 
     if (emails.length === 0) {
       throw new Error("No recipients defined");
     }
-
-    // Envoyer un email de confirmation avec un lien vers la liste des sujets
     const subject = "Modification des sujets";
     const html = `
       <p>Les sujets ont été modifiés.</p>
@@ -288,10 +296,11 @@ export const modifiedSend = async () => {
   }
 };
 
+
 // Get all subjects for Admin
 export const getSubjects = async (req, res) => {
   try {
-    const subjects = await Subject_PFA.find()
+    const subjects = await Subject_PFA.find({ isArchived: false })
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
       .populate("monome", "firstName lastName email") // Populate monome with specific fields
       .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
@@ -307,7 +316,7 @@ export const getSubjectsByTeacher = async (req, res) => {
   try {
     const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
-    const subjects = await Subject_PFA.find({ teacher: teacherId })
+    const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
       .populate("monome", "firstName lastName email"); // Populate monome with specific fields
 
@@ -335,7 +344,7 @@ export const getSubjectByIdForTeacher = async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
-    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId })
+    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId , isArchived: false})
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
       .populate("monome", "firstName lastName email"); // Populate monome with specific fields
 
@@ -410,7 +419,7 @@ export const updateSubject = async (req, res) => {
     };
 
     const subject = await Subject_PFA.findOneAndUpdate(
-      { _id: id, teacher: teacherId }, // Ensure the subject belongs to the authenticated teacher
+      { _id: id, teacher: teacherId , isArchived : false}, // Ensure the subject belongs to the authenticated teacher
       updatedSubject,
       { new: true }
     );
@@ -483,7 +492,7 @@ export const rejectSubject = async (req, res) => {
     // Trouver le sujet et mettre à jour son statut
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
-      { status: "Rejected" },
+      { status: "Rejected" , isArchived: false},
       { new: true } // Retourner le document mis à jour
     );
 
@@ -505,7 +514,7 @@ export const approveSubject = async (req, res) => {
     // Trouver le sujet et mettre à jour son statut
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
-      { status: "Approved" },
+      { status: "Approved" , isArchived: false},  
       { new: true } // Retourner le document mis à jour
     );
 
@@ -518,7 +527,7 @@ export const approveSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-//4.1
+//4.1 get subject by id teacher for student 
 export const PFASubjectsByTeacher = async (req, res) => {
   try {
     // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
@@ -530,7 +539,7 @@ export const PFASubjectsByTeacher = async (req, res) => {
     }
 
     // Rechercher les sujets proposés par cet enseignant, triés par title
-    const subjects = await Subject_PFA.find({ teacher: teacherId })
+    const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
       .select("title description technologies") // Sélectionner uniquement les champs spécifiés
       .sort({ title: 1 }); // Trier par `title` (ordre croissant)// Trier par `title` (ordre croissant)
 
@@ -549,80 +558,80 @@ export const PFASubjectsByTeacher = async (req, res) => {
   }
 };
 
-//8.1
-export const generateSoutenances = async (req, res) => {
-  try {
-    const { days, rooms } = req.body; // Liste des jours et salles disponibles
+// //8.1
+// export const generateSoutenances = async (req, res) => {
+//   try {
+//     const { days, rooms } = req.body; // Liste des jours et salles disponibles
 
-    if (!days || !rooms || days.length === 0 || rooms.length === 0) {
-      return res.status(400).json({
-        message: "Veuillez fournir des jours et des salles disponibles.",
-      });
-    }
+//     if (!days || !rooms || days.length === 0 || rooms.length === 0) {
+//       return res.status(400).json({
+//         message: "Veuillez fournir des jours et des salles disponibles.",
+//       });
+//     }
 
-    const subjects = await Subject_PFA.find({ status: "Approved" })
-      .populate("teacher", "firstName lastName")
-      .exec();
+//     const subjects = await Subject_PFA.find({ status: "Approved" })
+//       .populate("teacher", "firstName lastName")
+//       .exec();
 
-    if (subjects.length === 0) {
-      return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
-    }
+//     if (subjects.length === 0) {
+//       return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
+//     }
 
-    const teachers = await Teacher.find().exec();
+//     const teachers = await Teacher.find().exec();
 
-    let soutenances = [];
-    let currentDayIndex = 0;
-    let currentRoomIndex = 0;
-    let currentHour = 9; // Début à 9h00
+//     let soutenances = [];
+//     let currentDayIndex = 0;
+//     let currentRoomIndex = 0;
+//     let currentHour = 9; // Début à 9h00
 
-    for (const subject of subjects) {
-      // Déterminer la date et la salle
-      const date = days[currentDayIndex];
-      const room = rooms[currentRoomIndex];
+//     for (const subject of subjects) {
+//       // Déterminer la date et la salle
+//       const date = days[currentDayIndex];
+//       const room = rooms[currentRoomIndex];
 
-      // Ajouter une soutenance
-      const startTime = `${currentHour}:00`;
-      const endTime = `${currentHour + 0.5}:00`;
+//       // Ajouter une soutenance
+//       const startTime = `${currentHour}:00`;
+//       const endTime = `${currentHour + 0.5}:00`;
 
-      // Trouver un rapporteur différent de l'encadrant
-      const rapporteur = teachers.find(
-        (teacher) => teacher._id.toString() !== subject.teacher._id.toString()
-      );
+//       // Trouver un rapporteur différent de l'encadrant
+//       const rapporteur = teachers.find(
+//         (teacher) => teacher._id.toString() !== subject.teacher._id.toString()
+//       );
 
-      if (!rapporteur) {
-        return res
-          .status(500)
-          .json({ message: "Impossible de trouver un rapporteur." });
-      }
+//       if (!rapporteur) {
+//         return res
+//           .status(500)
+//           .json({ message: "Impossible de trouver un rapporteur." });
+//       }
 
-      soutenances.push({
-        subject: subject._id,
-        date,
-        startTime,
-        endTime,
-        room,
-        teacher: subject.teacher._id,
-        rapporteur: rapporteur._id,
-      });
+//       soutenances.push({
+//         subject: subject._id,
+//         date,
+//         startTime,
+//         endTime,
+//         room,
+//         teacher: subject.teacher._id,
+//         rapporteur: rapporteur._id,
+//       });
 
-      // Mettre à jour les indices pour jour, salle et heure
-      currentHour += 0.5; // Ajouter 30 minutes
-      if (currentHour >= 15) {
-        // Fin de journée à 15h
-        currentHour = 9; // Revenir à 9h le jour suivant
-        currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Changer de salle
-        currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
-      }
-    }
+//       // Mettre à jour les indices pour jour, salle et heure
+//       currentHour += 0.5; // Ajouter 30 minutes
+//       if (currentHour >= 15) {
+//         // Fin de journée à 15h
+//         currentHour = 9; // Revenir à 9h le jour suivant
+//         currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Changer de salle
+//         currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
+//       }
+//     }
 
-    // Sauvegarder les soutenances
-    await SoutenancePFA.insertMany(soutenances);
+//     // Sauvegarder les soutenances
+//     await SoutenancePFA.insertMany(soutenances);
 
-    res
-      .status(201)
-      .json({ message: "Soutenances générées avec succès.", soutenances });
-  } catch (error) {
-    console.error("Erreur lors de la génération des soutenances :", error);
-    res.status(500).json({ message: error.message });
-  }
-};
+//     res
+//       .status(201)
+//       .json({ message: "Soutenances générées avec succès.", soutenances });
+//   } catch (error) {
+//     console.error("Erreur lors de la génération des soutenances :", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };

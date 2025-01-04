@@ -39,6 +39,7 @@ export const addChoice = async (req, res) => {
     const subject = await Subject_PFA.findOne({
       _id: subjectId,
       published: true,
+      isArchived: false,
     });
     if (!subject) {
       return res.status(404).json({ message: "Published subject not found" });
@@ -389,33 +390,29 @@ export const getStudentChoices = async (req, res) => {
   try {
     const studentId = req.params.id;
     console.log(studentId);
-    const student = await Student.findById(studentId).populate({
-      path: "choices",
-      populate: [
-        {
-          path: "subject",
-          model: "Subject_PFA",
-          select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
-          populate: {
-            path: "teacher",
-            model: "Teacher",
-            select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
-          },
-        },
-        {
-          path: "binome",
-          model: "Student",
-          select: "firstName lastName email",
-        }, // Sélectionner les champs spécifiques du binome
-      ],
+
+    // Chercher les choix directement dans la collection Choice
+    const choices = await Choice.find({ student: studentId }).populate({
+      path: "subject",
+      model: "Subject_PFA",
+      select: "title description technologies teacher", // Sélectionner uniquement les champs spécifiés
+      populate: {
+        path: "teacher",
+        model: "Teacher",
+        select: "firstName lastName email", // Sélectionner les champs spécifiques de l'enseignant
+      },
+    }).populate({
+      path: "binome",
+      model: "Student",
+      select: "firstName lastName email", // Sélectionner les champs spécifiques du binome
     });
 
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+    if (!choices || choices.length === 0) {
+      return res.status(404).json({ message: "No choices found for this student" });
     }
 
     // Préparer les choix pour la réponse
-    const choices = student.choices.map((choice) => {
+    const formattedChoices = choices.map((choice) => {
       const { title, description, technologies, teacher } = choice.subject;
       const result = {
         title,
@@ -423,7 +420,7 @@ export const getStudentChoices = async (req, res) => {
         technologies,
         teacher,
         teacherAcceptance: choice.teacherAcceptance,
-        valid: choice.valid,
+        valid: choice.valid, // Inclure le statut de validation
       };
       if (choice.binome) {
         result.binome = choice.binome;
@@ -431,7 +428,7 @@ export const getStudentChoices = async (req, res) => {
       return result;
     });
 
-    res.status(200).json(choices);
+    res.status(200).json(formattedChoices);
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: error.message });
@@ -697,15 +694,13 @@ export const publishHidePFAChoice = async (req, res) => {
   }
 };
 
-
-
 export const sendMailTo = async (req, res) => {
   try {
     // Vérifier si c'est la première publication
     const firstPublication = await Choice.findOne({ isFirstPublication: true });
     console.log("First publication:", firstPublication);
-    // await Choice.updateMany({}, { isFirstPublication: false });
-    // Envoyer la réponse après l'envoi des emails
+  
+  
     res.status(200).json({ message: "Emails sent successfully" });
 
     // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
@@ -725,13 +720,18 @@ export const sendMailTo = async (req, res) => {
 
 export const firstSend = async () => {
   try {
-    // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
-      .exec();
-
-    const emails = users.map((user) => user.email);
+    .populate("student", "grade")
+    .exec();
+  const emails = users
+    .map((user) => {
+      if (user.role === "student" && user.student?.grade === "ING2") {
+        return user.email;
+      } else if (user.role === "teacher") {
+        return user.email;
+      }
+    })
+    .filter((email) => email);  // Remove undefined values
     console.log("Emails to send:", emails);
 
     if (emails.length === 0) {
@@ -758,13 +758,18 @@ export const firstSend = async () => {
 // Handle modified send option
 export const modifiedSend = async () => {
   try {
-    // Récupérer les emails des étudiants et des enseignants
     const users = await User.find()
-      .populate("student", "email")
-      .populate("teacher", "email")
-      .exec();
-
-    const emails = users.map((user) => user.email);
+    .populate("student", "grade")
+    .exec();
+  const emails = users
+    .map((user) => {
+      if (user.role === "student" && user.student?.grade === "ING2") {
+        return user.email;
+      } else if (user.role === "teacher") {
+        return user.email;
+      }
+    })
+    .filter((email) => email);  // Remove undefined values
     console.log("Emails to send:", emails);
 
     if (emails.length === 0) {
@@ -786,7 +791,6 @@ export const modifiedSend = async () => {
     console.error("Error during modified send:", error);
   }
 };
-
 
 // Supprimer les choix de tous les étudiants
 export const clearAllStudentChoices = async (req, res) => {

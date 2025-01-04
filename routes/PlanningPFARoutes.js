@@ -30,16 +30,20 @@ router.patch("/:id/soutenances", isAdmin, updateSoutenance);
 router.post("/list/send", sendEmail);
 // Route pour recuperer les soutenance par etudiant
 router.get(
-  "/student/:studentId/soutenance",
+  "/student/soutenance",
   isStudent,
   getSoutenanceDetailsForStudent
 );
 
-// Route to get soutenances  for the authenticated teacher
+// Route to get soutenances  for the authenticated teacher a
 router.get("/soutenances/teacher", isTeacher, getSoutenancesForTeacher);
 
-// Route to get soutenances details for the authenticated teacher
+// Route to get soutenances details for the authenticated teacher a
 router.get("/soutenances/:id/teacher", isTeacher, getSubjectByIdForTeacher);
+
+
+
+
 // Route pour publier/masquer les soutenances
 router.post("/PublishSoutenance/:response", isAdmin, publishSoutenance);
 
