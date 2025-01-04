@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { sendMail } from './mailer.js';
 
 // Function to generate a random password
 export const generateRandomPassword = (length = 8) => {
@@ -13,13 +14,47 @@ export const generateRandomPassword = (length = 8) => {
     return password;
 };
 
+export async function sendCreds(email, password, isUpdate = false) {
+    if (!email) {
+        console.warn("Email address is required to send credentials.");
+        return;
+    }
+
+    const subject = isUpdate
+        ? "Mise à jour de vos informations de connexion"
+        : "Votre compte a été créé";
+
+    const message = `
+        <p>Bonjour,</p>
+        <p>${isUpdate ? "Vos informations de connexion ont été mises à jour." : "Votre compte a été créé avec succès. Voici vos informations de connexion :"} </p>
+        <ul>
+            <li><strong>Email:</strong> ${email}</li>
+            <li><strong>Mot de passe:</strong> ${password}</li>
+        </ul>
+        <b>NB : utilisez votre CIN comme login</b>
+        <p>Veuillez ${isUpdate ? "vérifier vos nouvelles informations" : "vous connecter dès que possible et changer votre mot de passe"} pour des raisons de sécurité.</p>
+        <p>Cordialement,</p>
+        <p>L'équipe de gestion.</p>
+    `;
+
+    try {
+        await sendMail(email, subject, message);
+        console.log(`Credentials ${isUpdate ? "update" : "creation"} email sent to ${email}`);
+    } catch (error) {
+        console.error(`Failed to send credentials email to ${email}:`, error);
+    }
+}
+
 // Create a new admin
 export const createAdmin = async (req, res) => {
-    const { cin, phone, email, teacher, student } = req.body;
+    const { cin, phone, email, teacher = null, student = null, sendCredsInMail = false } = req.body;
 
     // Validate required fields
     if (!cin || !phone || !email) {
         return res.status(400).json({ message: 'CIN, phone, and email are required.' });
+    }
+    if (!(/^[0-9]+$/.test(cin))) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
     }
     // Email validation regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,6 +89,10 @@ export const createAdmin = async (req, res) => {
         // Save the user to the database
         const savedUser = await newUser.save();
 
+        if (sendCredsInMail) {
+            sendCreds(email, password, false);
+        }
+
         // Don't return the raw password in the response, instead notify the user.
         res.status(201).json({
             message: 'Admin created successfully.',
@@ -74,7 +113,6 @@ export const createAdmin = async (req, res) => {
     }
 };
 
-
 // Create a new user
 export const createUser = async (req, res) => {
     const { cin, role, phone, email, teacher, student } = req.body;
@@ -83,8 +121,11 @@ export const createUser = async (req, res) => {
     if (!cin || !role || !phone || !email) {
         return res.status(400).json({ message: 'CIN, role, phone, and email are required.' });
     }
+    if (!(/^[0-9]+$/.test(cin)) || cin.length < 8) {
+        return res.status(400).json({ message: 'CIN must be a valid number with at least 8 digits.' });
+    }
     // Email validation regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^(?!\.)[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
     if (!emailRegex.test(email)) {
         return res.status(400).json({ message: 'Invalid email format.' });
     }
@@ -260,7 +301,7 @@ export const loginUser = async (req, res) => {
     const { cin, password } = req.body;
 
     try {
-        // Find the user by cin
+        // Find the user by CIN
         const user = await User.findOne({ cin });
 
         if (!user) {
@@ -268,10 +309,10 @@ export const loginUser = async (req, res) => {
         }
 
         if (user.isArchived) {
-            return res.status(404).json({ message: 'This account is Archived, please contact Admin' });
+            return res.status(403).json({ message: 'This account is archived. Please contact admin.' });
         }
 
-        // Compare passwords
+        // Compare password with the stored hash
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ message: 'Invalid credentials.' });
@@ -279,37 +320,38 @@ export const loginUser = async (req, res) => {
 
         // Conditionally populate fields based on role
         if (user.role === 'teacher') {
-            await user.populate('teacher', '-__v'); // Populate teacher
-            user.student = undefined; // Remove student field
+            await user.populate('teacher', '-__v'); // Populate teacher details
         } else if (user.role === 'student') {
-            await user.populate('student', '-__v'); // Populate student
-            user.teacher = undefined; // Remove teacher field
+            await user.populate('student', '-__v'); // Populate student details
         }
 
-        // Generate JWT token with teacherId or studentId depending on the role
+        // Prepare payload
         const payload = {
             userId: user._id,
             cin: user.cin,
             role: user.role,
             email: user.email,
-        
         };
 
-        // Add teacher or student ID to the payload if not admin
+        // Add additional data to the payload based on user role
         if (user.role !== 'admin') {
-            payload.idRole = user.role === 'teacher' ? user.teacher._id : user.student._id;
+            const roleSpecificData = user.role === 'teacher' ? user.teacher : user.student;
+
+            payload.idRole = roleSpecificData._id;
+
             if (user.role === 'student') {
-                payload.isStillStudent = user.student.isGraduated === false;
-                payload.grade = user.student.grade;
+                payload.isStillStudent = roleSpecificData.isGraduated === false;
+                payload.grade = roleSpecificData.grade;
             }
         }
-        // console.log(payload);
+
+        // Generate JWT token with 24 hours expiration
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
 
         res.status(200).json({ message: 'Login successful.', token, user });
     } catch (error) {
         console.error('Error logging in user:', error.message);
-        res.status(500).json({ message: 'Server error while logging in.', error : error.message });
+        res.status(500).json({ message: 'Server error while logging in.', error: error.message });
     }
 };
 
@@ -368,19 +410,29 @@ export const toggleArchiveUser = (role = "admin") => async (req, res) => {
 // update password for users ('admin' or 'student' or 'teacher') customized based on 'role'=
 export const updatePassword = (role = "admin") => async (req, res) => {
     const { id } = req.params; // ID passed as a parameter
-    const { password } = req.body; // New password from the request body
+    const { newpassword, passwordConfirmation, sendCredsInMail = false } = req.body; // New password from the request body
 
     try {
         // Check if the password is provided
-        if (!password) {
+        if (!newpassword) {
             return res.status(400).json({ message: 'Password is required.' });
         }
+        if (!passwordConfirmation) {
+            return res.status(400).json({ message: 'Password must be confirmed.' });
+        }
+
 
         // Validate password length and complexity
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/; // At least 8 characters, 1 letter, and 1 number
-        if (!passwordRegex.test(password)) {
+        if (!passwordRegex.test(newpassword)) {
             return res.status(400).json({
                 message: 'Password must be at least 8 characters long and contain at least one letter and one number.',
+            });
+        }
+
+        if (passwordConfirmation !== newpassword) {
+            return res.status(400).json({
+                message: 'password not conform.',
             });
         }
         let user;
@@ -397,11 +449,14 @@ export const updatePassword = (role = "admin") => async (req, res) => {
         }
 
         // Hash the new password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(newpassword, 10);
 
         user.password = hashedPassword;
         await user.save();
-
+        // send updated creds in mail
+        if (sendCredsInMail) {
+            sendCreds(user.email, newpassword, true);
+        }
         // Respond with success message
         res.status(200).json({ message: 'Password updated successfully.' });
     } catch (error) {

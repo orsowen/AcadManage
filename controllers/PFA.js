@@ -12,8 +12,8 @@ dotenv.config();
 // Create multiple subjects
 export const createSubjects = async (req, res) => {
   try {
-    const { subjects } = req.body; // Expecting an array of subjects
-    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const { subjects } = req.body;
+    const teacherId = req.user.idRole;
 
     if (!Array.isArray(subjects)) {
       return res
@@ -29,7 +29,7 @@ export const createSubjects = async (req, res) => {
 
     const currentDate = new Date();
     const endDepositDate = new Date(depositPeriod.End_Deposit);
-    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+    endDepositDate.setHours(23, 59, 59, 999);
 
     if (
       currentDate < depositPeriod.Start_Deposit ||
@@ -97,7 +97,7 @@ export const createSubjects = async (req, res) => {
           description,
           binome,
           monome,
-          teacher: teacherId, // Use the teacher ID from the authenticated user
+          teacher: teacherId,
           technologies,
         };
       } else {
@@ -106,7 +106,7 @@ export const createSubjects = async (req, res) => {
           title,
           description,
           monome,
-          teacher: teacherId, // Use the teacher ID from the authenticated user
+          teacher: teacherId,
           technologies,
         };
       }
@@ -114,14 +114,12 @@ export const createSubjects = async (req, res) => {
       return new Subject_PFA(addedSubject);
     });
 
-    // Insérer les nouveaux sujets dans la base de données
     const insertedSubjects = await Subject_PFA.insertMany(newSubjects);
 
     // Mettre à jour les étudiants pour les affecter aux nouveaux sujets et créer des choix
     for (const subject of insertedSubjects) {
       const { binome, monome } = subject;
 
-      // Créer un choix pour le monome
       const monomeChoice = new Choice({
         student: monome,
         subject: subject._id,
@@ -131,13 +129,13 @@ export const createSubjects = async (req, res) => {
       if (monome) {
         await monomeChoice.save();
 
+
         // Mettre à jour le monome avec l'ID du choix
         await Student.findByIdAndUpdate(monome,{
           $push: { choices: monomeChoice._id },
         });
       }
       if (binome) {
-        // Créer un choix pour le binome
         const binomeChoice = new Choice({
           student: binome,
           subject: subject._id,
@@ -170,29 +168,26 @@ export const createSubjects = async (req, res) => {
 // Publish approved subjects and manage statuses
 export const publishSubjects = async (req, res) => {
   try {
-    // Vérifier si des sujets ont déjà été publiés
     const previouslyPublishedSubjects = await Subject_PFA.find({
       published: true,
     });
-    console.log("Previously published subjects:", previouslyPublishedSubjects);
-    // Publier les sujets approuvés
+
     const publishedSubjects = await Subject_PFA.updateMany(
+
       { status: "Approved" , isArchived: false},
       { $set: { published: true, hidden: false } } // Publier et rendre visible
     );
-    // Cacher les sujets rejeter
+
     const hiddenRejectedSubjects = await Subject_PFA.updateMany(
       { status: "Rejected" },
-      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
+      { $set: { hidden: true, published: false } }
     );
 
-    // Cacher les sujets en attente
     const hiddenPendingSubjects = await Subject_PFA.updateMany(
       { status: "Pending" },
-      { $set: { hidden: true, published: false } } // Rendre invisible et ne pas publier
+      { $set: { hidden: true, published: false } }
     );
 
-    // Ouvrir la période de choix pour les étudiants
     const choicePeriod = await DepositPeriod.findOneAndUpdate(
       { For: "PFA" },
       {
@@ -210,7 +205,6 @@ export const publishSubjects = async (req, res) => {
       message: "Subjects published and choice period opened successfully",
     });
 
-    // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
     if (previouslyPublishedSubjects.length === 0) {
       await firstSend();
     } else {
@@ -300,10 +294,12 @@ export const modifiedSend = async () => {
 // Get all subjects for Admin
 export const getSubjects = async (req, res) => {
   try {
+
     const subjects = await Subject_PFA.find({ isArchived: false })
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
       .populate("monome", "firstName lastName email") // Populate monome with specific fields
       .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
+
 
     res.status(200).json(subjects);
   } catch (error) {
@@ -314,7 +310,8 @@ export const getSubjects = async (req, res) => {
 // Get all subjects by the authenticated teacher
 export const getSubjectsByTeacher = async (req, res) => {
   try {
-    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole;
+
 
     const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
@@ -326,7 +323,6 @@ export const getSubjectsByTeacher = async (req, res) => {
         .json({ message: "No subjects found for this teacher" });
     }
 
-    // Remove the teacher field from the results
     const subjectsWithoutTeacher = subjects.map((subject) => {
       const { teacher, ...subjectWithoutTeacher } = subject.toObject();
       return subjectWithoutTeacher;
@@ -342,11 +338,13 @@ export const getSubjectsByTeacher = async (req, res) => {
 export const getSubjectByIdForTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole;
+
 
     const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId , isArchived: false})
       .populate("binome", "firstName lastName email") // Populate binome with specific fields
       .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
 
     if (!subject) {
       return res.status(404).json({
@@ -366,9 +364,9 @@ export const getSubjectById = async (req, res) => {
   try {
     const { id } = req.params;
     const subject = await Subject_PFA.findById(id)
-      .populate("binome", "firstName lastName email") // Populate binome with specific fields
-      .populate("monome", "firstName lastName email") // Populate monome with specific fields
-      .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
+      .populate("binome", "firstName lastName email")
+      .populate("monome", "firstName lastName email")
+      .populate("teacher", "firstName lastName email");
 
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
@@ -390,7 +388,7 @@ export const updateSubject = async (req, res) => {
 
     const currentDate = new Date();
     const endDepositDate = new Date(depositPeriod.End_Deposit);
-    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+    endDepositDate.setHours(23, 59, 59, 999);
 
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
@@ -404,7 +402,7 @@ export const updateSubject = async (req, res) => {
     }
 
     const { id } = req.params;
-    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole;
     const { binomeExits, title, description, binome, monome, technologies } =
       req.body;
 
@@ -419,6 +417,7 @@ export const updateSubject = async (req, res) => {
     };
 
     const subject = await Subject_PFA.findOneAndUpdate(
+
       { _id: id, teacher: teacherId , isArchived : false}, // Ensure the subject belongs to the authenticated teacher
       updatedSubject,
       { new: true }
@@ -431,7 +430,6 @@ export const updateSubject = async (req, res) => {
       });
     }
 
-    // Remove the teacher field from the results
     const { teacher, ...subjectWithoutTeacher } = subject.toObject();
 
     res.status(200).json(subjectWithoutTeacher);
@@ -450,7 +448,7 @@ export const deleteSubject = async (req, res) => {
     }
     const currentDate = new Date();
     const endDepositDate = new Date(depositPeriod.End_Deposit);
-    endDepositDate.setHours(23, 59, 59, 999); // Set the end deposit date to the end of the day
+    endDepositDate.setHours(23, 59, 59, 999);
 
     console.log("Current Date:", currentDate);
     console.log("Start Deposit:", depositPeriod.Start_Deposit);
@@ -464,12 +462,12 @@ export const deleteSubject = async (req, res) => {
     }
 
     const { id } = req.params;
-    const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
+    const teacherId = req.user.idRole;
 
     const subject = await Subject_PFA.findOneAndDelete({
       _id: id,
       teacher: teacherId,
-    }); // Ensure the subject belongs to the authenticated teacher
+    });
 
     if (!subject) {
       return res.status(404).json({
@@ -489,9 +487,9 @@ export const rejectSubject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Trouver le sujet et mettre à jour son statut
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
+
       { status: "Rejected" , isArchived: false},
       { new: true } // Retourner le document mis à jour
     );
@@ -511,9 +509,9 @@ export const approveSubject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Trouver le sujet et mettre à jour son statut
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
+
       { status: "Approved" , isArchived: false},  
       { new: true } // Retourner le document mis à jour
     );
@@ -530,27 +528,24 @@ export const approveSubject = async (req, res) => {
 //4.1 get subject by id teacher for student 
 export const PFASubjectsByTeacher = async (req, res) => {
   try {
-    // Récupérer l'ID de l'enseignant à partir des paramètres de l'URL
     const { teacherId } = req.params;
 
-    // Vérifier que l'ID est fourni
     if (!teacherId) {
       return res.status(400).json({ message: "Teacher ID is required." });
     }
+
 
     // Rechercher les sujets proposés par cet enseignant, triés par title
     const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
       .select("title description technologies") // Sélectionner uniquement les champs spécifiés
       .sort({ title: 1 }); // Trier par `title` (ordre croissant)// Trier par `title` (ordre croissant)
 
-    // Vérifier si des sujets ont été trouvés
     if (subjects.length === 0) {
       return res
         .status(404)
         .json({ message: "No subjects found for this teacher." });
     }
 
-    // Retourner les sujets trouvés
     res.status(200).json(subjects);
   } catch (error) {
     console.error("Error fetching subjects for teacher:", error);

@@ -1,15 +1,15 @@
 import express from "express";
 import {
-  // createUser,
-  createAdmin,
-  deleteUser,
-  getUserByCin,
-  getUserById,
-  loginUser,
-  toggleArchiveUser,
-  updatePassword,
-  updateUser,
-} from "../controllers/UserController.js";
+    createUser,
+    createAdmin,
+    deleteUser,
+    getUserByCin,
+    getUserById,
+    loginUser,
+    toggleArchiveUser,
+    updatePassword,
+    updateUser,
+} from '../controllers/UserController.js';
 import { isAdmin } from "../middlewares/authentication.js";
 
 const router = express.Router();
@@ -21,10 +21,10 @@ router.get("/:id", isAdmin, getUserById);
 router.get("/cin/:cin", isAdmin, getUserByCin);
 
 // create a new user
-// router.post('/register', isAdmin, createUser);
+router.post('/', isAdmin, createUser); 
 
 // create a new ADmin
-router.post("/register", isAdmin, createAdmin);
+router.post('/register', createAdmin);
 
 // Update user details
 router.patch("/:id", isAdmin, updateUser);

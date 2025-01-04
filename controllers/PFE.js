@@ -1,11 +1,34 @@
+import { populate } from 'dotenv';
 import DefensePFE from '../models/DefensePFE.js';
-import DepositPeriod from '../models/DepositPeriod.js';
 import PFE from '../models/PFE.js';
 import { sendMail } from './mailer.js';
+import Joi from 'joi';
 
+
+const PFEValidationSchema = Joi.object({
+    title: Joi.string().trim().required(),
+    documents: Joi.object({
+        ficheEval: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+        attestation: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+        rapport: Joi.string().trim().pattern(/\.(pdf|docx)$/i).required(),
+    }).required(),
+    StartDate: Joi.date().required(),
+    EndDate: Joi.date().required(),
+    Nom_societe: Joi.string().trim().required(),
+    teacher: Joi.string().trim().optional(),
+    topic: Joi.object({
+        title: Joi.string().trim().required(),
+        description: Joi.string().trim().required(),
+        techList: Joi.array().items(Joi.string().trim()).min(1).required(),
+    }).required(),
+});
 // create  PFE
-
 export const createPFE = async (req, res) => {
+    const { error } = PFEValidationSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ error: error.details[0].message });
+    }
+
     const { title, documents, StartDate, EndDate, Nom_societe, teacher, topic } = req.body;
 
     try {
@@ -19,25 +42,14 @@ export const createPFE = async (req, res) => {
 
         // Validate topic details
         if (!topic || !topic.title || !topic.description || !topic.techList) {
-            return res.status(400).json({ error: "Les détails du sujet (topicDetails) sont incomplets." });
+            return res.status(400).json({ error: "PFE details  are incomplet." });
         }
 
         // Validate document fields
         if (!documents || !documents.ficheEval || !documents.attestation || !documents.rapport) {
-            return res.status(400).json({ error: "Les docs du stage (documents) sont incomplets." });
+            return res.status(400).json({ error: "PFE documents are incomplets." });
         }
 
-        // Check if the current period allows PFE deposits
-        const currentPeriod = await DepositPeriod.findOne({
-            For: "PFE",
-            Start_Deposit: { $lte: new Date() },
-            End_Deposit: { $gte: new Date() }
-        });
-        if (!currentPeriod) {
-            return res.status(403).json({
-                error: "PFE topics can only be created during the deposit period."
-            });
-        }
 
         // Check if the student already has a PFE
         const existingPFE = await PFE.findOne({ student });
@@ -90,22 +102,15 @@ export const updatePFE = async (req, res) => {
     } = req.body;
 
     try {
-        // Check if the current date is within the deposit period for PFE topics
-
-        const currentPeriod = await DepositPeriod.findOne({
-            For: "PFE",
-            Start_Deposit: { $lte: new Date() },
-            End_Deposit: { $gte: new Date() }
-        });
-
-        if (!currentPeriod) {
-            return res.status(403).json({
-                error: "PFE topics can only be updated during the deposit period."
-            });
-        }
         if (new Date(StartDate) >= new Date(EndDate)) {
             return res.status(400).json({
                 error: "StartDate must be earlier than EndDate."
+            });
+        }
+        const archipfe = await PFE.find({ _id: id, isArchived: true });
+        if (archipfe) {
+            return res.status(400).json({
+                error: "this pfe cannot be update it"
             });
         }
         const updatedPFE = await PFE.findOneAndUpdate(
@@ -143,24 +148,25 @@ export const updatePFE = async (req, res) => {
 // List all PFE information
 export const ListAllPFEInfo = async (req, res) => {
     try {
-        // Fetch PFEs with populated student data and sort by StartDate descending
-        const pfes = await PFE.find()
+        const pfes = await PFE.find({ isArchived: false })
             .populate({
                 path: 'student',
                 populate: {
                     path: 'user',
-                    select: 'email', // Only fetch email from the User model
+                    select: 'email',
                 },
-            })// Populate all student fields
+            })
+            .populate({
+                path: 'Defense',
+                populate: {
+                    path: 'PFE',
+                    select: '_id',
+                },
+            })
             .sort({ StartDate: -1 });
-
-        // Fetch all defenses
-        const defenses = await DefensePFE.find();
 
         // Map PFEs to include required details
         const response = pfes.map((pfe) => {
-            const defense = defenses.find((d) => d.PFE.toString() === pfe._id.toString());
-
             return {
                 PFE: {
                     title: pfe.title,
@@ -175,7 +181,7 @@ export const ListAllPFEInfo = async (req, res) => {
                         ? {
                             firstName: pfe.student.firstName,
                             lastName: pfe.student.lastName,
-                            email: pfe.student.user.email,
+                            email: pfe.student.user?.email,
                             gender: pfe.student.gender,
                             governorate: pfe.student.governorate,
                             city: pfe.student.city,
@@ -185,10 +191,10 @@ export const ListAllPFEInfo = async (req, res) => {
                         : null,
                 },
                 Publisher: pfe.Publisher ? 'Published' : 'Hidden',
-                defense: defense
+                defense: pfe.Defense
                     ? {
-                        status: defense.Publisher ? 'Available' : 'Not Published',
-                        details: defense,
+                        status: pfe.Defense.Publisher ? 'Available' : 'Not Published',
+                        details: pfe.Defense,
                     }
                     : { status: 'Not Available', details: null },
             };
@@ -223,7 +229,11 @@ export const choosePFE = async (req, res) => {
                 error: "PFE not found."
             });
         }
-
+        if (pfe.isArchived) {
+            return res.status(404).json({
+                error: "PFE is already archived"
+            });
+        }
         if (pfe.teacher) {
             return res.status(400).json({
                 error: "This PFE is already assigned to another teacher."
@@ -251,7 +261,9 @@ export const validateAssignments = async (req, res) => {
     try {
         const { ids } = req.body;
 
+        // Find all PFEs with the given ids
         const pfes = await PFE.find({ _id: { $in: ids } });
+
         // Check if any PFE is missing
         if (pfes.length !== ids.length) {
             const missingIds = ids.filter(id => !pfes.some(pfe => pfe._id.toString() === id));
@@ -260,9 +272,19 @@ export const validateAssignments = async (req, res) => {
                 missingIds,
             });
         }
-        // Check for missing teacher assignments
-        const errors = pfes.filter(pfe => !pfe.teacher);
 
+        // Check if any PFE is archived
+        const archivedPfes = pfes.filter(pfe => pfe.isArchived === true);
+        if (archivedPfes.length > 0) {
+            const archivedIds = archivedPfes.map(pfe => pfe._id.toString());
+            return res.status(400).json({
+                error: 'Some PFEs are archived and cannot be assigned',
+                archivedIds,
+            });
+        }
+
+        // Check if any PFE is missing a teacher assignment
+        const errors = pfes.filter(pfe => !pfe.teacher);
         if (errors.length > 0) {
             return res.status(400).json({
                 error: 'Some PFEs are missing teacher assignments',
@@ -294,11 +316,14 @@ export const assignPFEToTeacher = async (req, res) => {
         if (!pfe) {
             return res.status(404).json({ error: "PFE not found." });
         }
-
+        if (pfe.isArchived) {
+            return res.status(404).json({
+                error: "PFE is already archived"
+            });
+        }
         // Check if the PFE is already assigned to a teacher
         if (pfe.teacher) {
             if (force) {
-                // If force is true, unassign from the current teacher and assign to the new teacher
                 pfe.teacher = teacherId;
                 await pfe.save();
                 return res.status(200).json({
@@ -306,14 +331,13 @@ export const assignPFEToTeacher = async (req, res) => {
                     PFE: pfe,
                 });
             } else {
-                // If force is false, return an error
                 return res.status(400).json({
                     error: "This PFE is already assigned to another teacher. Use force=true to reassign.",
                 });
             }
         }
 
-        // If not assigned, assign the PFE to the teacher
+        //assign the PFE to the teacher
         pfe.teacher = teacherId;
         await pfe.save();
 
@@ -331,22 +355,20 @@ export const assignPFEToTeacher = async (req, res) => {
 
 //Publish Or Hide PFE
 export const publishOrHidePFE = async (req, res) => {
-    const { response } = req.params; // Expected values: "publish" or "hide"
+    const { response } = req.params;
 
     try {
-        // Validate response parameter
         if (!["publish", "hide"].includes(response)) {
             return res.status(400).json({
                 error: "Invalid response. Expected 'publish' or 'hide'.",
             });
         }
 
-        // Determine the desired state
         const isPublished = response === "publish";
 
         // Update all PFEs to the desired state
         const updatedPFEs = await PFE.updateMany(
-            {},
+            { isArchived: false },
             { $set: { Publisher: isPublished } }
         );
 
@@ -376,20 +398,19 @@ export const publishOrHidePFE = async (req, res) => {
 // Function to send email and update emailStatus for all PFEs
 export const sendPlanningEmail = async (req, res) => {
     try {
-        // Get all PFEs that need to have an email sent
-        const pfes = await PFE.find({ emailStatus: { $in: ['none', 'first'] } })
+        const pfes = await PFE.find({ isArchived: false, isPublished: true })
             .populate({
-                path: 'student', // Populate the student field
+                path: 'student',
                 populate: {
-                    path: 'user', // Populate the user field inside student
-                    select: 'email firstName lastName' // Select email, firstName, and lastName from User
+                    path: 'user',
+                    select: 'email firstName lastName'
                 }
             })
             .populate({
-                path: 'teacher', // Populate the teacher field
+                path: 'teacher',
                 populate: {
-                    path: 'user', // Populate the user field inside teacher
-                    select: 'email firstName lastName' // Select email, firstName, and lastName from User
+                    path: 'user',
+                    select: 'email firstName lastName'
                 }
             });
 
@@ -399,66 +420,120 @@ export const sendPlanningEmail = async (req, res) => {
 
         // Loop through each PFE and send the email to both student and teacher
         for (let pfe of pfes) {
-            // Ensure the student field is populated with student data
             if (!pfe.student || !pfe.student.user || !pfe.student.user.email) {
                 console.warn(`No email found for student with ID ${pfe.student}`);
-                continue; // Skip this PFE if there's no student or email
+                continue;
             }
 
-            // Ensure the teacher field is populated with teacher data
             if (!pfe.teacher || !pfe.teacher.user || !pfe.teacher.user.email) {
                 console.warn(`No email found for teacher with ID ${pfe.teacher}`);
-                continue; // Skip this PFE if there's no teacher or email
+                continue;
             }
             let subject = '';
             let status = pfe.emailStatus;
             if (status === 'none') {
                 subject = 'Your Planning Link';
-                status = 'first'; // Update status to "first"
+                status = 'first';
             } else if (status === 'first') {
-                subject = 'Reminder: Your Planning Link';
-                status = 'second'; // Update status to "second"
+                subject = 'Your Planning Link Modified';
+                status = 'second';
             } else {
-                continue; // Skip sending email if already sent twice
+                subject = 'Your Planning Link Modified';
             }
-            const emailContent = `
-        <p>Dear ${pfe.student.firstName} ${pfe.student.lastName},</p>
-                <p>Your PFE details:</p>
-                <ul>
-                    <li>Title: ${pfe.title}</li>
-                    <li>Company: ${pfe.Nom_societe}</li>
-                    <li>Description: ${pfe.topic.description}</li>
-                    <li>Technologies: ${pfe.topic.techList.join(', ')}</li>
-                    <li>Start Date: ${pfe.StartDate.toDateString()}</li>
-                    <li>End Date: ${pfe.EndDate.toDateString()}</li>
-                    <li>Teacher: ${pfe.teacher
+            const studentEmailContent = `
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header img { float: left; height: 50px; margin-right: 15px; }
+        .content { padding: 20px; }
+        .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+        .content ul { padding-left: 20px; margin: 15px 0; }
+        .content ul li { margin-bottom: 10px; color: #333; }
+        .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+            <h1>PFE Details</h1>
+        </div>
+        <div class="content">
+            <p>Dear <strong>${pfe.student.firstName} ${pfe.student.lastName}</strong>,</p>
+            <p>Your PFE details:</p>
+            <ul>
+                <li><strong>Title:</strong> ${pfe.title}</li>
+                <li><strong>Company:</strong> ${pfe.Nom_societe}</li>
+                <li><strong>Description:</strong> ${pfe.topic.description}</li>
+                <li><strong>Technologies:</strong> ${pfe.topic.techList.join(', ')}</li>
+                <li><strong>Start Date:</strong> ${pfe.StartDate.toDateString()}</li>
+                <li><strong>End Date:</strong> ${pfe.EndDate.toDateString()}</li>
+                <li><strong>Teacher:</strong> ${pfe.teacher
                     ? `${pfe.teacher.firstName} ${pfe.teacher.lastName}`
-                    : '<strong>You still have no supervisor assigned.</strong>'
-                }</li>               
-                 </ul>
-                  ${status === 'none'
+                    : '<strong style="color: red;">You still have no supervisor assigned.</strong>'
+                }</li>
+            </ul>
+            ${status === 'none'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
-                <p>Best regards,<br>Admin Team</p>
-            `;
-            // Send email to the teacher
+            <p>Best regards,<br>Admin Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Isamm. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
             const teacherEmailContent = `
-        <p>Dear ${pfe.teacher.firstName} ${pfe.teacher.lastName},</p>
-                <p>You are assigned to supervise the following PFE:</p>
-                <ul>
-                    <li>Title: ${pfe.title}</li>
-                    <li>Company: ${pfe.Nom_societe}</li>
-                    <li>Assigned Student: ${pfe.student.firstName} ${pfe.student.lastName}</li>
-                </ul>
-    ${status === 'first'
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header img { float: left; height: 50px; margin-right: 15px; }
+        .content { padding: 20px; }
+        .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+        .content ul { padding-left: 20px; margin: 15px 0; }
+        .content ul li { margin-bottom: 10px; color: #333; }
+        .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+            <h1>PFE Supervision Details</h1>
+        </div>
+        <div class="content">
+            <p>Dear <strong>${pfe.teacher.firstName} ${pfe.teacher.lastName}</strong>,</p>
+            <p>You are assigned to supervise the following PFE:</p>
+            <ul>
+                <li><strong>Title:</strong> ${pfe.title}</li>
+                <li><strong>Company:</strong> ${pfe.Nom_societe}</li>
+                <li><strong>Assigned Student:</strong> ${pfe.student.firstName} ${pfe.student.lastName}</li>
+            </ul>
+            ${status === 'first'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
-                <p>Best regards,<br>Admin Team</p>
-            `;
-
-
+            <p>Best regards,<br>Admin Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Isamm. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
             // Send email to the student
             await sendMail(pfe.student.user.email, subject, emailContent);
             await sendMail(pfe.teacher.user.email, subject, teacherEmailContent);
@@ -480,6 +555,129 @@ export const sendPlanningEmail = async (req, res) => {
     }
 };
 
+export const getTeacherDefenses = async (req, res) => {
+    try {
+        const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
 
+        // Find defenses where the teacher is president, rapporteur, or the supervisor (Encadrent)
+        const defenses = await DefensePFE.find({
+            $or: [
+                { PresidentJury: teacherId },
+                { Rapporteur: teacherId },
+                { Encadrent: teacherId },
+            ],
+            isArchived: false,
+            isPublished: true,
+        })
+            .populate({
+                path: "PresidentJury",
+                select: "firstName lastName ",
+            })
+            .populate({
+                path: "Rapporteur",
+                select: "firstName lastName ",
+            })
+            .populate({
+                path: "Encadrent",
+                select: "firstName lastName ",
+            })
+            .populate({
+                path: "PFE",
+                populate: {
+                    path: "student",
+                    select: "firstName lastName",
+                    populate: {
+                        path: "user",
+                        select: "email"
+                    }
+                }
+            });
 
+        if (!defenses || defenses.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No defenses found for this teacher.",
+            });
+        }
 
+        // Map the defenses to include the teacher's role
+        const defensesWithRoles = defenses.map((defense) => {
+            let role = null;
+            if (defense.PresidentJury?._id.toString() === teacherId) {
+                role = "President";
+            } else if (defense.Rapporteur?._id.toString() === teacherId) {
+                role = "Rapporteur";
+            } else if (defense.Encadrent?._id.toString() === teacherId) {
+                role = "Encadrent";
+            }
+
+            return {
+                ...defense.toObject(),
+                teacherRole: role, // Add the teacher's role for this defense
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: defensesWithRoles,
+        });
+    } catch (error) {
+        console.error("Error fetching teacher defenses:", error);
+        res.status(500).json({
+            success: false,
+            message: "An error occurred while fetching defenses.",
+            error: error.message,
+        });
+    }
+};
+export const getStudentPFE = async (req, res) => {
+    try {
+        const student = req.user?.idRole;
+        const pfeData = await PFE.findOne({ student: student, isPublished: true })
+            .populate({
+                path: 'student',
+                select: 'lastName firstName',
+                populate: {
+                    path: 'user', // Populate the user field
+                    select: 'email' // Select the email field from the user model
+                }
+            }).populate({
+                path: 'Defense',
+                populate: [
+                    {
+                        path: 'PresidentJury',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    },
+                    {
+                        path: 'Rapporteur',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    },
+                    {
+                        path: 'Encadrent',
+                        select: 'firstName lastName', // Select only firstName and lastName
+                        populate: {
+                            path: 'user', // Populate the user field
+                            select: 'email' // Select the email field from the user model
+                        }
+                    }
+                ]
+            });
+
+        if (!pfeData) {
+            console.log('No PFE project found for the student.');
+            return;
+        }
+
+        console.log('PFE Data:', pfeData);
+    } catch (error) {
+        console.error("Error fetching PFE project:", error);
+    }
+};

@@ -14,6 +14,18 @@ const Subject_PFASchema = new Schema({
     type: String,
     required: true,
   },
+  anneYear: {
+    type: String,
+    default: function () {
+      // Automatically calculate the current academic year
+      const currentYear = new Date().getFullYear();
+      const month = new Date().getMonth();
+      // Academic year typically starts in September
+      return month >= 8
+        ? `${currentYear}-${currentYear + 1}`
+        : `${currentYear - 1}-${currentYear}`;
+    },
+  },
   monome: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Student",
@@ -25,7 +37,7 @@ const Subject_PFASchema = new Schema({
     default: null,
     required: function () {
       return this.binome;
-    }, // Required if binome is true
+    }, 
   },
   teacher: {
     type: mongoose.Schema.Types.ObjectId,
@@ -37,8 +49,8 @@ const Subject_PFASchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["Pending", "Approved", "Rejected"], // Liste des statuts possibles
-    default: "Pending", // Par défaut, le statut est "Pending"
+    enum: ["Pending", "Approved", "Rejected"], 
+    default: "Pending", 
   },
   hidden: {
     type: Boolean,
@@ -47,6 +59,7 @@ const Subject_PFASchema = new Schema({
   published: {
     type: Boolean,
     default: false,
+
   }, // Indique si le sujet est publié
   isArchived: {
     type: Boolean,
