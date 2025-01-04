@@ -108,7 +108,7 @@ export const updatePFE = async (req, res) => {
             });
         }
         const archipfe = await PFE.find({ _id: id, isArchived: true });
-        if (archipfe) {
+        if (archipfe.isArchived) {
             return res.status(400).json({
                 error: "this pfe cannot be update it"
             });
@@ -194,7 +194,6 @@ export const ListAllPFEInfo = async (req, res) => {
                 defense: pfe.Defense
                     ? {
                         status: pfe.Defense.Publisher ? 'Available' : 'Not Published',
-                        details: pfe.Defense,
                     }
                     : { status: 'Not Available', details: null },
             };
@@ -324,27 +323,26 @@ export const assignPFEToTeacher = async (req, res) => {
         // Check if the PFE is already assigned to a teacher
         if (pfe.teacher) {
             if (force) {
-                pfe.teacher = teacherId;
-                await pfe.save();
-                return res.status(200).json({
-                    message: "PFE successfully reassigned to the new teacher.",
-                    PFE: pfe,
-                });
+                if (pfe.teacher == teacherId) {
+                    return res.status(200).json({
+                        message: "PFE  assigned to this teacher already.",
+                    });
+                }
+                else {//assign the PFE to the teacher
+                    pfe.teacher = teacherId;
+                    await pfe.save();
+                    res.status(200).json({
+                        message: "PFE successfully assigned to the teacher.",
+                        PFE: pfe,
+                    });
+                }
             } else {
                 return res.status(400).json({
-                    error: "This PFE is already assigned to another teacher. Use force=true to reassign.",
+                    error: "This PFE is already assigned to  teacher. Use force=true to reassign.",
                 });
             }
         }
 
-        //assign the PFE to the teacher
-        pfe.teacher = teacherId;
-        await pfe.save();
-
-        res.status(200).json({
-            message: "PFE successfully assigned to the teacher.",
-            PFE: pfe,
-        });
     } catch (error) {
         res.status(500).json({
             error: "An error occurred while assigning the PFE.",
@@ -398,7 +396,7 @@ export const publishOrHidePFE = async (req, res) => {
 // Function to send email and update emailStatus for all PFEs
 export const sendPlanningEmail = async (req, res) => {
     try {
-        const pfes = await PFE.find({ isArchived: false, isPublished: true })
+        const pfes = await PFE.find({ isArchived: false, Publisher: true })
             .populate({
                 path: 'student',
                 populate: {
@@ -413,7 +411,6 @@ export const sendPlanningEmail = async (req, res) => {
                     select: 'email firstName lastName'
                 }
             });
-
         if (!pfes.length) {
             return res.status(404).json({ message: 'No PFEs to send emails to.' });
         }
@@ -534,9 +531,10 @@ export const sendPlanningEmail = async (req, res) => {
 </body>
 </html>
 `;
+
             // Send email to the student
-            await sendMail(pfe.student.user.email, subject, emailContent);
             await sendMail(pfe.teacher.user.email, subject, teacherEmailContent);
+            await sendMail(pfe.student.user.email, subject, studentEmailContent);
 
             // Update the PFE document with the new email status
             pfe.emailStatus = status;
@@ -547,7 +545,7 @@ export const sendPlanningEmail = async (req, res) => {
 
 
         return res.status(200).json({
-            message: `${pfes.length} emails sent successfully.`,
+            message: `${pfes.length}   PFE emails sent successfully.`,
         });
     } catch (error) {
         console.error(error);
@@ -558,7 +556,6 @@ export const sendPlanningEmail = async (req, res) => {
 export const getTeacherDefenses = async (req, res) => {
     try {
         const teacherId = req.user.idRole; // Extract teacher ID from authenticated user
-
         // Find defenses where the teacher is president, rapporteur, or the supervisor (Encadrent)
         const defenses = await DefensePFE.find({
             $or: [
@@ -567,19 +564,31 @@ export const getTeacherDefenses = async (req, res) => {
                 { Encadrent: teacherId },
             ],
             isArchived: false,
-            isPublished: true,
+            Publisher: true,
         })
             .populate({
                 path: "PresidentJury",
                 select: "firstName lastName ",
+                populate: {
+                    path: "user",
+                    select: "email"
+                }
             })
             .populate({
                 path: "Rapporteur",
                 select: "firstName lastName ",
+                populate: {
+                    path: "user",
+                    select: "email"
+                }
             })
             .populate({
                 path: "Encadrent",
                 select: "firstName lastName ",
+                populate: {
+                    path: "user",
+                    select: "email"
+                }
             })
             .populate({
                 path: "PFE",
@@ -633,51 +642,101 @@ export const getTeacherDefenses = async (req, res) => {
 export const getStudentPFE = async (req, res) => {
     try {
         const student = req.user?.idRole;
-        const pfeData = await PFE.findOne({ student: student, isPublished: true })
+        const pfeData = await PFE.findOne({ student: student, Publisher: true })
             .populate({
                 path: 'student',
                 select: 'lastName firstName',
                 populate: {
-                    path: 'user', // Populate the user field
-                    select: 'email' // Select the email field from the user model
+                    path: 'user',
+                    select: 'email'
                 }
-            }).populate({
+            })
+            .populate({
                 path: 'Defense',
                 populate: [
                     {
                         path: 'PresidentJury',
-                        select: 'firstName lastName', // Select only firstName and lastName
+                        select: 'firstName lastName',
                         populate: {
-                            path: 'user', // Populate the user field
-                            select: 'email' // Select the email field from the user model
+                            path: 'user',
+                            select: 'email'
                         }
                     },
                     {
                         path: 'Rapporteur',
-                        select: 'firstName lastName', // Select only firstName and lastName
+                        select: 'firstName lastName',
                         populate: {
-                            path: 'user', // Populate the user field
-                            select: 'email' // Select the email field from the user model
+                            path: 'user',
+                            select: 'email'
                         }
                     },
                     {
                         path: 'Encadrent',
-                        select: 'firstName lastName', // Select only firstName and lastName
+                        select: 'firstName lastName',
                         populate: {
-                            path: 'user', // Populate the user field
-                            select: 'email' // Select the email field from the user model
+                            path: 'user',
+                            select: 'email'
                         }
                     }
                 ]
+            })
+            .populate({
+                path: 'teacher',
+                select: 'firstName lastName',
+                populate: {
+                    path: 'user',
+                    select: 'email'
+                }
             });
 
         if (!pfeData) {
-            console.log('No PFE project found for the student.');
-            return;
+            return res.status(400).json({
+                success: false,
+                message: "No PFE project found for the student.",
+            });
         }
 
-        console.log('PFE Data:', pfeData);
+        // Remove unnecessary fields and all _id fields
+        const {
+            isAssigned, Publisher, isArchived, emailStatus,
+            anneYear, createdAt, updatedAt, __v,
+            documents: { _id: docId, ...documents },
+            topic: { _id: topicId, ...topic },
+            student: studentData, // Renaming destructured `student` to `studentData`
+            teacher: { _id: teacherId, user: { _id: teacherUserId, ...teacherUser }, ...teacher },
+            Defense: {
+                _id: defenseId,
+                Encadrent: { _id: encadrentId, user: { _id: encadrentUserId, ...encadrentUser }, ...Encadrent },
+                PresidentJury: { _id: presidentId, user: { _id: presidentUserId, ...presidentUser }, ...PresidentJury },
+                ...Defense
+            },
+            ...filteredData
+        } = pfeData.toObject();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...filteredData,
+                documents,
+                topic,
+                student: { ...studentData, user: studentData.user },
+                teacher: { ...teacher, user: teacherUser },
+                Defense: {
+                    ...Defense,
+                    Encadrent: { ...Encadrent, user: encadrentUser },
+                    PresidentJury: { ...PresidentJury, user: presidentUser },
+                },
+            },
+        });
     } catch (error) {
-        console.error("Error fetching PFE project:", error);
+        res.status(500).json({
+            success: false,
+            message: "An error occurred while fetching defenses.",
+            error: error.message,
+        });
     }
 };
+
+
+
+

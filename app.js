@@ -5,7 +5,7 @@ import schedule from 'node-schedule';
 import dbConnection from "./dbConfig/dbConnection.js";
 import router from "./routes/index.js";
 import { notifyAboutDepositDeadline } from './utils/LateNotifReminder.js';
-
+import { swaggerSpec, swaggerUi } from './swagger/config.js'; // Import Swagger config
 // ENVIRONMENT variables configuration
 dotenv.config();
 
@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 8800;
 app.use(cors());
 app.use(express.json());
 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // Set up Swagger UI at /api-docs
 
 // All the endpoints below are in index.js for a better ordering and structure
 app.use(router);
