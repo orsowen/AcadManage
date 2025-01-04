@@ -42,5 +42,5 @@ const DefensePFESchema = new Schema({
 }, { timestamps: true }); // Automatically add createdAt and updatedAt fields
 
 // Create and export the SoutenancePFe model
-const DefensePFE = mongoose.model('DefensePFE', DefensePFESchema);
+const DefensePFE = mongoose.model('DefensePFE', DefensePFESchema, 'Defense_PFES');
 export default DefensePFE;
