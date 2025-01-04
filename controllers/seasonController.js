@@ -6,7 +6,6 @@ import DefensePFE from "../models/DefensePFE.js";
 import DefenseInternship from "../models/PlanningStage.js";
 import DefensePFA from "../models/SoutenancePFA.js";
 import User from "../models/User.js";
-import { archiveInternshipsByYear } from "./internshipController.js";
 import { sendMail } from './mailer.js';
 
 
