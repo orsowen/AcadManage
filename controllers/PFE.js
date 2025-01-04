@@ -23,7 +23,6 @@ const PFEValidationSchema = Joi.object({
     }).required(),
 });
 // create  PFE
-
 export const createPFE = async (req, res) => {
     const { error } = PFEValidationSchema.validate(req.body);
     if (error) {
@@ -416,44 +415,100 @@ export const sendPlanningEmail = async (req, res) => {
             } else {
                 continue; // Skip sending email if already sent twice
             }
-            const emailContent = `
-        <p>Dear ${pfe.student.firstName} ${pfe.student.lastName},</p>
-                <p>Your PFE details:</p>
-                <ul>
-                    <li>Title: ${pfe.title}</li>
-                    <li>Company: ${pfe.Nom_societe}</li>
-                    <li>Description: ${pfe.topic.description}</li>
-                    <li>Technologies: ${pfe.topic.techList.join(', ')}</li>
-                    <li>Start Date: ${pfe.StartDate.toDateString()}</li>
-                    <li>End Date: ${pfe.EndDate.toDateString()}</li>
-                    <li>Teacher: ${pfe.teacher
+            const studentEmailContent = `
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header img { float: left; height: 50px; margin-right: 15px; }
+        .content { padding: 20px; }
+        .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+        .content ul { padding-left: 20px; margin: 15px 0; }
+        .content ul li { margin-bottom: 10px; color: #333; }
+        .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+            <h1>PFE Details</h1>
+        </div>
+        <div class="content">
+            <p>Dear <strong>${pfe.student.firstName} ${pfe.student.lastName}</strong>,</p>
+            <p>Your PFE details:</p>
+            <ul>
+                <li><strong>Title:</strong> ${pfe.title}</li>
+                <li><strong>Company:</strong> ${pfe.Nom_societe}</li>
+                <li><strong>Description:</strong> ${pfe.topic.description}</li>
+                <li><strong>Technologies:</strong> ${pfe.topic.techList.join(', ')}</li>
+                <li><strong>Start Date:</strong> ${pfe.StartDate.toDateString()}</li>
+                <li><strong>End Date:</strong> ${pfe.EndDate.toDateString()}</li>
+                <li><strong>Teacher:</strong> ${pfe.teacher
                     ? `${pfe.teacher.firstName} ${pfe.teacher.lastName}`
-                    : '<strong>You still have no supervisor assigned.</strong>'
-                }</li>               
-                 </ul>
-                  ${status === 'none'
+                    : '<strong style="color: red;">You still have no supervisor assigned.</strong>'
+                }</li>
+            </ul>
+            ${status === 'none'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
-                <p>Best regards,<br>Admin Team</p>
-            `;
-            // Send email to the teacher
+            <p>Best regards,<br>Admin Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Isamm. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
             const teacherEmailContent = `
-        <p>Dear ${pfe.teacher.firstName} ${pfe.teacher.lastName},</p>
-                <p>You are assigned to supervise the following PFE:</p>
-                <ul>
-                    <li>Title: ${pfe.title}</li>
-                    <li>Company: ${pfe.Nom_societe}</li>
-                    <li>Assigned Student: ${pfe.student.firstName} ${pfe.student.lastName}</li>
-                </ul>
-    ${status === 'first'
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+        .email-container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: rgb(32, 30, 129); color: white; text-align: center; padding: 20px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header img { float: left; height: 50px; margin-right: 15px; }
+        .content { padding: 20px; }
+        .content p { margin: 0 0 15px; line-height: 1.6; color: #555; }
+        .content ul { padding-left: 20px; margin: 15px 0; }
+        .content ul li { margin-bottom: 10px; color: #333; }
+        .footer { background-color: #f2f2f2; color: #777; text-align: center; padding: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://isa2m.rnu.tn/assets/img/logo-dark.png" alt="Logo">
+            <h1>PFE Supervision Details</h1>
+        </div>
+        <div class="content">
+            <p>Dear <strong>${pfe.teacher.firstName} ${pfe.teacher.lastName}</strong>,</p>
+            <p>You are assigned to supervise the following PFE:</p>
+            <ul>
+                <li><strong>Title:</strong> ${pfe.title}</li>
+                <li><strong>Company:</strong> ${pfe.Nom_societe}</li>
+                <li><strong>Assigned Student:</strong> ${pfe.student.firstName} ${pfe.student.lastName}</li>
+            </ul>
+            ${status === 'first'
                     ? '<p>This is the first time you are receiving these details. Please verify the information.</p>'
                     : '<p>This email includes updated information about your PFE.</p>'
                 }
-                <p>Best regards,<br>Admin Team</p>
-            `;
-
-
+            <p>Best regards,<br>Admin Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Isamm. All Rights Reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
             // Send email to the student
             await sendMail(pfe.student.user.email, subject, emailContent);
             await sendMail(pfe.teacher.user.email, subject, teacherEmailContent);

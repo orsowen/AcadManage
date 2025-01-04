@@ -1,8 +1,7 @@
-// controllers/internship.controller.js
-
 import Internship from '../models/Internship.js';
 import Student from '../models/Student.js';
 import Teacher from '../models/Teachers.js';
+import { archivePlanningStages } from './PlanningStageController.js';
 
 const validateFiles = (documents) => {
     const fileValidation = /\.(pdf|docx)$/i; // Regular expression for validating .pdf or .docx files
@@ -830,5 +829,39 @@ export const getInternshipByStudentForPV = async (req, res) => {
             message: 'Une erreur est survenue lors de la récupération des stages.',
             error: error.message,
         });
+    }
+};
+
+export const archiveInternshipsByYear = (annee = "2024-2025", archivePlanning = true) => async (req, res) => {
+    let response = {};
+    try {
+        // Perform bulk update
+        const result = await Internship.updateMany(
+            { anneYear: annee },
+            { $set: { isArchived: true } }
+        );
+        response.message = `Updated ${result.modifiedCount} internship(s) for year ${annee}.`;
+        response.result = result;
+
+        if (archivePlanning) {
+            const internships = await Internship.find({ anneYear: annee });
+            // Extract the IDs of the internships
+            const internshipIds = internships.map((internship) => internship._id);
+            console.log(internshipIds);
+
+            // Perform bulk update
+            const resultPlanning = await archivePlanningStages(internshipIds);
+
+            // Return the result of the update operation
+            response.message2 = `Archived ${resultPlanning.modifiedCount} planning stage(s) for the provided internships.`;
+            response.resultPlanning = resultPlanning;
+        }
+        // Return the result of the update operation
+        console.log(response);
+        // return  response;
+        return res.status(200).json({ response });
+    } catch (error) {
+        console.error('Error archiving internships:', error.message);
+        throw new Error(`Failed to archive internships for year ${annee}: ${error.message}`);
     }
 };

@@ -1,22 +1,20 @@
-import Student from "../models/Student.js"
-import Internship from "../models/Internship.js"
-import PFE from "../models/PFE.js"
-import PFA from "../models/Subject_PFA.js"
-import Teachers from "../models/Teachers.js";
-import {sendCreds } from "./UserController.js";
-import { sendMail } from './mailer.js';
+import PFE from "../models/PFE.js";
+import Student from "../models/Student.js";
+import PFA from "../models/Subject_PFA.js";
 import User from "../models/User.js";
+import { archiveInternshipsByYear } from "./internshipController.js";
+import { sendMail } from './mailer.js';
 
 
 export async function sendNotification(email) {
-    if (!email) {
-        console.warn("Email address is required to send credentials.");
-        return;
-    }
+  if (!email) {
+    console.warn("Email address is required to send credentials.");
+    return;
+  }
 
-    const subject = "Rappel de mettre à jour vos info";
+  const subject = "Rappel de mettre à jour vos info";
 
-    const message = `
+  const message = `
         <p>Bonjour,</p>
         <p>Nous espérons que vous allez bien. En tant qu'ancien(ne) diplômé(e) de l'ISAMM, nous vous contactons pour vous rappeler de mettre à jour vos informations personnelles dans notre base de données. </p>
         <p>Nous vous rappelons qu'il est important de mettre à jour vos informations personnelles afin de garantir la bonne gestion de votre compte et de continuer à bénéficier de nos services sans interruption.</p>
@@ -25,12 +23,12 @@ export async function sendNotification(email) {
         <p>L'équipe de gestion.</p>
     `;
 
-    try {
-        await sendMail(email, subject, message);
-        console.log(`notification sent to ${email}`);
-    } catch (error) {
-        console.error(`Failed to send notification email to ${email}:`, error);
-    }
+  try {
+    await sendMail(email, subject, message);
+    console.log(`notification sent to ${email}`);
+  } catch (error) {
+    console.error(`Failed to send notification email to ${email}:`, error);
+  }
 }
 
 export const updateGraduationdByID = async (req, res) => {
@@ -40,8 +38,8 @@ export const updateGraduationdByID = async (req, res) => {
     let savedstatus;
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-    const nextYear = currentDate.getMonth() < 8 ? currentYear : currentYear+1;
-    const academicYear = `${nextYear-1}-${nextYear}`;
+    const nextYear = currentDate.getMonth() < 8 ? currentYear : currentYear + 1;
+    const academicYear = `${nextYear - 1}-${nextYear}`;
 
     // Find the student by ID
     const student = await Student.findById(id);
@@ -49,20 +47,19 @@ export const updateGraduationdByID = async (req, res) => {
       return res.status(404).json({ message: "Student not found." });
     }
 
-    if (student.isGraduated){
+    if (student.isGraduated) {
       return res.status(404).json({ message: "the Student is already graduated" });
     }
 
     // Validate input
     const validstatuss = ["Success", "Failure", "Pending"];
     if (!status || !validstatuss.includes(status)) {
-      return res.status(400).json({message: 'Invalid status. Use "Success", "Failure", "Pending". the first character must be uppercase'});
+      return res.status(400).json({ message: 'Invalid status. Use "Success", "Failure", "Pending". the first character must be uppercase' });
     }
 
     // Update the student status
-    student.academicHistory.forEach(entry => { 
-      if (entry.year === academicYear)
-      {
+    student.academicHistory.forEach(entry => {
+      if (entry.year === academicYear) {
         entry.status = status;
         savedstatus = entry.status
       }
@@ -95,6 +92,7 @@ export const addNewAcademicYear = async (req, res) => {
     const currentYear = currentDate.getFullYear();
     const nextYear = currentDate.getMonth() >= 8 ? currentYear + 1 : currentYear;
     const academicYear = `${nextYear - 1}-${nextYear}`
+    const oldAcademicYear = `${nextYear - 2}-${nextYear - 1}`
 
     // get all students
     const students = await Student.find(); // Retrieve all students
@@ -110,8 +108,8 @@ export const addNewAcademicYear = async (req, res) => {
 
       // Add the new year to the academicHistory
       student.academicHistory.push({
-          year : academicYear,
-          status: 'Pending', // Default status
+        year: academicYear,
+        status: 'Pending', // Default status
       });
 
       // Save the student
