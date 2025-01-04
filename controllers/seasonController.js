@@ -1,10 +1,10 @@
 import PFE from "../models/PFE.js";
-import Student from "../models/Student.js";
 import PFA from "../models/Subject_PFA.js";
 import Internship from "../models/Internship.js";
+import PlanningStage from "../models/PlanningStage.js";
 import DefensePFE from "../models/DefensePFE.js";
-import DefenseInternship from "../models/PlanningStage.js";
 import DefensePFA from "../models/SoutenancePFA.js";
+import Student from "../models/Student.js";
 import User from "../models/User.js";
 import { sendMail } from './mailer.js';
 
@@ -37,7 +37,7 @@ export async function sendNotification(email) {
 export const updateGraduationdByID = async (req, res) => {
   try {
     const { id } = req.params; // Extract the student ID from URL params
-    const { status } = req.body; // Extract the new status from the request body
+    const { status , isGraduated} = req.body; // Extract the new status from the request body
     let savedstatus;
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
@@ -60,6 +60,7 @@ export const updateGraduationdByID = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status. Use "Success", "Failure", "Pending". the first character must be uppercase' });
     }
 
+    student.is
     // Update the student status
     student.academicHistory.forEach(entry => {
       if (entry.year === academicYear) {
@@ -124,99 +125,71 @@ export const addNewAcademicYear = async (req, res) => {
       });
   }
 
+
+  //============================PFE ==============================
+  const pfesToUpdate = await PFE.find({isArchived : false, isValid : true });
     // update all pfes
-    const pfes = await PFE.updateMany(
+  const pfes = await PFE.updateMany(
       {isArchived : false, isValid : true },
       {$set: {isArchived : true}}
     ) 
-    
-    // update all pfas
-    const pfas = await PFA.updateMany(
-      {isArchived : false, status : "Approved" },
-      {$set: {isArchived : true}}
-    )
-    
-    // update all internships
-    const internships = await Internship.updateMany(
-      {isArchived : false, isValid : true },
-      {$set: {isArchived : true}}
-    )
-
     // Check if the PFE update was successful
-    if (pfes.modifiedCount > 0) {
-      // For each PFE that was updated, update the corresponding DefensePFE
-      for (let pfe of pfes) {
-        const defenseId = pfe.Defense;
-        if (defenseId) {
-          const defenseUpdate = await DefensePFE.updateOne(
-            { _id: defenseId },
-            { $set: { isArchived: true } }
-          );
-          console.log(`Updated DefensePFE with ID ${defenseId}:`, defenseUpdate);
-        }
-        else
-        {
-          console.warn(`DefensePFE with ID ${defenseId} not found`);
-          continue
-        }
-      }
+  if (pfes.modifiedCount > 0) {
+      const updatedIds = pfesToUpdate.map(pfe => pfe._id);
+      await DefensePFE.updateMany(
+          { isArchived: false, Defense: { $in: updatedIds } }, // On utilise ici les IDs récupérés
+          { $set: { isArchived: true } }
+      );
       console.log('All related DefensePFE documents have been updated.');
     } else {
       console.warn('No PFE documents were updated, so no need to update DefensePFE.');
     }
 
+  //============================PFA ==============================
+  const pfasToUpdate = await PFA.find({ isArchived: false, status: "Approved" });
+    // update all pfas
+  const pfas = await PFA.updateMany(
+      {isArchived : false, status : "Approved" },
+      {$set: {isArchived : true}}
+    )
     // Check if the PFA update was successful
-    if (pfas.modifiedCount > 0) {
-      // For each PFA that was updated, update the corresponding DefensePFE
-      for (let pfa of pfas) {
-        const defenseId = pfa.Defense;
-        if (defenseId) {
-          const defenseUpdate = await DefensePFA.updateOne(
-            { _id: defenseId },
-            { $set: { isArchived: true } }
-          );
-          console.log(`Updated DefensePFA with ID ${defenseId}:`, defenseUpdate);
-        }
-        else
-        {
-          console.warn(`DefensePFA with ID ${defenseId} not found`);
-          continue
-        }
-      }
+  if (pfas.modifiedCount > 0) {
+    const updatedIds = pfasToUpdate.map((pfa) => pfa._id);
+    await DefensePFA.updateMany(
+          { isArchived: false, subject: { $in: updatedIds } }, // On utilise ici les IDs récupérés
+          { $set: { isArchived: true } }
+    );
       console.log('All related DefensePFA documents have been updated.');
     } else {
       console.warn('No PFA documents were updated, so no need to update DefensePFA.');
     }
-
+    
+    //============================Intership ==============================
+    const internshipsToUpdate = await Internship.find({isArchived : false, isValid : true});
+    // update all internships
+    const internships = await Internship.updateMany(
+      {isArchived : false, isValid : true },
+      {$set: {isArchived : true}}
+    )
     // Check if the Internship update was successful
     if (internships.modifiedCount > 0) {
-      // For each Internship that was updated, update the corresponding DefenseInternship
-      for (let internship of internships) {
-        const defenseId = internship.Defense;
-        if (defenseId) {
-          const defenseUpdate = await DefenseInternship.updateOne(
-            { _id: defenseId },
+      const updatedIds = internshipsToUpdate.map((internship) => internship._id);
+      await PlanningStage.updateMany(
+            { internship: { $in: updatedIds }  , isArchived: false },
             { $set: { isArchived: true } }
           );
-          console.log(`Updated DefenseInternship with ID ${defenseId}:`, defenseUpdate);
-        }
-        else
-        {
-          console.warn(`DefenseInternship with ID ${defenseId} not found`);
-          continue
-        }
-      }
       console.log('All related DefenseInternship documents have been updated.');
     } else {
       console.warn('No Internship documents were updated, so no need to update DefenseInternship.');
     }
 
     res.status(200).json({
-        message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
-        updatedStudents,
-        pfes,
-        pfas,
-        internships
+      message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
+      updatedStudents,
+      pfesToUpdate,
+      pfasToUpdate,
+      internshipsToUpdate,
+      
     });
 
 } catch (error) {
@@ -262,46 +235,46 @@ export const NotifiGraduatedStudent = async (req, res) => {
 export const getInternshipsByYear = async (req, res) => {
   const { Year, archiveOf } = req.query;
   try {
-      console.log("year: "+Year+" archiveof: "+archiveOf)
-      let archiveByYear
-      const archiveDefense =[]
-      // Perform bulk update
-      switch (archiveOf){
-        case "intership" :  archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); break;
-        case "pfe" : archiveByYear = await PFE.find({ anneYear: Year , isArchived : true }); break;
-        case "pfa" : archiveByYear = await PFA.find({ anneYear: Year , isArchived : true }); break;
-        case "defensePFE" : 
-        archiveByYear = await PFE.find({ anneYear: Year , isArchived : true });
-        for (let pfe of archiveByYear) { 
+    console.log("year: " + Year + " archiveof: " + archiveOf)
+    let archiveByYear
+    const archiveDefense = []
+    // Perform bulk update
+    switch (archiveOf) {
+      case "intership": archiveByYear = await Internship.find({ anneYear: Year, isArchived: true }); break;
+      case "pfe": archiveByYear = await PFE.find({ anneYear: Year, isArchived: true }); break;
+      case "pfa": archiveByYear = await PFA.find({ anneYear: Year, isArchived: true }); break;
+      case "defensePFE":
+        archiveByYear = await PFE.find({ anneYear: Year, isArchived: true });
+        for (let pfe of archiveByYear) {
           const defense = await DefensePFE.find({ PFE: pfe._id });
           archiveDefense.push(defense);
         }
         break;
-        case "defensePFA" : archiveByYear = await DefensePFA.find({ anneYear: Year , isArchived : true }); break;
-        case "defenseInternship" : 
-        archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); 
-        for (let internship of archiveByYear) { 
-          const defense = await DefenseInternship.find({ internship: internship._id });
+      case "defensePFA": archiveByYear = await DefensePFA.find({ anneYear: Year, isArchived: true }); break;
+      case "planningStage":
+        archiveByYear = await Internship.find({ anneYear: Year, isArchived: true });
+        for (let internship of archiveByYear) {
+          const defense = await PlanningStage.find({ internship: internship._id });
           archiveDefense.push(defense);
         }
         break;
-        default: return res.status(400).json({ message: "Invalid 'archiveOf' parameter." });
-      }
-      
-      // Handle the case where no internships are found
-      if (!archiveByYear || archiveByYear.length === 0) {
-        return res.status(404).json({ message: "no archive found" });
-      }
-    
-      // Return the result of the update operation
-      archiveDefense.length > 0? console.log(archiveByYear) : console.log(archiveDefense);
+      default: return res.status(400).json({ message: "Invalid 'archiveOf' parameter." });
+    }
 
-      // Respond with the fetched archives and related data
-      res.status(200).json({
-        message: 'List of archived objects',
-        total: archiveByYear.length,
-        archiveByYear: archiveDefense.length > 0 ? archiveDefense : archiveByYear, // Include defense archives if available
-      });
+    // Handle the case where no internships are found
+    if (!archiveByYear || archiveByYear.length === 0) {
+      return res.status(404).json({ message: "no archive found" });
+    }
+
+    // Return the result of the update operation
+    archiveDefense.length > 0 ? console.log(archiveByYear) : console.log(archiveDefense);
+
+    // Respond with the fetched archives and related data
+    res.status(200).json({
+      message: 'List of archived objects',
+      total: archiveByYear.length,
+      archiveByYear: archiveDefense.length > 0 ? archiveDefense : archiveByYear, // Include defense archives if available
+    });
   } catch (error) {
     console.error('Error retrieving archived data:', error.message);
     return res.status(500).json({

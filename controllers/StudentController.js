@@ -5,7 +5,7 @@ import CV from "../models/CV.js";
 import Student from "../models/Student.js";
 import User from "../models/User.js";
 import { generateRandomPassword, sendCreds } from "./UserController.js";
-
+import { sendNotification } from "./seasonController.js";
 // Create a new student
 export const createStudent = async (req, res) => {
   const {
@@ -386,8 +386,8 @@ export const createCV = async (req, res) => {
       return res.status(404).json({ message: "Student not found." });
     }
 
-    const existingCV = await CV.findById(studentId);
-    if (!existingCV) {
+    const existingCV = await CV.findById(student.cv);
+    if (existingCV) {
       return res.status(404).json({ message: "Student have already a cv." });
     }
 
@@ -566,7 +566,10 @@ export const getCvByID = async (req, res) => {
       return res.status(404).json({ message: "Student don't have cv" });
     }
 
-    res.status(200).json({ model: cv, message: "success" });
+    res.status(200).json({ 
+      model: cv, 
+      academicHistory: student.academicHistory,
+      message: "success" });
   } catch (error) {
     console.error("Error fetching students:", error.message);
     res.status(500).json({ error: "Failed to fetch student details." });
@@ -875,10 +878,7 @@ export const updateStudentProfile = async (req, res) => {
     // Check for duplicate email if it is being updated
     if (email && email !== user.email) {
       const existingUserWithEmail = await User.findOne({ email });
-      if (
-        existingUserWithEmail &&
-        existingUserWithEmail._id.toString() !== userId
-      ) {
+      if (existingUserWithEmail &&  existingUserWithEmail._id.toString() !== userId) {
         return res.status(400).json({
           error: "The provided email is already in use by another user.",
         });
@@ -887,7 +887,7 @@ export const updateStudentProfile = async (req, res) => {
 
     // Check for duplicate phone if it is being updated
     if (phone && phone !== user.phone) {
-      const existingUserWithPhone = await User.findOne({ phone });
+      const existingUserWithPhone = await User.findOne({ phone : phone });
       if (
         existingUserWithPhone &&
         existingUserWithPhone._id.toString() !== userId
@@ -918,8 +918,8 @@ export const updateStudentProfile = async (req, res) => {
     if (address) student.city = address.trim();
 
     // Update user details if provided
-    if (phone) user.phone = phone.trim();
-    if (email) user.email = email.trim();
+    if (phone) user.phone = phone;
+    if (email) user.email = email;
 
     // Save updates concurrently
     await Promise.all([student.save(), user.save()]);
@@ -962,5 +962,39 @@ export const updateStudentProfile = async (req, res) => {
       error: "An unexpected error occurred while updating student profile.",
       details: error.message,
     });
+  }
+};
+
+export const NotifiGraduatedStudent = async (req, res) => {
+  try {
+
+    // get all students
+    const students = await Student.find(); // Retrieve all students
+    const notifiedtudents = [];
+
+    for (const student of students) {
+      const user = await User.findById(student.user);
+      if (!student.isGraduated) {
+        //console.warn(`Student ${student._id} is not graduated.`)
+        continue
+      }
+
+      sendNotification(user.email);
+      console.warn(`send email to student ${student._id}.`)
+
+      notifiedtudents.push({
+        id: student._id,
+        name: `${student.firstName} ${student.lastName}`,
+        email: user.email
+      });
+
+      res.status(200).json({
+        message: "notifications send successfully.",
+        student: notifiedtudents,
+      })
+  }
+  } catch(error) {
+    console.error('Error sendng notification :', error.message);
+    res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
   }
 };
