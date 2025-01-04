@@ -547,7 +547,7 @@ export const sendPlanningEmail = async (req, res) => {
 
 
         return res.status(200).json({
-            message: `${pfes.length} emails sent successfully.`,
+            message: `${pfes.length}   PFE emails sent successfully.`,
         });
     } catch (error) {
         console.error(error);
