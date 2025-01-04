@@ -12,7 +12,6 @@ const checkForOverlap = async (salle, date, heure, enseignantId, id) => {
         Date: date,
         Heure: heure,
     });
-
     if (overlapSalle) {
         throw new Error('The room is already booked for this date and time.');
     }
@@ -52,7 +51,9 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
         if (!pfe) {
             return res.status(404).json({ message: "PFE not found." });
         }
-
+        if (pfe.isArchived == true) {
+            return res.status(404).json({ message: "PFE is not availble for this year." });
+        }
         // Check if the teacher exists (if `enseignantId` is provided)
         if (enseignantId) {
             const enseignant = await Teacher.findById(enseignantId);
@@ -62,12 +63,14 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
         }
         // Find or create the `DefensePFE` for this PFE
         let defensePFE = await DefensePFE.findOne({ PFE: id });
-        if (defensePFE.isArchived === true) {
-            return res.status(400).json({
-                message: "This Pfe  is for previous years",
-            });
-        }
+
         if (defensePFE) {
+            if (defensePFE.isArchived) {
+                return res.status(400).json({
+                    message: "This Pfe  is for previous years",
+                });
+            }
+
             checkForOverlap(salle, date, heure, enseignantId, defensePFE._id);
             if (
                 (defensePFE.PresidentJury && defensePFE.PresidentJury.toString() === enseignantId) ||
@@ -104,9 +107,10 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                 Date: date,
                 Heure: heure,
                 Publisher: false,
+                isArchived: false,
                 PresidentJury: type === "president" ? enseignantId : undefined,
                 Rapporteur: type === "rapporteur" ? enseignantId : undefined,
-                Encadrent: pfe.teacher?._id, // Automatically assign the PFE's teacher as Encadrent
+                Encadrent: pfe.teacher?._id,
             });
         }
 
@@ -192,7 +196,7 @@ export const sendDefensePlanningEmail = async (req, res) => {
             });
 
         if (!defensePFEs.length) {
-            return res.status(404).json({ message: 'No DefensePFE sessions to send emails to.' });
+            return res.status(404).json({ message: 'No Defense PFE sessions to send emails to.' });
         }
 
         // Loop through each DefensePFE and send the email to both student and teacher
