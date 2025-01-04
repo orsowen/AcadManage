@@ -1,12 +1,11 @@
+import DefensePFE from "../models/DefensePFE.js";
+import Internship from "../models/Internship.js";
 import PFE from "../models/PFE.js";
+import PlanningStage from "../models/PlanningStage.js";
+import DefensePFA from "../models/SoutenancePFA.js";
 import Student from "../models/Student.js";
 import PFA from "../models/Subject_PFA.js";
-import Internship from "../models/Internship.js";
-import DefensePFE from "../models/DefensePFE.js";
-import DefenseInternship from "../models/PlanningStage.js";
-import DefensePFA from "../models/SoutenancePFA.js";
 import User from "../models/User.js";
-import { archiveInternshipsByYear } from "./internshipController.js";
 import { sendMail } from './mailer.js';
 
 
@@ -105,8 +104,8 @@ export const addNewAcademicYear = async (req, res) => {
     for (const student of students) {
       // Check if the year already exists in the academicHistory
       const yearExists = student.academicHistory.some(entry => (entry.year === academicYear));
-      if (yearExists || student.isGraduated ) {
-        yearExists? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`):console.warn(`Student ${student._id} already graduated. Skipping.`);
+      if (yearExists || student.isGraduated) {
+        yearExists ? console.warn(`Year ${academicYear} already exists for student ${student._id}. Skipping.`) : console.warn(`Student ${student._id} already graduated. Skipping.`);
         continue;
       }
 
@@ -119,28 +118,32 @@ export const addNewAcademicYear = async (req, res) => {
       // Save the student
       await student.save();
       updatedStudents.push({
-          id: student._id,
-          name: `${student.firstName} ${student.lastName}`,
-          updatedAcademicHistory: student.academicHistory,
+        id: student._id,
+        name: `${student.firstName} ${student.lastName}`,
+        updatedAcademicHistory: student.academicHistory,
       });
-  }
+    }
 
     // update all pfes
     const pfes = await PFE.updateMany(
-      {isArchived : false, isValid : true },
-      {$set: {isArchived : true}}
-    ) 
-    
+      { isArchived: false, isValid: true },
+      { $set: { isArchived: true } }
+    )
+
     // update all pfas
     const pfas = await PFA.updateMany(
-      {isArchived : false, status : "Approved" },
-      {$set: {isArchived : true}}
+      { isArchived: false, status: "Approved" },
+      { $set: { isArchived: true } }
     )
-    
-    // update all internships
+
+    // update all internships & related planning stages
+    const internshipsObj = await Internship.find({ isArchived: false, isValid: true, anneYear: oldAcademicYear });
+    // Extract the IDs of the internships
+    const internshipIds = internships.map((internshipsObj) => internshipsObj._id);
+    console.log(internshipIds);
     const internships = await Internship.updateMany(
-      {isArchived : false, isValid : true },
-      {$set: {isArchived : true}}
+      { _id: { $in: internshipIds } },
+      { $set: { isArchived: true } }
     )
 
     // Check if the PFE update was successful
@@ -155,8 +158,7 @@ export const addNewAcademicYear = async (req, res) => {
           );
           console.log(`Updated DefensePFE with ID ${defenseId}:`, defenseUpdate);
         }
-        else
-        {
+        else {
           console.warn(`DefensePFE with ID ${defenseId} not found`);
           continue
         }
@@ -178,8 +180,7 @@ export const addNewAcademicYear = async (req, res) => {
           );
           console.log(`Updated DefensePFA with ID ${defenseId}:`, defenseUpdate);
         }
-        else
-        {
+        else {
           console.warn(`DefensePFA with ID ${defenseId} not found`);
           continue
         }
@@ -192,38 +193,27 @@ export const addNewAcademicYear = async (req, res) => {
     // Check if the Internship update was successful
     if (internships.modifiedCount > 0) {
       // For each Internship that was updated, update the corresponding DefenseInternship
-      for (let internship of internships) {
-        const defenseId = internship.Defense;
-        if (defenseId) {
-          const defenseUpdate = await DefenseInternship.updateOne(
-            { _id: defenseId },
-            { $set: { isArchived: true } }
-          );
-          console.log(`Updated DefenseInternship with ID ${defenseId}:`, defenseUpdate);
-        }
-        else
-        {
-          console.warn(`DefenseInternship with ID ${defenseId} not found`);
-          continue
-        }
-      }
-      console.log('All related DefenseInternship documents have been updated.');
+      const planningStageUpdate = await PlanningStage.updateMany(
+        { internship: { $in: internshipIds }, isArchived: false },
+        { $set: { isArchived: true } }
+      );
+      console.log('All related planningStage documents have been updated.');
     } else {
-      console.warn('No Internship documents were updated, so no need to update DefenseInternship.');
+      console.warn('No Internship documents were updated, so no need to update planningStage.');
     }
 
     res.status(200).json({
-        message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
-        updatedStudents,
-        pfes,
-        pfas,
-        internships
+      message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
+      updatedStudents,
+      pfes,
+      pfas,
+      internships
     });
 
-} catch (error) {
+  } catch (error) {
     console.error('Error adding academic year:', error.message);
     res.status(500).json({ message: 'Server error while updating academic history.', error: error.message });
-}
+  }
 };
 
 export const NotifiGraduatedStudent = async (req, res) => {
@@ -253,8 +243,8 @@ export const NotifiGraduatedStudent = async (req, res) => {
         message: "notifications send successfully.",
         student: notifiedtudents,
       })
-  }
-  } catch(error) {
+    }
+  } catch (error) {
     console.error('Error sendng notification :', error.message);
     res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
   }
@@ -263,46 +253,46 @@ export const NotifiGraduatedStudent = async (req, res) => {
 export const getInternshipsByYear = async (req, res) => {
   const { Year, archiveOf } = req.query;
   try {
-      console.log("year: "+Year+" archiveof: "+archiveOf)
-      let archiveByYear
-      const archiveDefense =[]
-      // Perform bulk update
-      switch (archiveOf){
-        case "intership" :  archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); break;
-        case "pfe" : archiveByYear = await PFE.find({ anneYear: Year , isArchived : true }); break;
-        case "pfa" : archiveByYear = await PFA.find({ anneYear: Year , isArchived : true }); break;
-        case "defensePFE" : 
-        archiveByYear = await PFE.find({ anneYear: Year , isArchived : true });
-        for (let pfe of archiveByYear) { 
+    console.log("year: " + Year + " archiveof: " + archiveOf)
+    let archiveByYear
+    const archiveDefense = []
+    // Perform bulk update
+    switch (archiveOf) {
+      case "intership": archiveByYear = await Internship.find({ anneYear: Year, isArchived: true }); break;
+      case "pfe": archiveByYear = await PFE.find({ anneYear: Year, isArchived: true }); break;
+      case "pfa": archiveByYear = await PFA.find({ anneYear: Year, isArchived: true }); break;
+      case "defensePFE":
+        archiveByYear = await PFE.find({ anneYear: Year, isArchived: true });
+        for (let pfe of archiveByYear) {
           const defense = await DefensePFE.find({ PFE: pfe._id });
           archiveDefense.push(defense);
         }
         break;
-        case "defensePFA" : archiveByYear = await DefensePFA.find({ anneYear: Year , isArchived : true }); break;
-        case "defenseInternship" : 
-        archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); 
-        for (let internship of archiveByYear) { 
-          const defense = await DefenseInternship.find({ internship: internship._id });
+      case "defensePFA": archiveByYear = await DefensePFA.find({ anneYear: Year, isArchived: true }); break;
+      case "planningStage":
+        archiveByYear = await Internship.find({ anneYear: Year, isArchived: true });
+        for (let internship of archiveByYear) {
+          const defense = await PlanningStage.find({ internship: internship._id });
           archiveDefense.push(defense);
         }
         break;
-        default: return res.status(400).json({ message: "Invalid 'archiveOf' parameter." });
-      }
-      
-      // Handle the case where no internships are found
-      if (!archiveByYear || archiveByYear.length === 0) {
-        return res.status(404).json({ message: "no archive found" });
-      }
-    
-      // Return the result of the update operation
-      archiveDefense.length > 0? console.log(archiveByYear) : console.log(archiveDefense);
+      default: return res.status(400).json({ message: "Invalid 'archiveOf' parameter." });
+    }
 
-      // Respond with the fetched archives and related data
-      res.status(200).json({
-        message: 'List of archived objects',
-        total: archiveByYear.length,
-        archiveByYear: archiveDefense.length > 0 ? archiveDefense : archiveByYear, // Include defense archives if available
-      });
+    // Handle the case where no internships are found
+    if (!archiveByYear || archiveByYear.length === 0) {
+      return res.status(404).json({ message: "no archive found" });
+    }
+
+    // Return the result of the update operation
+    archiveDefense.length > 0 ? console.log(archiveByYear) : console.log(archiveDefense);
+
+    // Respond with the fetched archives and related data
+    res.status(200).json({
+      message: 'List of archived objects',
+      total: archiveByYear.length,
+      archiveByYear: archiveDefense.length > 0 ? archiveDefense : archiveByYear, // Include defense archives if available
+    });
   } catch (error) {
     console.error('Error retrieving archived data:', error.message);
     return res.status(500).json({
