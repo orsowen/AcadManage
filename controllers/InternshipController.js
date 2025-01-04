@@ -126,7 +126,8 @@ export const getAllInternships = async (req, res) => {
         studentId,
         teacherId,
         day,
-        nomSociete
+        nomSociete,
+        ascending,
     } = req.query;
 
     // Convert page and limit to integers and ensure valid values
@@ -150,7 +151,7 @@ export const getAllInternships = async (req, res) => {
                 select: 'firstName lastName',
                 populate: {
                     path: 'user',
-                    select: 'email', // Populate the user's email linked to the student
+                    select: 'email cin',
                 },
             })
             .populate({
@@ -158,13 +159,14 @@ export const getAllInternships = async (req, res) => {
                 select: 'firstName lastName',
                 populate: {
                     path: 'user',
-                    select: 'email', // Populate the user's email linked to the teacher
+                    select: 'email cin',
                 },
             })
             .populate({
                 path: 'planning', // Populate the planningStage details (assuming a reference exists in the Internship model)
                 select: 'horaire day meet_link isPublished sendStatus', // Select the relevant fields from the planning stage
             })
+            .sort({ createdAt: ascending ? 1 : -1 })
             .skip((currentPage - 1) * currentLimit) // Skip results based on the page number
             .limit(currentLimit) // Limit the results to the specified number
             .exec();
@@ -196,7 +198,7 @@ export const getInternshipById = async (req, res) => {
                 select: 'firstName lastName',
                 populate: {
                     path: 'user',
-                    select: 'email', // Populate the user's email linked to the student
+                    select: 'email cin',
                 },
             })
             .populate({
@@ -204,7 +206,7 @@ export const getInternshipById = async (req, res) => {
                 select: 'firstName lastName',
                 populate: {
                     path: 'user',
-                    select: 'email', // Populate the user's email linked to the teacher
+                    select: 'email cin',
                 },
             })
             .populate({
@@ -362,11 +364,6 @@ export const addTeacherToInternship = async (req, res) => {
         const teacher = await Teacher.findById(teacherId);
         if (!teacher) {
             return res.status(404).json({ message: 'Teacher not found.' });
-        }
-
-        // Check if the teacher has space to take more internships
-        if (teacher.subjectCount <= teacher.assignedInternships.length) {
-            return res.status(400).json({ message: 'Teacher assignment is full.' });
         }
 
         // Initialize arrays to keep track of success and failure
@@ -589,6 +586,7 @@ export const getAssignedInternships = async (req, res) => {
                 path: "planning", // Populate
                 select: "horaire day meet_link",
             })
+            .sort({ createdAt: -1 })
             .select("-teacher")  // Exclude the teacher field from the result
             .skip((currentPage - 1) * currentLimit) // Skip results for pagination
             .limit(currentLimit) // Limit the results per page
@@ -724,7 +722,7 @@ export const getInternshipByStudentToken = async (req, res) => {
     try {
         // Fetch internships assigned to the student with pagination
         const internships = await Internship.find(filter)
-            .select('-student -isArchived -isValid -reasonIfNotValid') // Exclude  from
+            .select('-student -isArchived -isValid -reasonIfNotValid -createdAt -updatedAt -__v') // Exclude  from
             .populate({
                 path: 'teacher',
                 select: 'firstName lastName', // Populate teacher's first name and last name
@@ -737,6 +735,7 @@ export const getInternshipByStudentToken = async (req, res) => {
                 path: "planning", // Populate
                 select: "horaire day meet_link",
             })
+            .sort({ createdAt: -1 })
             .skip((currentPage - 1) * currentLimit) // Skip the appropriate number of results based on the page
             .limit(currentLimit) // Limit the number of results to the specified limit
             .exec();
@@ -790,7 +789,8 @@ export const getInternshipByStudentForPV = async (req, res) => {
     try {
         // Fetch internships with pagination and populate relevant fields
         const internships = await Internship.find(filter)
-            .select('title typeInternship nomSociete teacher anneYear isValid reasonIfNotValid createdAt StartDate EndDate')
+            .select('title typeInternship nomSociete teacher anneYear isValid reasonIfNotValid createdAt')
+            .select('-__v -topic')
             .skip((currentPage - 1) * currentLimit)
             .limit(currentLimit)
             .populate({
@@ -806,7 +806,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
 
         // If no internships are found, return a 404 response
         if (!internships.length) {
-            return res.status(404).json({ message: 'Aucun stage trouvé pour cet étudiant.' });
+            return res.status(404).json({ message: 'Aucun PV trouvé pour cet étudiant.' });
         }
 
         // Fetch the total count of internships to calculate pagination info
