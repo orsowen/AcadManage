@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
@@ -14,8 +15,8 @@ const ChoiceSchema = new Schema({
   },
   priority: {
     type: Number,
-    required: true,
-    enum: [1, 2, 3], 
+    required:false,
+    enum: [1, 2, 3], // Priorité 1, 2 ou 3
   },
   binome: {
     type: Schema.Types.ObjectId,
@@ -27,8 +28,19 @@ const ChoiceSchema = new Schema({
     default: false,
     required: false,
   },
+  valid: {
+    type: Boolean,
+    default: false,
+    required: false,
+  },
+  isAffectationVisible:
+  {
+    type: Boolean,
+    default: false,
+    required: false,
+  },
+  isFirstPublication: { type: Boolean, default: true }
 });
-
 const Choice = mongoose.model("Choice", ChoiceSchema);
 
 export default Choice;

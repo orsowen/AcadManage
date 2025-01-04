@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import Teacher from "../models/Teachers.js";
 import Choice from "../models/Choice.js";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 // Create multiple subjects
@@ -49,14 +50,14 @@ export const createSubjects = async (req, res) => {
           });
         }
 
-        const monomeAssigned = await Subject_PFA.exists({
-          $or: [{ monome }, { binome: monome }],
-        });
-        if (monomeAssigned) {
-          return res.status(400).json({
-            message: `Monome student with ID ${monome} is already assigned to another published subject`,
-          });
-        }
+        // const monomeAssigned = await Subject_PFA.exists({
+        //   $or: [{ monome }, { binome: monome }],
+        // });
+        // if (monomeAssigned) {
+        //   return res.status(400).json({
+        //     message: `Monome student with ID ${monome} is already assigned to another published subject`,
+        //   });
+        // }
       }
       if (binomeExits && binome == undefined && monome !== undefined) {
         return res.status(400).json({
@@ -72,15 +73,15 @@ export const createSubjects = async (req, res) => {
             message: `Binome student with ID ${binome} does not exist`,
           });
         }
-        const binomeAssigned = await Subject_PFA.exists({
-          $or: [{ binome }, { monome: binome }],
-        });
+        // const binomeAssigned = await Subject_PFA.exists({
+        //   $or: [{ binome }, { monome: binome }],
+        // });
 
-        if (binomeAssigned) {
-          return res.status(400).json({
-            message: `Binome student with ID ${binome} is already assigned to another published subject`,
-          });
-        }
+        // if (binomeAssigned) {
+        //   return res.status(400).json({
+        //     message: `Binome student with ID ${binome} is already assigned to another published subject`,
+        //   });
+        // }
       }
     }
 
@@ -122,39 +123,37 @@ export const createSubjects = async (req, res) => {
       const monomeChoice = new Choice({
         student: monome,
         subject: subject._id,
-        priority: 1,
         binome: binome || null,
         teacherAcceptance: true,
       });
       if (monome) {
-        await Choice.deleteMany({ student: monome });
         await monomeChoice.save();
 
-        await Student.findByIdAndUpdate(monome, {
-          choices: monomeChoice._id,
+
+        // Mettre à jour le monome avec l'ID du choix
+        await Student.findByIdAndUpdate(monome,{
+          $push: { choices: monomeChoice._id },
         });
       }
       if (binome) {
         const binomeChoice = new Choice({
           student: binome,
           subject: subject._id,
-          priority: 1,
           binome: monome,
           teacherAcceptance: true,
         });
-        await Choice.deleteMany({ student: binome });
-        await Choice.deleteMany({ student: monome });
+  
 
         await binomeChoice.save();
 
         // Mettre à jour le binome avec l'ID du choix
-        await Student.findByIdAndUpdate(binome, {
-          choices: binomeChoice._id,
+        await Student.findByIdAndUpdate(binome,  {
+          $push: { choices: binomeChoice._id },
         });
       }
     }
 
-    res.status(201).json({ message: "Sujets créés avec succès" });
+    res.status(201).json({ message: "Sujets créés avec succès" , insertedSubjects});
   } catch (error) {
     console.error("Error inserting subjects:", error);
     if (error.message.includes("binome is required when binomeExits is true")) {
@@ -174,8 +173,9 @@ export const publishSubjects = async (req, res) => {
     });
 
     const publishedSubjects = await Subject_PFA.updateMany(
-      { status: "Approved" },
-      { $set: { published: true, hidden: false } }
+
+      { status: "Approved" , isArchived: false},
+      { $set: { published: true, hidden: false } } // Publier et rendre visible
     );
 
     const hiddenRejectedSubjects = await Subject_PFA.updateMany(
@@ -290,13 +290,16 @@ export const modifiedSend = async () => {
   }
 };
 
+
 // Get all subjects for Admin
 export const getSubjects = async (req, res) => {
   try {
-    const subjects = await Subject_PFA.find()
-      .populate("binome", "firstName lastName email")
-      .populate("monome", "firstName lastName email")
-      .populate("teacher", "firstName lastName email");
+
+    const subjects = await Subject_PFA.find({ isArchived: false })
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email") // Populate monome with specific fields
+      .populate("teacher", "firstName lastName email"); // Populate teacher with specific fields
+
 
     res.status(200).json(subjects);
   } catch (error) {
@@ -309,9 +312,10 @@ export const getSubjectsByTeacher = async (req, res) => {
   try {
     const teacherId = req.user.idRole;
 
-    const subjects = await Subject_PFA.find({ teacher: teacherId })
-      .populate("binome", "firstName lastName email")
-      .populate("monome", "firstName lastName email");
+
+    const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
 
     if (!subjects || subjects.length === 0) {
       return res
@@ -336,9 +340,11 @@ export const getSubjectByIdForTeacher = async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user.idRole;
 
-    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId })
-      .populate("binome", "firstName lastName email")
-      .populate("monome", "firstName lastName email");
+
+    const subject = await Subject_PFA.findOne({ _id: id, teacher: teacherId , isArchived: false})
+      .populate("binome", "firstName lastName email") // Populate binome with specific fields
+      .populate("monome", "firstName lastName email"); // Populate monome with specific fields
+
 
     if (!subject) {
       return res.status(404).json({
@@ -411,7 +417,8 @@ export const updateSubject = async (req, res) => {
     };
 
     const subject = await Subject_PFA.findOneAndUpdate(
-      { _id: id, teacher: teacherId },
+
+      { _id: id, teacher: teacherId , isArchived : false}, // Ensure the subject belongs to the authenticated teacher
       updatedSubject,
       { new: true }
     );
@@ -482,8 +489,9 @@ export const rejectSubject = async (req, res) => {
 
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
-      { status: "Rejected" },
-      { new: true }
+
+      { status: "Rejected" , isArchived: false},
+      { new: true } // Retourner le document mis à jour
     );
 
     if (!subject) {
@@ -503,8 +511,9 @@ export const approveSubject = async (req, res) => {
 
     const subject = await Subject_PFA.findByIdAndUpdate(
       id,
-      { status: "Approved" },
-      { new: true }
+
+      { status: "Approved" , isArchived: false},  
+      { new: true } // Retourner le document mis à jour
     );
 
     if (!subject) {
@@ -516,8 +525,7 @@ export const approveSubject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-// Lister les sujets triés par enseignant avec pagination
+//4.1 get subject by id teacher for student 
 export const PFASubjectsByTeacher = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -526,9 +534,11 @@ export const PFASubjectsByTeacher = async (req, res) => {
       return res.status(400).json({ message: "Teacher ID is required." });
     }
 
-    const subjects = await Subject_PFA.find({ teacher: teacherId })
-      .select("title description technologies")
-      .sort({ title: 1 });
+
+    // Rechercher les sujets proposés par cet enseignant, triés par title
+    const subjects = await Subject_PFA.find({ teacher: teacherId , isArchived: false})
+      .select("title description technologies") // Sélectionner uniquement les champs spécifiés
+      .sort({ title: 1 }); // Trier par `title` (ordre croissant)// Trier par `title` (ordre croissant)
 
     if (subjects.length === 0) {
       return res
@@ -542,3 +552,81 @@ export const PFASubjectsByTeacher = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// //8.1
+// export const generateSoutenances = async (req, res) => {
+//   try {
+//     const { days, rooms } = req.body; // Liste des jours et salles disponibles
+
+//     if (!days || !rooms || days.length === 0 || rooms.length === 0) {
+//       return res.status(400).json({
+//         message: "Veuillez fournir des jours et des salles disponibles.",
+//       });
+//     }
+
+//     const subjects = await Subject_PFA.find({ status: "Approved" })
+//       .populate("teacher", "firstName lastName")
+//       .exec();
+
+//     if (subjects.length === 0) {
+//       return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
+//     }
+
+//     const teachers = await Teacher.find().exec();
+
+//     let soutenances = [];
+//     let currentDayIndex = 0;
+//     let currentRoomIndex = 0;
+//     let currentHour = 9; // Début à 9h00
+
+//     for (const subject of subjects) {
+//       // Déterminer la date et la salle
+//       const date = days[currentDayIndex];
+//       const room = rooms[currentRoomIndex];
+
+//       // Ajouter une soutenance
+//       const startTime = `${currentHour}:00`;
+//       const endTime = `${currentHour + 0.5}:00`;
+
+//       // Trouver un rapporteur différent de l'encadrant
+//       const rapporteur = teachers.find(
+//         (teacher) => teacher._id.toString() !== subject.teacher._id.toString()
+//       );
+
+//       if (!rapporteur) {
+//         return res
+//           .status(500)
+//           .json({ message: "Impossible de trouver un rapporteur." });
+//       }
+
+//       soutenances.push({
+//         subject: subject._id,
+//         date,
+//         startTime,
+//         endTime,
+//         room,
+//         teacher: subject.teacher._id,
+//         rapporteur: rapporteur._id,
+//       });
+
+//       // Mettre à jour les indices pour jour, salle et heure
+//       currentHour += 0.5; // Ajouter 30 minutes
+//       if (currentHour >= 15) {
+//         // Fin de journée à 15h
+//         currentHour = 9; // Revenir à 9h le jour suivant
+//         currentRoomIndex = (currentRoomIndex + 1) % rooms.length; // Changer de salle
+//         currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
+//       }
+//     }
+
+//     // Sauvegarder les soutenances
+//     await SoutenancePFA.insertMany(soutenances);
+
+//     res
+//       .status(201)
+//       .json({ message: "Soutenances générées avec succès.", soutenances });
+//   } catch (error) {
+//     console.error("Erreur lors de la génération des soutenances :", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };

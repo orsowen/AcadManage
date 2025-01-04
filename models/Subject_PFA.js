@@ -59,7 +59,12 @@ const Subject_PFASchema = new Schema({
   published: {
     type: Boolean,
     default: false,
-  }, 
+
+  }, // Indique si le sujet est publié
+  isArchived: {
+    type: Boolean,
+    default: false,
+  }, // Indique si le sujet est archivé
 });
 
 const Subject_PFA = mongoose.model("Subject_PFA", Subject_PFASchema);
