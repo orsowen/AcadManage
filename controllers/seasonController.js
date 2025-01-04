@@ -1,6 +1,7 @@
 import PFE from "../models/PFE.js";
 import Student from "../models/Student.js";
 import PFA from "../models/Subject_PFA.js";
+import Internship from "../models/Internship.js";
 import DefensePFE from "../models/DefensePFE.js";
 import DefenseInternship from "../models/PlanningStage.js";
 import User from "../models/User.js";
@@ -258,10 +259,64 @@ export const NotifiGraduatedStudent = async (req, res) => {
   }
 };
 
-export const GetArchivedsubject = async(req,res) =>{
-  try{
+export const getInternshipsByYear = (Year = "2024-2025",archiveOf) => async (req, res) => {
 
-  }catch(error){
-    
+  try {
+      let archiveByYear
+      const archiveDefense =[]
+      // Perform bulk update
+      switch (archiveOf){
+        case "intership" :  archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); break;
+        case "pfe" : archiveByYear = await PFE.find({ anneYear: Year , isArchived : true }); break;
+        case "pfa" : archiveByYear = await PFA.find({ anneYear: Year , isArchived : true }); break;
+        case "defensePFE" : 
+        archiveByYear = await PFE.find({ anneYear: Year , isArchived : true });
+        if (archiveByYear.length > 0) {
+          // For each PFE that was updated, update the corresponding DefensePFE
+          for (let pfe of archiveByYear) {
+            const defenseId = pfe.Defense;
+            if (defenseId) {
+              archiveDefense.push(await DefensePFE.find({ _id: defenseId }))
+            }
+            else{
+              console.warn(`DefensePFE with ID ${defenseId} not found`); continue
+            }
+          }
+        }
+        break;
+        //case "defensePFA" : archiveByYear = await DefensePFA.find({ anneYear: Year , isArchived : true }); break;
+        case "defenseInternship" : archiveByYear = await DefenseInternship.find({ anneYear: Year , isArchived : true }); 
+        if (archiveByYear.length > 0) {
+          // For each PFE that was updated, update the corresponding DefensePFE
+          for (let pfe of archiveByYear) {
+            const defenseId = pfe.Defense;
+            if (defenseId) {
+              archiveDefense.push(await DefensePFE.find({ _id: defenseId }))
+            }
+            else{
+              console.warn(`DefensePFE with ID ${defenseId} not found`); continue
+            }
+          }
+        }
+        break;
+      }
+      
+      // Handle the case where no internships are found
+      if (!archiveByYear) {
+        return res.status(404).json({ message: "no archive found" });
+    }
+      // Return the result of the update operation
+      console.log(archiveByYear);
+
+      // Respond with the fetched internships and pagination data
+      res.status(200).json({
+        message: 'List of archived object',
+        
+        total: archiveByYear.length,
+        archiveByYear,
+    });
+  } catch (error) {
+      console.error('Error archiving internships:', error.message);
+      throw new Error(`Failed to archive internships for year ${Year}: ${error.message}`);
   }
-}
+};
