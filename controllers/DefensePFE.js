@@ -4,21 +4,27 @@ import Teacher from '../models/Teachers.js'; // Import the Teacher model
 import { sendMail } from './mailer.js';
 
 // Function to check for overlaps
-const checkForOverlap = async (salle, date, heure, enseignantId, id) => {
-    // Check if the room is already booked at the same date and time, excluding the current defense
-    const overlapSalle = await DefensePFE.findOne({
-        _id: { $ne: id }, // Exclude the current defense by ID
+const checkForOverlap = async (salle, date, heure, enseignantId, id = null) => {
+    // Common query filters
+    const baseFilters = {
         Salle: salle,
         Date: date,
         Heure: heure,
-    });
+    };
+
+    // Add exclusion for the current defense if `id` is provided
+    if (id) {
+        baseFilters._id = { $ne: id };
+    }
+
+    // Check if the room is already booked at the same date and time
+    const overlapSalle = await DefensePFE.findOne(baseFilters);
     if (overlapSalle) {
         throw new Error('The room is already booked for this date and time.');
     }
 
-    // Check if the teacher is already assigned to a defense at the same date and time, excluding the current defense
-    const overlapEnseignant = await DefensePFE.findOne({
-        _id: { $ne: id }, // Exclude the current defense by ID
+    // Filters for teacher overlap
+    const teacherFilters = {
         $or: [
             { PresidentJury: enseignantId },
             { Rapporteur: enseignantId },
@@ -26,12 +32,20 @@ const checkForOverlap = async (salle, date, heure, enseignantId, id) => {
         ],
         Date: date,
         Heure: heure,
-    });
+    };
 
+    // Add exclusion for the current defense if `id` is provided
+    if (id) {
+        teacherFilters._id = { $ne: id };
+    }
+
+    // Check if the teacher is already assigned to a defense at the same date and time
+    const overlapEnseignant = await DefensePFE.findOne(teacherFilters);
     if (overlapEnseignant) {
-        throw new Error(`The teacher is already assigned at this date and time.`);
+        throw new Error('The teacher is already assigned at this date and time.');
     }
 };
+
 
 
 // Controller to assign or update a teacher's role in a DefensePFE
@@ -63,6 +77,7 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
         }
         // Find or create the `DefensePFE` for this PFE
         let defensePFE = await DefensePFE.findOne({ PFE: id });
+        let message = ""
 
         if (defensePFE) {
             if (defensePFE.isArchived) {
@@ -81,22 +96,26 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                     message: "This teacher is already assigned to a different role for this defense.",
                 });
             }
-            // Update the teacher's role in the existing `DefensePFE`
-            if (type === "President") {
-                defensePFE.PresidentJury = enseignantId;
-            } else if (type === "Rapporteur") {
-                defensePFE.Rapporteur = enseignantId;
-            } else if (type === "Encadrent") {
-                defensePFE.Encadrent = enseignantId;
-            } else {
-                return res.status(400).json({
-                    message: `Error: Invalid role type '${type}'`,
-                });
+            if (type) {
+                // Update the teacher's role in the existing `DefensePFE`
+                if (type === "President") {
+                    defensePFE.PresidentJury = enseignantId;
+                } else if (type === "Rapporteur") {
+                    defensePFE.Rapporteur = enseignantId;
+                } else if (type === "Encadrent") {
+                    defensePFE.Encadrent = enseignantId;
+                } else {
+                    return res.status(400).json({
+                        message: `Error: Invalid role type '${type}'`,
+                    });
+                }
+                message = `teacher as role type '${type}'and`;
             }
             // Update general fields
             defensePFE.Salle = salle;
             defensePFE.Date = date;
             defensePFE.Heure = heure;
+            message = message + " modified Defense";
         } else {
             checkForOverlap(salle, date, heure, enseignantId);
 
@@ -112,6 +131,7 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
                 Rapporteur: type === "rapporteur" ? enseignantId : undefined,
                 Encadrent: pfe.teacher?._id,
             });
+            message = "created succesfuly";
         }
 
         // Save the DefensePFE document
@@ -122,7 +142,7 @@ export const CreateOrUpdateDefensePFE = async (req, res) => {
         await pfe.save();
 
         res.status(200).json({
-            message: `Teacher assigned as ${type} successfully.`,
+            message: message,
             defensePFE,
         });
     } catch (error) {
