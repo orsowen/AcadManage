@@ -1,4 +1,6 @@
 import PFE from "../models/PFE.js";
+import SoutenancePFA from "../models/SoutenancePFA.js";
+import SoutenancePFE from "../models/SoutenancePFe.js";
 import Student from "../models/Student.js";
 import PFA from "../models/Subject_PFA.js";
 import User from "../models/User.js";
@@ -127,14 +129,26 @@ export const addNewAcademicYear = async (req, res) => {
       {$set: {isArchived : true}}
     ) 
     
-    /*// update all pfas
+    // update all pfas
     const pfas = await PFA.updateMany(
       {isArchived : false, status : "Approved" },
       {$set: {isArchived : true}}
-    ) */
+    )
     
     // update all internships
     const internships = await Internship.updateMany(
+      {isArchived : false, isValid : true },
+      {$set: {isArchived : true}}
+    )
+
+    // update all soutenancepfa
+    const soutenancepfes = await SoutenancePFE.updateMany(
+      {isArchived : false, isValid : true },
+      {$set: {isArchived : true}}
+    )
+
+    // update all soutenancepfa
+    const soutenancepfas = await SoutenancePFA.updateMany(
       {isArchived : false, isValid : true },
       {$set: {isArchived : true}}
     )
