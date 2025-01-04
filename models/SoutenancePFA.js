@@ -37,6 +37,8 @@ const SoutenancePFASchema = new mongoose.Schema({
     enum: ["publier", "masquer"],
     default: "masquer",
   },
+  isArchived: { type: Boolean, default: false },
+
   FirstPublication: { type: Boolean, default: true },
 });
 
