@@ -9,10 +9,10 @@ import PlanningPFA from "../models/SoutenancePFA.js";
 
 dotenv.config();
 
-//8.1
+//8.1 Generate defensePFA
 export const generateSoutenances = async (req, res) => {
   try {
-    const { days, rooms } = req.body; // Liste des jours et salles disponibles
+    const { days, rooms } = req.body;
 
     if (!days || !rooms || days.length === 0 || rooms.length === 0) {
       return res.status(400).json({
@@ -20,7 +20,6 @@ export const generateSoutenances = async (req, res) => {
       });
     }
 
-    // Étape 1 : Récupérer les IDs des sujets validés depuis Choice
     const validChoices = await Choice.find({ valid: true })
       .select("subject")
       .exec();
@@ -32,19 +31,10 @@ export const generateSoutenances = async (req, res) => {
         .json({ message: "Aucun sujet validé trouvé dans les choix." });
     }
 
-    // Étape 2 : Récupérer les sujets approuvés avec leurs encadrants
+    // Récupérer les sujets approuvés avec leurs encadrants
     const subjects = await Subject_PFA.find({ _id: { $in: validSubjectIds } })
       .populate("teacher", "firstName lastName")
       .exec();
-
-    // // Récupérer les sujets approuvés avec leurs encadrants
-    // const subjects = await Subject_PFA.find({ status: "Approved" })
-    //   .populate("teacher", "firstName lastName")
-    //   .exec();
-
-    // if (subjects.length === 0) {
-    //   return res.status(404).json({ message: "Aucun sujet approuvé trouvé." });
-    // }
 
     let soutenances = [];
     let currentDayIndex = 0;
@@ -73,23 +63,9 @@ export const generateSoutenances = async (req, res) => {
         endMinute
       ).padStart(2, "0")}`;
 
-      // Trouver un rapporteur qui n'est pas l'encadrant du sujet
-      // let rapporteur = null;
-      // let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
-      // while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
-      //   const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
-      //   if (
-      //     potentialRapporteur._id.toString() !== subject.teacher._id.toString()
-      //   ) {
-      //     rapporteur = potentialRapporteur;
-      //     teacherQueue.push(potentialRapporteur); // Remettre l'enseignant à la fin de la file
-      //     break;
-      //   }
-      //   teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
-      //   attempts++;
-      // }
       let rapporteur = null;
       let attempts = 0; // Éviter une boucle infinie si aucune correspondance n'est trouvée
+      console.log("Contenu initial de teacherQueue :", teacherQueue);
       while (teacherQueue.length > 0 && attempts < teacherQueue.length) {
         const potentialRapporteur = teacherQueue.shift(); // Extraire le premier enseignant de la file
 
@@ -113,7 +89,6 @@ export const generateSoutenances = async (req, res) => {
             break;
           }
         }
-
         // Remettre l'enseignant à la fin de la file si il n'est pas choisi
         teacherQueue.push(potentialRapporteur); // Réinsérer l'enseignant à la fin de la file
         attempts++;
@@ -125,7 +100,6 @@ export const generateSoutenances = async (req, res) => {
           .json({ message: "Impossible de trouver un rapporteur valide." });
       }
 
-      // Ajouter la soutenance à la liste
       soutenances.push({
         subject: subject._id,
         date,
@@ -148,8 +122,6 @@ export const generateSoutenances = async (req, res) => {
         currentDayIndex = (currentDayIndex + 1) % days.length; // Passer au jour suivant
       }
     }
-
-    // Sauvegarder les soutenances
     await SoutenancePFA.insertMany(soutenances);
     res
       .status(201)
@@ -160,7 +132,7 @@ export const generateSoutenances = async (req, res) => {
   }
 };
 
-//8.2 By teacher
+//8.2 Admin Getting defense By teacher
 export const getPlanningByTeacher = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -177,13 +149,6 @@ export const getPlanningByTeacher = async (req, res) => {
     })
       .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
       .exec();
-    // Récupérer les soutenances où l'enseignant est encadrant ou rapporteur
-    // const planning = await SoutenancePFA.find({
-    //   $or: [{ teacher: teacherId }, { rapporteur: teacherId }],
-    // })
-    //   .populate("subject", "title student") // Charger les informations du sujet et de l'étudiant
-    //   .exec();
-
     if (planning.length === 0) {
       return res.status(404).json({ message: "Aucune soutenance trouvée." });
     }
@@ -195,10 +160,10 @@ export const getPlanningByTeacher = async (req, res) => {
   }
 };
 
-//8.2 by student
+//8.2 Admin Getting defense By student
 export const getPlanningByStudent = async (req, res) => {
   try {
-    const { studentId } = req.params; // ID de l'étudiant
+    const { studentId } = req.params;
     console.log("Student ID:", studentId);
 
     // Récupérer les sujets validés liés à l'étudiant
@@ -217,11 +182,10 @@ export const getPlanningByStudent = async (req, res) => {
       });
     }
 
-    // Récupérer les soutenances liées aux sujets validés
     const planning = await SoutenancePFA.find({
       subject: { $in: validSubjectIds },
     })
-      .populate("subject", "title teacher") // Charger uniquement les champs nécessaires
+      .populate("subject", "title teacher")
       .exec();
 
     if (!planning.length) {
@@ -230,7 +194,6 @@ export const getPlanningByStudent = async (req, res) => {
       });
     }
 
-    // Retourner le planning sans les détails des étudiants
     res.status(200).json({ planning });
   } catch (error) {
     console.error("Erreur lors de la récupération du planning :", error);
@@ -238,13 +201,12 @@ export const getPlanningByStudent = async (req, res) => {
   }
 };
 
-// 8.3 Update
+// 8.3 Update defense
 export const updateSoutenance = async (req, res) => {
   try {
-    const { id } = req.params; // ID de la soutenance à mettre à jour
+    const { id } = req.params;
     const { date, startTime, endTime, room, teacher, rapporteur } = req.body;
 
-    // Récupérer la soutenance existante
     const existingSoutenance = await SoutenancePFA.findById(id);
     if (!existingSoutenance) {
       return res.status(404).json({ message: "Soutenance introuvable." });
@@ -340,7 +302,6 @@ export const updateSoutenance = async (req, res) => {
       });
     }
 
-    // Mise à jour de la soutenance
     const updatedSoutenance = await SoutenancePFA.findByIdAndUpdate(
       id,
       {
@@ -351,7 +312,7 @@ export const updateSoutenance = async (req, res) => {
         ...(teacher && { teacher }),
         ...(rapporteur && { rapporteur }),
       },
-      { new: true } // Retourner le document mis à jour
+      { new: true }
     );
 
     res.status(200).json({
@@ -364,14 +325,13 @@ export const updateSoutenance = async (req, res) => {
   }
 };
 
-//8.4 Publish /mask
+//8.4 Publish/mask
 export const publishSoutenance = async (req, res) => {
   try {
     const { response } = req.params;
     if (!["publier", "masquer"].includes(response)) {
       return res.status(400).json({ error: "Valeur de response invalide." });
     }
-    // Mettre à jour toutes les soutenances
     const result = await SoutenancePFA.updateMany({}, { status: response });
     await SoutenancePFA.updateMany({}, { FirstPublication: false });
     res.status(200).json({
@@ -380,7 +340,6 @@ export const publishSoutenance = async (req, res) => {
       } avec succès.`,
       modifiedCount: result.nModified,
     });
-    // // Appeler la fonction firstSend ou modifiedSend après avoir envoyé la réponse
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -389,7 +348,7 @@ export const publishSoutenance = async (req, res) => {
   }
 };
 
-// Fonction pour envoyer le premier email
+// Sending mail First time
 export const firstSend = async () => {
   try {
     // Récupérer les emails des étudiants et enseignants
@@ -403,8 +362,6 @@ export const firstSend = async () => {
     if (emails.length === 0) {
       throw new Error("Aucun destinataire défini.");
     }
-
-    // Contenu du mail pour le premier envoi
     const subject = "Publication des soutenances PFA";
     const html = `
       <p>Les soutenances ont été publiées.</p>
@@ -422,7 +379,7 @@ export const firstSend = async () => {
   }
 };
 
-// Fonction pour envoyer un email modifié
+// send mail second time
 export const modifiedSend = async () => {
   try {
     // Récupérer les emails des étudiants et enseignants
@@ -437,7 +394,6 @@ export const modifiedSend = async () => {
       throw new Error("Aucun destinataire défini.");
     }
 
-    // Contenu du mail pour l'envoi modifié
     const subject = "Mise à jour des soutenances PFA";
     const html = `
       <p>Les soutenances ont été mises à jour.</p>
@@ -455,7 +411,7 @@ export const modifiedSend = async () => {
   }
 };
 
-// // Contrôleur pour gérer l'envoi d'emails
+// 8.5 Send mail
 export const sendEmail = async (req, res) => {
   try {
     // Vérifier si c'est la première publication
@@ -463,7 +419,6 @@ export const sendEmail = async (req, res) => {
       FirstPublication: true,
     });
     console.log("First publication:", firstPublication);
-    // await Choice.updateMany({}, { isFirstPublication: false });
     // Envoyer la réponse après l'envoi des emails
     res.status(200).json({ message: "Emails sent successfully" });
 
@@ -474,7 +429,6 @@ export const sendEmail = async (req, res) => {
     } else {
       await modifiedSend();
     }
-    // Envoyer la réponse après l'envoi des emails
     res.status(200).json({ message: "Emails sent successfully" });
   } catch (error) {
     console.error("Erreur lors de l'envoi :", error);
@@ -483,12 +437,11 @@ export const sendEmail = async (req, res) => {
       .json({ error: "Une erreur est survenue lors de l'envoi des emails." });
   }
 };
-// Get soutennace details for a student 9.3
+// 9.3 Get soutennace details for a student
 export const getSoutenanceDetailsForStudent = async (req, res) => {
   try {
-    const { studentId } = req.params; // ID de l'étudiant
-
-    // Étape 1 : Trouver les sujets validés liés à l'étudiant
+    //const { studentId } = req.params;
+    const studentId = req.user.idRole;
     const validChoices = await Choice.find({
       valid: true,
       $or: [{ student: studentId }, { binome: studentId }],
@@ -504,7 +457,6 @@ export const getSoutenanceDetailsForStudent = async (req, res) => {
         .json({ message: "Aucun sujet validé trouvé pour cet étudiant." });
     }
 
-    // Étape 2 : Trouver la soutenance liée au sujet
     const soutenance = await SoutenancePFA.findOne({
       subject: { $in: validSubjectIds },
     })
@@ -513,7 +465,7 @@ export const getSoutenanceDetailsForStudent = async (req, res) => {
         path: "teacher", // Charger l'enseignant encadrant
         select: "firstName lastName",
         populate: {
-          path: "user", // Charger les infos utilisateur du teacher
+          path: "user", // Charger les infos du teacher
           select: "email",
         },
       })
@@ -521,8 +473,8 @@ export const getSoutenanceDetailsForStudent = async (req, res) => {
         path: "rapporteur", // Charger le rapporteur
         select: "firstName lastName",
         populate: {
-          path: "user", // Charger les infos utilisateur du rapporteur
-          select: "email", // Charger uniquement l'email
+          path: "user", // Charger les infos du rapporteur
+          select: "email",
         },
       })
       .exec();
@@ -532,7 +484,6 @@ export const getSoutenanceDetailsForStudent = async (req, res) => {
         .json({ message: "Aucune soutenance trouvée pour cet étudiant." });
     }
 
-    // Étape 3 : Retourner les détails
     const details = {
       date: soutenance.date,
       startTime: soutenance.startTime,

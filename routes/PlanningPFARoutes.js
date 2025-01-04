@@ -30,7 +30,7 @@ router.patch("/:id/soutenances", isAdmin, updateSoutenance);
 router.post("/list/send", sendEmail);
 // Route pour recuperer les soutenance par etudiant
 router.get(
-  "/student/:studentId/soutenance",
+  "/student/soutenance",
   isStudent,
   getSoutenanceDetailsForStudent
 );
