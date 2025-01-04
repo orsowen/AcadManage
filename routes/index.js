@@ -7,6 +7,7 @@ import DepositPeriod from "./DepositPeriod.js";
 import internshipRoutes from "./InternshipRoutes.js";
 import routerPFA from "./PFA.js";
 import PFE from "./PFE.js";
+import soutenancesPFARoutes from "./PlanningPFARoutes.js";
 import planningStageRoutes from "./PlanningStageRoutes.js";
 import yearsRoutes from "./SeasonRoutes.js";
 import skillRoutes from "./skill.js";
@@ -15,6 +16,7 @@ import subjectRoutes from "./subject.js";
 import teacherRoutes from "./TeacherRoutes.js";
 import testNotificationsRouter from "./test_notif.js";
 import UserConnexionRoutes from "./UserConnexionRoutes.js";
+
 const router = express.Router();
 
 // ROUTES --------------------------------
@@ -30,11 +32,11 @@ router.use("/test-notifications", testNotificationsRouter);
 router.use("/competences", skillRoutes);
 router.use("/matieres", subjectRoutes);
 router.use("/PFA", routerPFA);
-router.use("/PFAChoices", choicePFA);
+router.use("/", choicePFA);
+router.use("/PFA", soutenancesPFARoutes);
 router.use("/years", yearsRoutes);
 // test internship archive
 router.post('/internships/testArcvhive', archiveInternshipsByYear("2024-2025", true));
-
 // TEST MAIL NOTIFICATION
 router.get("/test-notif-late-depot-satge", async (req, res) => {
     try {
