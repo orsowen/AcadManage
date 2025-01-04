@@ -789,7 +789,7 @@ export const getInternshipByStudentForPV = async (req, res) => {
     try {
         // Fetch internships with pagination and populate relevant fields
         const internships = await Internship.find(filter)
-            .select('title typeInternship nomSociete teacher anneYear isValid reasonIfNotValid createdAt StartDate EndDate')
+            .select('title typeInternship nomSociete teacher anneYear isValid reasonIfNotValid createdAt')
             .select('-__v -topic')
             .skip((currentPage - 1) * currentLimit)
             .limit(currentLimit)
