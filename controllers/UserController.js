@@ -348,7 +348,9 @@ export const loginUser = async (req, res) => {
         // Generate JWT token with 24 hours expiration
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '24h' });
 
-        res.status(200).json({ message: 'Login successful.', token, user });
+        const userObject = user.toObject();
+        delete userObject.password;
+        res.status(200).json({ message: 'Login successful.', token, user: userObject });
     } catch (error) {
         console.error('Error logging in user:', error.message);
         res.status(500).json({ message: 'Server error while logging in.', error: error.message });
