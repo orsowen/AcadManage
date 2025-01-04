@@ -1,8 +1,8 @@
 import PFE from "../models/PFE.js";
-import SoutenancePFA from "../models/SoutenancePFA.js";
-import SoutenancePFE from "../models/SoutenancePFe.js";
 import Student from "../models/Student.js";
 import PFA from "../models/Subject_PFA.js";
+import DefensePFE from "../models/DefensePFE.js";
+import DefenseInternship from "../models/PlanningStage.js";
 import User from "../models/User.js";
 import { archiveInternshipsByYear } from "./internshipController.js";
 import { sendMail } from './mailer.js';
@@ -141,17 +141,74 @@ export const addNewAcademicYear = async (req, res) => {
       {$set: {isArchived : true}}
     )
 
-    // update all soutenancepfa
-    const soutenancepfes = await SoutenancePFE.updateMany(
-      {isArchived : false, isValid : true },
-      {$set: {isArchived : true}}
-    )
+    // Check if the PFE update was successful
+    if (pfes.modifiedCount > 0) {
+      // For each PFE that was updated, update the corresponding DefensePFE
+      for (let pfe of pfes) {
+        const defenseId = pfe.Defense;
+        if (defenseId) {
+          const defenseUpdate = await DefensePFE.updateOne(
+            { _id: defenseId },
+            { $set: { isArchived: true } }
+          );
+          console.log(`Updated DefensePFE with ID ${defenseId}:`, defenseUpdate);
+        }
+        else
+        {
+          console.warn(`DefensePFE with ID ${defenseId} not found`);
+          continue
+        }
+      }
+      console.log('All related DefensePFE documents have been updated.');
+    } else {
+      console.warn('No PFE documents were updated, so no need to update DefensePFE.');
+    }
 
-    // update all soutenancepfa
-    const soutenancepfas = await SoutenancePFA.updateMany(
-      {isArchived : false, isValid : true },
-      {$set: {isArchived : true}}
-    )
+    // Check if the PFA update was successful
+    if (pfas.modifiedCount > 0) {
+      // For each PFA that was updated, update the corresponding DefensePFE
+      for (let pfa of pfas) {
+        const defenseId = pfa.Defense;
+        if (defenseId) {
+          const defenseUpdate = await DefensePFA.updateOne(
+            { _id: defenseId },
+            { $set: { isArchived: true } }
+          );
+          console.log(`Updated DefensePFA with ID ${defenseId}:`, defenseUpdate);
+        }
+        else
+        {
+          console.warn(`DefensePFA with ID ${defenseId} not found`);
+          continue
+        }
+      }
+      console.log('All related DefensePFA documents have been updated.');
+    } else {
+      console.warn('No PFA documents were updated, so no need to update DefensePFA.');
+    }
+
+    // Check if the Internship update was successful
+    if (internships.modifiedCount > 0) {
+      // For each Internship that was updated, update the corresponding DefenseInternship
+      for (let internship of internships) {
+        const defenseId = internship.Defense;
+        if (defenseId) {
+          const defenseUpdate = await DefenseInternship.updateOne(
+            { _id: defenseId },
+            { $set: { isArchived: true } }
+          );
+          console.log(`Updated DefenseInternship with ID ${defenseId}:`, defenseUpdate);
+        }
+        else
+        {
+          console.warn(`DefenseInternship with ID ${defenseId} not found`);
+          continue
+        }
+      }
+      console.log('All related DefenseInternship documents have been updated.');
+    } else {
+      console.warn('No Internship documents were updated, so no need to update DefenseInternship.');
+    }
 
     res.status(200).json({
         message: `Academic year ${academicYear} added to all students successfully and all subject was archived.`,
@@ -200,3 +257,11 @@ export const NotifiGraduatedStudent = async (req, res) => {
     res.status(500).json({ message: 'Server error while sending notification.', error: error.message });
   }
 };
+
+export const GetArchivedsubject = async(req,res) =>{
+  try{
+
+  }catch(error){
+    
+  }
+}
