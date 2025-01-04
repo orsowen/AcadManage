@@ -4,6 +4,7 @@ import PFA from "../models/Subject_PFA.js";
 import Internship from "../models/Internship.js";
 import DefensePFE from "../models/DefensePFE.js";
 import DefenseInternship from "../models/PlanningStage.js";
+import DefensePFA from "../models/SoutenancePFA.js";
 import User from "../models/User.js";
 import { archiveInternshipsByYear } from "./internshipController.js";
 import { sendMail } from './mailer.js';
@@ -259,9 +260,10 @@ export const NotifiGraduatedStudent = async (req, res) => {
   }
 };
 
-export const getInternshipsByYear = (Year = "2024-2025",archiveOf) => async (req, res) => {
-
+export const getInternshipsByYear = async (req, res) => {
+  const { Year, archiveOf } = req.query;
   try {
+      console.log("year: "+Year+" archiveof: "+archiveOf)
       let archiveByYear
       const archiveDefense =[]
       // Perform bulk update
@@ -271,52 +273,40 @@ export const getInternshipsByYear = (Year = "2024-2025",archiveOf) => async (req
         case "pfa" : archiveByYear = await PFA.find({ anneYear: Year , isArchived : true }); break;
         case "defensePFE" : 
         archiveByYear = await PFE.find({ anneYear: Year , isArchived : true });
-        if (archiveByYear.length > 0) {
-          // For each PFE that was updated, update the corresponding DefensePFE
-          for (let pfe of archiveByYear) {
-            const defenseId = pfe.Defense;
-            if (defenseId) {
-              archiveDefense.push(await DefensePFE.find({ _id: defenseId }))
-            }
-            else{
-              console.warn(`DefensePFE with ID ${defenseId} not found`); continue
-            }
-          }
+        for (let pfe of archiveByYear) { 
+          const defense = await DefensePFE.find({ PFE: pfe._id });
+          archiveDefense.push(defense);
         }
         break;
-        //case "defensePFA" : archiveByYear = await DefensePFA.find({ anneYear: Year , isArchived : true }); break;
-        case "defenseInternship" : archiveByYear = await DefenseInternship.find({ anneYear: Year , isArchived : true }); 
-        if (archiveByYear.length > 0) {
-          // For each PFE that was updated, update the corresponding DefensePFE
-          for (let pfe of archiveByYear) {
-            const defenseId = pfe.Defense;
-            if (defenseId) {
-              archiveDefense.push(await DefensePFE.find({ _id: defenseId }))
-            }
-            else{
-              console.warn(`DefensePFE with ID ${defenseId} not found`); continue
-            }
-          }
+        case "defensePFA" : archiveByYear = await DefensePFA.find({ anneYear: Year , isArchived : true }); break;
+        case "defenseInternship" : 
+        archiveByYear = await Internship.find({ anneYear: Year , isArchived : true }); 
+        for (let internship of archiveByYear) { 
+          const defense = await DefenseInternship.find({ internship: internship._id });
+          archiveDefense.push(defense);
         }
         break;
+        default: return res.status(400).json({ message: "Invalid 'archiveOf' parameter." });
       }
       
       // Handle the case where no internships are found
-      if (!archiveByYear) {
+      if (!archiveByYear || archiveByYear.length === 0) {
         return res.status(404).json({ message: "no archive found" });
-    }
+      }
+    
       // Return the result of the update operation
-      console.log(archiveByYear);
+      archiveDefense.length > 0? console.log(archiveByYear) : console.log(archiveDefense);
 
-      // Respond with the fetched internships and pagination data
+      // Respond with the fetched archives and related data
       res.status(200).json({
-        message: 'List of archived object',
-        
+        message: 'List of archived objects',
         total: archiveByYear.length,
-        archiveByYear,
-    });
+        archiveByYear: archiveDefense.length > 0 ? archiveDefense : archiveByYear, // Include defense archives if available
+      });
   } catch (error) {
-      console.error('Error archiving internships:', error.message);
-      throw new Error(`Failed to archive internships for year ${Year}: ${error.message}`);
+    console.error('Error retrieving archived data:', error.message);
+    return res.status(500).json({
+      message: `Failed to retrieve archived data for year ${Year}: ${error.message}`,
+    });
   }
 };
