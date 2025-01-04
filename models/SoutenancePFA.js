@@ -38,7 +38,18 @@ const SoutenancePFASchema = new mongoose.Schema({
     default: "masquer",
   },
   isArchived: { type: Boolean, default: false },
-
+  anneYear: {
+    type: String,
+    default: function () {
+      // Automatically calculate the current academic year
+      const currentYear = new Date().getFullYear();
+      const month = new Date().getMonth();
+      // Academic year typically starts in September
+      return month >= 8
+        ? `${currentYear}-${currentYear + 1}`
+        : `${currentYear - 1}-${currentYear}`;
+    },
+  },
   FirstPublication: { type: Boolean, default: true },
 });
 
