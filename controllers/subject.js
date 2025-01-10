@@ -121,9 +121,7 @@ export const getAllSubjects = async (req, res) => {
 export const getSubjectById = async (req, res) => {
   try {
     // Récupérer l'ID de la matière depuis les paramètres de la requête
-    const subject = await Subject.findById(req.params.id).populate(
-      "historique"
-    );
+    const subject = await Subject.findById(req.params.id);
 
     if (!subject) {
       return res.status(404).json({ message: "Matière introuvable." });
@@ -188,14 +186,6 @@ export const updateSubject = async (req, res) => {
           .json({ error: `L'étudiant avec l'ID ${student} n'existe pas.` });
       }
     }
-
-    // Filtrer les nouveaux enseignants et étudiants
-    const newTeachers = teachers
-      ? teachers.filter((teacher) => !subject.teachers.includes(teacher))
-      : [];
-    const newStudents = students
-      ? students.filter((student) => !subject.students.includes(student))
-      : [];
 
     // Préparer un tableau pour les modifications
     const modifications = [];
@@ -509,8 +499,7 @@ export const updateAvancement = async (req, res) => {
       console.log("Aucun administrateur trouvé.");
     }
 
-    // // Envoi d'un email aux étudiants concernés
-    // const students = await User.find({ role: "student"});
+
     // Envoi d'un email aux étudiants concernés
     const students = await User.find({ student: { $in: subject.students } });
     console.log(students);
