@@ -43,7 +43,7 @@ router.post('/', isStudent, isStillStudent, isDepotOpen("STAGE", message), addIn
 router.get('/', isAdminOrTeacher, getAllInternships);
 
 // Get an internship by ID
-router.get('/:id', isTeacher, getInternshipById);
+router.get('/:id', isAdmin, getInternshipById);
 
 // Update an internship by ID
 message = "Stage can only be updated during the deposit period or with a valid late deposit code."

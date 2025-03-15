@@ -30,6 +30,7 @@ export const addSubject = async (req, res) => {
         return res
           .status(404)
           .json({ error: `Le professeur avec l'ID ${teacher.teacherId} n'existe pas.` });
+
       }
     }
 
@@ -79,6 +80,7 @@ export const addSubject = async (req, res) => {
         year: teacher.year, // Assurez-vous que `year` est une chaîne ou un nombre
         teacherId: teacher.teacherId, // Assurez-vous que `teacherId` est un ObjectId valide
       })),
+
       students,
       published,
       option,
@@ -126,10 +128,10 @@ export const getAllSubjects = async (req, res) => {
 export const getSubjectById = async (req, res) => {
   try {
     // Récupérer l'ID de la matière depuis les paramètres de la requête
+
     const subject = await Subject.findById(req.params.id).populate(
       "historique"
     );
-
     if (!subject) {
       return res.status(404).json({ message: "Matière introuvable." });
     }
@@ -165,6 +167,7 @@ export const updateSubject = async (req, res) => {
       coeff,
       credit,
     } = req.body;
+
 
     // Vérifier si l'ID est valide
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -240,6 +243,7 @@ export const updateSubject = async (req, res) => {
         const existingChapter = subject.curriculum[chapterIndex];
 
         if (existingChapter) {
+
           if (newChapter.chapter) existingChapter.chapter = newChapter.chapter;
           if (newChapter.sections) {
             newChapter.sections.forEach((newSection, sectionIndex) => {
@@ -253,6 +257,7 @@ export const updateSubject = async (req, res) => {
           }
         } else {
           subject.curriculum.push(newChapter);
+
         }
       });
     }
@@ -468,6 +473,7 @@ export const getAllSubjectsByTeacher = async (req, res) => {
   try {
     const subjects = await Subject.find({ teachers: { $in: idTeacher } })
       .populate("skills", "name") // Récupérer les compétences associées
+
       .populate({
         path: "teachers.teacherId",
         select: "firstName lastName",
@@ -490,6 +496,7 @@ export const getAllSubjectsByStudent = async (req, res) => {
   try {
     const subjects = await Subject.find({ students: { $in: idStudent } })
       .populate("skills", "name") // Récupérer les compétences associées
+
       .populate({
         path: "teachers.teacherId",
         select: "firstName lastName",

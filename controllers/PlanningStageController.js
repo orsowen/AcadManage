@@ -156,6 +156,7 @@ export const getAllPlanningStages = async (req, res) => {
         meet_link,
         startDate,
         endDate,
+        ascending
     } = req.query;
 
     // Validate and parse pagination parameters
@@ -230,6 +231,7 @@ export const getAllPlanningStages = async (req, res) => {
                     },
                 ],
             })
+            .sort({ createdAt: ascending ? 1 : -1 })
             .skip((currentPage - 1) * currentLimit)
             .limit(currentLimit);
 
@@ -302,18 +304,18 @@ export const getPlanningStageById = async (req, res) => {
 export const getPlanningStageByStudent = async (req, res) => {
     try {
         const studentId = req.user.idRole; // Extract student ID from JWT token
-
+        const { ascending } = req.query;
         // Validate that the student ID is present
         if (!studentId) {
             return res.status(403).json({ message: "Unauthorized access. Only students can access this route." });
         }
 
         // Fetch planning stages for the student
-        const planningStages = await PlanningStage.find({ isPublished: true })
+        const planningStages = await PlanningStage.find({ isPublished: true, isArchived: false })
             .populate({
                 path: 'internship', // Populate internship field
                 match: { student: studentId }, // Ensure the student matches
-                select: 'title topic student teacher', // Select specific fields from internship
+                select: 'title student teacher', // Select specific fields from internship
                 populate: [
                     {
                         path: 'teacher', // Populate teacher inside internship
@@ -325,7 +327,8 @@ export const getPlanningStageByStudent = async (req, res) => {
                     },
                 ],
             })
-            .select('-isArchived -isPublished -isValid -reasonIfNotValid');
+            .select('-isArchived -isPublished -isValid -reasonIfNotValid')
+            .sort({ createdAt: ascending ? 1 : -1 });
 
         // Filter out planning stages without matched internships
         const filteredStages = planningStages.filter((stage) => stage.internship);
@@ -383,7 +386,6 @@ export const updatePlanningStage = async (req, res) => {
                     },
                 ],
             });
-
 
         if (!planningStage) return res.status(404).json({ message: "Planning Stage not found." });
 
@@ -470,7 +472,7 @@ export const updatePublicationStatus = async (req, res) => {
         // Update all non-archived PlanningStage objects
         const result = await PlanningStage.updateMany(
             { isArchived: false, isPublished: !isPublish }, // Condition: not archived
-            { isPublished: isPublish } // Update: set isPublished to true/false based on the response
+            { $set: { isPublished: isPublish } } // Update: set isPublished to true/false based on the response
         );
 
         res.status(200).json({
@@ -568,7 +570,9 @@ export const sendMailPlanning = async (req, res) => {
         // Send emails using sendMail utility
         await Promise.all(
             emailsToSend.map(({ email, subject, message }) =>
-                sendMail(email, subject, message).catch(err =>
+                sendMail(email, subject, message).then(() => {
+                    console.log(`Email sent to ${email} successfully.`);
+                }).catch(err =>
                     console.error(`Failed to send email to ${email}:`, err.message)
                 )
             )
@@ -584,5 +588,29 @@ export const sendMailPlanning = async (req, res) => {
     } catch (error) {
         console.error("Error during email sending:", error.message);
         res.status(500).json({ message: "Échec de l'envoi des emails.", error: error.message });
+    }
+};
+
+
+export const archivePlanningStages = async (internshipIds) => {
+    try {
+        if (!Array.isArray(internshipIds) || internshipIds.length === 0) {
+            throw new Error('No internship IDs provided for archiving planning stages.');
+        }
+
+        // Perform bulk update
+        const result = await PlanningStage.updateMany(
+            { internship: { $in: internshipIds }, isArchived: false },
+            { $set: { isArchived: true } }
+        );
+
+        // Return the result of the update operation
+        return {
+            message: `Archived ${result.modifiedCount} planning stage(s) for the provided internships.`,
+            modifiedCount: result.modifiedCount,
+        };
+    } catch (error) {
+        console.error('Error archiving planning stages:', error.message);
+        throw new Error(`Failed to archive planning stages: ${error.message}`);
     }
 };
