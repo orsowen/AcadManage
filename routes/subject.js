@@ -13,7 +13,7 @@ router.get('/student/mysubjects', isStudent, getAllSubjectsByStudent);
 router.get('/teacher/mysubjects', isTeacher, getAllSubjectsByTeacher);
 router.patch("/:id/avancement", isTeacher, updateAvancement);
 
-router.post('/', isAdmin, addSubject);
+router.post('/',isAdmin, addSubject);
 router.get('/', isAdminOrTeacher, getAllSubjects);
 router.get('/:id', getSubjectById);
 router.patch('/:id', isAdmin, updateSubject);
