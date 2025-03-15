@@ -25,11 +25,12 @@ export const addSubject = async (req, res) => {
 
     // Valider les enseignants
     for (const teacher of teachers) {
-      const teacherUser = await Teacher.findById(teacher);
+      const teacherUser = await Teacher.findById(teacher.teacherId);
       if (!teacherUser) {
         return res
           .status(404)
-          .json({ error: `Le professeur avec l'ID ${teacher} n'existe pas.` });
+          .json({ error: `Le professeur avec l'ID ${teacher.teacherId} n'existe pas.` });
+
       }
     }
 
@@ -75,7 +76,11 @@ export const addSubject = async (req, res) => {
       level,
       semester,
       curriculum,
-      teachers,
+      teachers: teachers.map((teacher) => ({
+        year: teacher.year, // Assurez-vous que `year` est une chaîne ou un nombre
+        teacherId: teacher.teacherId, // Assurez-vous que `teacherId` est un ObjectId valide
+      })),
+
       students,
       published,
       option,
@@ -90,6 +95,7 @@ export const addSubject = async (req, res) => {
         },
       ],
     });
+
     const savedSubject = await newSubject.save();
     res
       .status(201)
@@ -106,23 +112,26 @@ export const getAllSubjects = async (req, res) => {
   try {
     const subjects = await Subject.find()
       .populate("skills", "name")
-      .populate("teachers", "firstName lastName")
+      .populate({
+        path: "teachers.teacherId",
+        select: "firstName lastName",
+      })
       .populate("students", "firstName lastName");
+
 
     res.status(200).json(subjects);
   } catch (error) {
-    res.status(500).json({
-      message: "Erreur lors de la récupération des matières.",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Erreur lors de la récupération des matières.", error: error.message });
   }
 };
 
 export const getSubjectById = async (req, res) => {
   try {
     // Récupérer l'ID de la matière depuis les paramètres de la requête
-    const subject = await Subject.findById(req.params.id);
 
+    const subject = await Subject.findById(req.params.id).populate(
+      "historique"
+    );
     if (!subject) {
       return res.status(404).json({ message: "Matière introuvable." });
     }
@@ -159,203 +168,119 @@ export const updateSubject = async (req, res) => {
       credit,
     } = req.body;
 
+
+    // Vérifier si l'ID est valide
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "ID de la matière invalide." });
     }
 
+    // Trouver la matière à mettre à jour
     const subject = await Subject.findById(id);
     if (!subject) {
       return res.status(404).json({ message: "Matière introuvable." });
     }
 
-    // Valider enseignants et étudiants
-    for (const teacher of teachers) {
-      const teacherUser = await Teacher.findById(teacher);
-      if (teacher && !teacherUser) {
-        return res
-          .status(404)
-          .json({ error: `Le professeur avec l'ID ${teacher} n'existe pas.` });
+    // Valider les enseignants
+    if (teachers) {
+      for (const teacher of teachers) {
+        const teacherUser = await Teacher.findById(teacher.teacherId);
+        if (!teacherUser) {
+          return res.status(404).json({
+            error: `Le professeur avec l'ID ${teacher.teacherId} n'existe pas.`,
+          });
+        }
       }
     }
 
-    for (const student of students) {
-      const studentUser = await Student.findById(student);
-      if (student && !studentUser) {
-        return res
-          .status(404)
-          .json({ error: `L'étudiant avec l'ID ${student} n'existe pas.` });
+    // Valider les étudiants
+    if (students) {
+      for (const student of students) {
+        const studentUser = await Student.findById(student);
+        if (!studentUser) {
+          return res.status(404).json({
+            error: `L'étudiant avec l'ID ${student} n'existe pas.`,
+          });
+        }
       }
     }
 
-    // Préparer un tableau pour les modifications
-    const modifications = [];
-
-    // Vérification des champs principaux et mise à jour partielle
-    if (title && title !== subject.title) {
-      modifications.push({
-        field: "title",
-        oldValue: subject.title,
-        newValue: title,
-      });
-      subject.title = title;
-    }
-    if (skills && !arraysEqual(skills, subject.skills)) {
-      modifications.push({
-        field: "skills",
-        oldValue: subject.skills,
-        newValue: skills,
-      });
-      subject.skills = skills;
-    }
-    if (level && level !== subject.level) {
-      modifications.push({
-        field: "level",
-        oldValue: subject.level,
-        newValue: level,
-      });
-      subject.level = level;
-    }
-    if (semester && semester !== subject.semester) {
-      modifications.push({
-        field: "semester",
-        oldValue: subject.semester,
-        newValue: semester,
-      });
-      subject.semester = semester;
+    // Valider les compétences
+    if (skills) {
+      const skillsArray = Array.isArray(skills) ? skills : [skills];
+      const validSkills = await Skill.find({ _id: { $in: skillsArray } });
+      if (validSkills.length !== skillsArray.length) {
+        return res.status(404).json({
+          message: "Certaines compétences sont introuvables.",
+        });
+      }
+      subject.skills = validSkills.map((skill) => skill._id);
     }
 
-    // Gestion du curriculum : mise à jour partielle
+    // Mise à jour des champs principaux
+    if (title) subject.title = title;
+    if (level) subject.level = level;
+    if (semester) subject.semester = semester;
+    if (option) subject.option = option;
+    if (chargeHoraire) subject.chargeHoraire = chargeHoraire;
+    if (coeff) subject.coeff = coeff;
+    if (credit) subject.credit = credit;
+    if (published !== undefined) subject.published = published;
+
+    // Mise à jour des enseignants
+    if (teachers) {
+      subject.teachers = teachers.map((teacher) => ({
+        year: teacher.year,
+        teacherId: teacher.teacherId,
+      }));
+    }
+
+    // Mise à jour des étudiants
+    if (students) subject.students = students;
+
+    // Mise à jour du curriculum
     if (curriculum) {
       curriculum.forEach((newChapter, chapterIndex) => {
         const existingChapter = subject.curriculum[chapterIndex];
 
         if (existingChapter) {
-          if (
-            newChapter.chapter &&
-            newChapter.chapter !== existingChapter.chapter
-          ) {
-            modifications.push({
-              field: `curriculum[${chapterIndex}].chapter`,
-              oldValue: existingChapter.chapter,
-              newValue: newChapter.chapter,
-            });
-            existingChapter.chapter = newChapter.chapter;
-          }
 
+          if (newChapter.chapter) existingChapter.chapter = newChapter.chapter;
           if (newChapter.sections) {
             newChapter.sections.forEach((newSection, sectionIndex) => {
               const existingSection = existingChapter.sections[sectionIndex];
-
               if (existingSection) {
-                if (
-                  newSection.name &&
-                  newSection.name !== existingSection.name
-                ) {
-                  modifications.push({
-                    field: `curriculum[${chapterIndex}].sections[${sectionIndex}].name`,
-                    oldValue: existingSection.name,
-                    newValue: newSection.name,
-                  });
-                  existingSection.name = newSection.name;
-                }
+                if (newSection.name) existingSection.name = newSection.name;
               } else {
                 existingChapter.sections.push(newSection);
-                modifications.push({
-                  field: `curriculum[${chapterIndex}].sections[${sectionIndex}]`,
-                  newValue: newSection,
-                });
               }
             });
           }
         } else {
           subject.curriculum.push(newChapter);
-          modifications.push({
-            field: `curriculum[${chapterIndex}]`,
-            newValue: newChapter,
-          });
+
         }
       });
     }
 
-    // Mise à jour des enseignants et étudiants si nécessaire
-    if (teachers && !arraysEqual(teachers, subject.teachers)) {
-      modifications.push({
-        field: "teachers",
-        oldValue: subject.teachers,
-        newValue: teachers,
-      });
-      subject.teachers = teachers;
-    }
-    if (students && !arraysEqual(students, subject.students)) {
-      modifications.push({
-        field: "students",
-        oldValue: subject.students,
-        newValue: students,
-      });
-      subject.students = students;
-    }
-    if (published !== undefined && published !== subject.published) {
-      modifications.push({
-        field: "published",
-        oldValue: subject.published,
-        newValue: published,
-      });
-      subject.published = published;
-    }
-    if (option && option !== subject.option) {
-      modifications.push({
-        field: "option",
-        oldValue: subject.option,
-        newValue: option,
-      });
-      subject.option = option;
-    }
-    if (chargeHoraire && chargeHoraire !== subject.chargeHoraire) {
-      modifications.push({
-        field: "chargeHoraire",
-        oldValue: subject.chargeHoraire,
-        newValue: chargeHoraire,
-      });
-      subject.chargeHoraire = chargeHoraire;
-    }
-    if (coeff && coeff !== subject.coeff) {
-      modifications.push({
-        field: "coeff",
-        oldValue: subject.coeff,
-        newValue: coeff,
-      });
-      subject.coeff = coeff;
-    }
-    if (credit && credit !== subject.credit) {
-      modifications.push({
-        field: "credit",
-        oldValue: subject.credit,
-        newValue: credit,
-      });
-      subject.credit = credit;
-    }
+    // Ajouter une entrée dans l'historique
+    const historiqueEntry = {
+      date: new Date(),
+      action: "Modification",
+      utilisateur: req.user.id,
+      details: "Mise à jour partielle de la matière.",
+    };
+    subject.historique.push(historiqueEntry);
 
-    // Si des modifications existent, les ajouter à l'historique
-    if (modifications.length > 0) {
-      const historiqueEntry = {
-        date: new Date(),
-        action: "Modification partielle",
-        utilisateur: req.user.id,
-        details: modifications,
-      };
-      subject.historique.push(historiqueEntry);
-    }
-
-    // Sauvegarder les nouvelles informations dans la base de données
+    // Sauvegarder les modifications
     const updatedSubject = await subject.save();
 
     res.status(200).json({
-      message: "Matière mise à jour partiellement avec succès.",
+      message: "Matière mise à jour avec succès.",
       data: updatedSubject,
     });
   } catch (error) {
     res.status(500).json({
-      message: "Erreur lors de la mise à jour partielle de la matière.",
+      message: "Erreur lors de la mise à jour de la matière.",
       error: error.message,
     });
   }
@@ -499,7 +424,8 @@ export const updateAvancement = async (req, res) => {
       console.log("Aucun administrateur trouvé.");
     }
 
-
+    // // Envoi d'un email aux étudiants concernés
+    // const students = await User.find({ role: "student"});
     // Envoi d'un email aux étudiants concernés
     const students = await User.find({ student: { $in: subject.students } });
     console.log(students);
@@ -547,7 +473,11 @@ export const getAllSubjectsByTeacher = async (req, res) => {
   try {
     const subjects = await Subject.find({ teachers: { $in: idTeacher } })
       .populate("skills", "name") // Récupérer les compétences associées
-      .populate("teachers", "firstName lastName") // Récupérer les infos de l'enseignant
+
+      .populate({
+        path: "teachers.teacherId",
+        select: "firstName lastName",
+      }) // Récupérer les infos de l'enseignant
       .populate("students", "firstName lastName"); // Récupérer les infos de l'étudiant
 
     res.status(200).json(subjects);
@@ -566,7 +496,11 @@ export const getAllSubjectsByStudent = async (req, res) => {
   try {
     const subjects = await Subject.find({ students: { $in: idStudent } })
       .populate("skills", "name") // Récupérer les compétences associées
-      .populate("teachers", "firstName lastName") // Récupérer les infos de l'enseignant
+
+      .populate({
+        path: "teachers.teacherId",
+        select: "firstName lastName",
+      }) // Récupérer les infos de l'enseignant
       .populate("students", "firstName lastName"); // Récupérer les infos de l'étudiant
 
     res.status(200).json(subjects);

@@ -1,5 +1,16 @@
 import mongoose from "mongoose";
-
+const { Schema, model } = mongoose;
+const TeacherSchema = new Schema({
+    year: {
+        type: String,
+        required: true,
+    },
+    teacherId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Teacher', // Référence au modèle User
+        default: null,
+    },
+});
 const SubjectSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -53,10 +64,9 @@ const SubjectSchema = new mongoose.Schema({
         },
     ],
     teachers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Teacher', // Référence au modèle User
-        default: null,
-    }],
+        type: TeacherSchema,
+        required: true,
+    },],
 
     students: [{  // Tableau d'ID d'étudiants
         type: mongoose.Schema.Types.ObjectId,
